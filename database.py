@@ -72,114 +72,200 @@ def init_db():
         libelle TEXT, valeur TEXT, unite TEXT, description TEXT, commune_id INTEGER,
         UNIQUE(module, code)
     );
-    CREATE TABLE IF NOT EXISTS tnb_terrains (
-        id INTEGER PRIMARY KEY, numero_fiscal TEXT UNIQUE NOT NULL,
-        contribuable_id INTEGER, commune_id INTEGER,
-        superficie REAL, zone TEXT, adresse TEXT, statut TEXT DEFAULT 'non_bati',
+    CREATE TABLE IF NOT EXISTS terrains (
+        id INTEGER PRIMARY KEY,
+        numero_terrain TEXT UNIQUE,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        adresse TEXT,
+        adresse_ar TEXT,
+        quartier TEXT,
+        arrondissement TEXT,
+        superficie REAL,
+        zone TEXT,
+        titre_foncier TEXT,
+        num_parcelle TEXT,
+        statut TEXT DEFAULT 'non_bati',
+        date_acquisition TEXT,
+        actif INTEGER DEFAULT 1,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS tnb_declarations (
-        id INTEGER PRIMARY KEY, terrain_id INTEGER, annee INTEGER,
-        superficie_declaree REAL, zone TEXT, tarif REAL,
-        montant_calcule REAL, montant_paye REAL DEFAULT 0,
-        statut TEXT DEFAULT 'emis', date_emission TEXT, date_paiement TEXT,
-        agent_id INTEGER, commune_id INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS tdb_etablissements (
-        id INTEGER PRIMARY KEY, numero_licence TEXT UNIQUE,
-        contribuable_id INTEGER, commune_id INTEGER,
-        nom_etablissement TEXT, nom_etablissement_ar TEXT,
-        type_etablissement TEXT, categorie TEXT,
-        adresse TEXT, date_ouverture TEXT, statut TEXT DEFAULT 'actif',
+    CREATE TABLE IF NOT EXISTS permis (
+        id INTEGER PRIMARY KEY,
+        terrain_id INTEGER,
+        type_permis TEXT,
+        numero_permis TEXT,
+        date_depot TEXT,
+        date_delivrance TEXT,
+        statut TEXT,
+        description TEXT,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS tdb_declarations (
-        id INTEGER PRIMARY KEY, etablissement_id INTEGER, annee INTEGER,
-        chiffre_affaires REAL, taux REAL, montant_calcule REAL,
-        montant_paye REAL DEFAULT 0, statut TEXT DEFAULT 'emis',
-        date_emission TEXT, date_paiement TEXT, agent_id INTEGER, commune_id INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS sta_vehicules (
-        id INTEGER PRIMARY KEY, numero_immatriculation TEXT UNIQUE,
-        contribuable_id INTEGER, commune_id INTEGER,
-        type_vehicule TEXT, categorie TEXT,
-        marque TEXT, capacite INTEGER, statut TEXT DEFAULT 'actif',
+    CREATE TABLE IF NOT EXISTS transferts_terrain (
+        id INTEGER PRIMARY KEY,
+        terrain_id INTEGER,
+        ancien_contribuable_id INTEGER,
+        nouveau_contribuable_id INTEGER,
+        date_transfert TEXT,
+        motif TEXT,
+        acte_notarie TEXT,
+        agent_id INTEGER,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS sta_declarations (
-        id INTEGER PRIMARY KEY, vehicule_id INTEGER, annee INTEGER,
-        tarif REAL, montant_calcule REAL, montant_paye REAL DEFAULT 0,
-        statut TEXT DEFAULT 'emis', date_emission TEXT, date_paiement TEXT,
-        agent_id INTEGER, commune_id INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS odp_occupations (
-        id INTEGER PRIMARY KEY, numero_autorisation TEXT UNIQUE,
-        contribuable_id INTEGER, commune_id INTEGER,
-        type_occupation TEXT, superficie REAL, emplacement TEXT,
-        date_debut TEXT, date_fin TEXT, tarif REAL, statut TEXT DEFAULT 'actif',
+    CREATE TABLE IF NOT EXISTS declarations (
+        id INTEGER PRIMARY KEY,
+        numero TEXT UNIQUE,
+        module TEXT,
+        reference_id INTEGER,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        annee INTEGER,
+        trimestre INTEGER DEFAULT 0,
+        base_calcul REAL,
+        taux REAL,
+        montant_principal REAL,
+        penalite_retard REAL DEFAULT 0,
+        majoration REAL DEFAULT 0,
+        amende_non_declaration REAL DEFAULT 0,
+        montant_total REAL,
+        statut TEXT DEFAULT 'emis',
+        date_declaration TEXT,
+        date_echeance TEXT,
+        date_paiement TEXT,
+        agent_id INTEGER,
+        notes TEXT,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS odp_declarations (
-        id INTEGER PRIMARY KEY, occupation_id INTEGER, annee INTEGER,
-        superficie REAL, tarif REAL, montant_calcule REAL,
-        montant_paye REAL DEFAULT 0, statut TEXT DEFAULT 'emis',
-        date_emission TEXT, date_paiement TEXT, agent_id INTEGER, commune_id INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS fou_dossiers (
-        id INTEGER PRIMARY KEY, numero_pv TEXT UNIQUE,
-        contribuable_id INTEGER, commune_id INTEGER,
-        vehicule_immat TEXT, type_vehicule TEXT,
-        date_mise_en_fourriere TEXT, date_sortie TEXT,
-        nb_jours INTEGER, statut TEXT DEFAULT 'en_fourriere',
+    CREATE TABLE IF NOT EXISTS etablissements_boissons (
+        id INTEGER PRIMARY KEY,
+        numero_licence TEXT UNIQUE,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        nom_etablissement TEXT,
+        nom_etablissement_ar TEXT,
+        type_etablissement TEXT,
+        categorie TEXT,
+        adresse TEXT,
+        date_ouverture TEXT,
+        statut TEXT DEFAULT 'actif',
+        actif INTEGER DEFAULT 1,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS fou_declarations (
-        id INTEGER PRIMARY KEY, dossier_id INTEGER,
-        tarif_journalier REAL, frais_remorquage REAL DEFAULT 0,
-        montant_calcule REAL, montant_paye REAL DEFAULT 0,
-        statut TEXT DEFAULT 'emis', date_emission TEXT, date_paiement TEXT,
-        agent_id INTEGER, commune_id INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS loc_locaux (
-        id INTEGER PRIMARY KEY, numero_contrat TEXT UNIQUE,
-        contribuable_id INTEGER, commune_id INTEGER,
-        designation TEXT, adresse TEXT, superficie REAL,
-        loyer_mensuel REAL, date_debut TEXT, date_fin TEXT, statut TEXT DEFAULT 'actif',
+    CREATE TABLE IF NOT EXISTS vehicules (
+        id INTEGER PRIMARY KEY,
+        numero_immatriculation TEXT UNIQUE,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        type_vehicule TEXT,
+        categorie TEXT,
+        marque TEXT,
+        capacite INTEGER,
+        statut TEXT DEFAULT 'actif',
+        actif INTEGER DEFAULT 1,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS loc_paiements (
-        id INTEGER PRIMARY KEY, local_id INTEGER, mois TEXT,
-        montant REAL, montant_paye REAL DEFAULT 0,
-        statut TEXT DEFAULT 'en_attente', date_paiement TEXT,
-        agent_id INTEGER, commune_id INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS sou_contrats (
-        id INTEGER PRIMARY KEY, numero_contrat TEXT UNIQUE,
-        contribuable_id INTEGER, commune_id INTEGER,
-        nom_souk TEXT, emplacement TEXT, superficie REAL,
-        redevance_annuelle REAL, date_debut TEXT, date_fin TEXT, statut TEXT DEFAULT 'actif',
+    CREATE TABLE IF NOT EXISTS occupations (
+        id INTEGER PRIMARY KEY,
+        numero_autorisation TEXT UNIQUE,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        type_occupation TEXT,
+        superficie REAL,
+        emplacement TEXT,
+        date_debut TEXT,
+        date_fin TEXT,
+        tarif REAL,
+        statut TEXT DEFAULT 'actif',
+        actif INTEGER DEFAULT 1,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS sou_paiements (
-        id INTEGER PRIMARY KEY, contrat_id INTEGER, annee INTEGER,
-        montant REAL, montant_paye REAL DEFAULT 0,
-        statut TEXT DEFAULT 'en_attente', date_paiement TEXT,
-        agent_id INTEGER, commune_id INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS paiements_bulletins (
-        id INTEGER PRIMARY KEY, module TEXT, reference_id INTEGER,
-        commune_id INTEGER, contribuable_id INTEGER,
-        montant REAL, date_paiement TEXT, mode_paiement TEXT DEFAULT 'espece',
-        reference_paiement TEXT, statut TEXT DEFAULT 'en_attente',
-        agent_id INTEGER, valideur_id INTEGER, date_validation TEXT,
+    CREATE TABLE IF NOT EXISTS occupations_domaine (
+        id INTEGER PRIMARY KEY,
+        etablissement_id INTEGER,
+        numero_autorisation TEXT UNIQUE,
+        type_occupation TEXT,
+        superficie REAL,
+        emplacement TEXT,
+        date_debut TEXT,
+        date_fin TEXT,
+        tarif REAL,
+        statut TEXT DEFAULT 'actif',
+        actif INTEGER DEFAULT 1,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS avis_imposition (
-        id INTEGER PRIMARY KEY, module TEXT, reference_id INTEGER,
-        contribuable_id INTEGER, commune_id INTEGER,
-        annee INTEGER, montant REAL, statut TEXT DEFAULT 'emis',
-        date_emission TEXT, date_echeance TEXT, date_reglement TEXT,
-        agent_id INTEGER
+    CREATE TABLE IF NOT EXISTS dossiers_fourriere (
+        id INTEGER PRIMARY KEY,
+        numero_pv TEXT UNIQUE,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        vehicule_immat TEXT,
+        type_vehicule TEXT,
+        date_mise_en_fourriere TEXT,
+        date_sortie TEXT,
+        nb_jours INTEGER,
+        statut TEXT DEFAULT 'en_fourriere',
+        actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS locaux (
+        id INTEGER PRIMARY KEY,
+        numero_contrat TEXT UNIQUE,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        designation TEXT,
+        adresse TEXT,
+        superficie REAL,
+        loyer_mensuel REAL,
+        date_debut TEXT,
+        date_fin TEXT,
+        statut TEXT DEFAULT 'actif',
+        actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS contrats_souks (
+        id INTEGER PRIMARY KEY,
+        numero_contrat TEXT UNIQUE,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        nom_souk TEXT,
+        emplacement TEXT,
+        superficie REAL,
+        redevance_annuelle REAL,
+        date_debut TEXT,
+        date_fin TEXT,
+        statut TEXT DEFAULT 'actif',
+        actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS bulletins (
+        id INTEGER PRIMARY KEY,
+        numero_bulletin TEXT,
+        declaration_id INTEGER,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        montant REAL,
+        mode_paiement TEXT,
+        date_paiement TEXT,
+        agent_id INTEGER,
+        statut TEXT DEFAULT 'en_attente',
+        notes TEXT,
+        numero_quittance TEXT,
+        date_quittance TEXT,
+        motif_rejet TEXT,
+        regisseur_id INTEGER,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS avis_non_paiement (
+        id INTEGER PRIMARY KEY,
+        numero_avis TEXT UNIQUE,
+        declaration_id INTEGER,
+        contribuable_id INTEGER,
+        commune_id INTEGER,
+        montant_du REAL,
+        date_emission TEXT,
+        lot_id TEXT,
+        statut TEXT DEFAULT 'emis',
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
     ''')
     conn.commit()

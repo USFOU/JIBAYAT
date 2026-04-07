@@ -100,7 +100,7 @@
   {% if autres_odp %}
   <div class="ctb-item"><span class="ctb-lbl">ODP liés</span>
     <span class="ctb-val">
-      {% for o in autres_odp %}<a href="{{ url_for('occupation.odp_detail', id=o.id) }}" class="btn btn-xs btn-outline">{{ o.type_occupation or 'ODP' }} #{{ o.numero }}</a>{% endfor %}
+      {% for o in autres_odp %}<a href="{{ url_for('odp.odp_detail', id=o.id) }}" class="btn btn-xs btn-outline">{{ o.type_occupation or 'ODP' }} #{{ o.numero }}</a>{% endfor %}
     </span>
   </div>
   {% endif %}
