@@ -1,111 +1,388 @@
 {% extends 'base.html' %}
-{% block title %}Paramètres de Calcul{% endblock %}
-{% block page_title %}⚙️ Paramètres de Calcul{% endblock %}
-{% block content %}
-<div class="alert alert-warn">⚠️ Ces paramètres définissent les règles de calcul des pénalités, majorations, amendes et délais pour chaque module fiscal (Loi 47-06, Art. 134, 147). Toute modification affecte immédiatement les calculs futurs.</div>
+{% block title %}Paramètres de Calcul Fiscal{% endblock %}
+{% block page_title %}⚙️ Paramètres de Calcul Fiscal{% endblock %}
+{% block extra_head %}
+<style>
+/* ═══ Layout principal ═══════════════════════════════════════════════ */
+.params-layout { display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start }
+@media(max-width:768px){.params-layout{grid-template-columns:1fr}}
 
-<!-- Simulateur -->
-<div class="card">
-  <div class="card-header"><h3>🧮 Simulateur de Pénalités</h3></div>
-  <div class="card-body">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px">
-      <div class="form-group"><label>Montant Principal (DH)</label><input type="number" id="simM" value="5000" oninput="sim()"></div>
-      <div class="form-group"><label>Date Échéance</label><input type="date" id="simE" oninput="sim()"></div>
-      <div class="form-group"><label>Date Paiement</label><input type="date" id="simP" oninput="sim()"></div>
-      <div class="form-group"><label>Module</label>
-        <select id="simMod" onchange="sim()">
-          <option value="TNB">TNB</option><option value="DEBITS_BOISSONS">Débits Boissons</option>
-          <option value="STATIONNEMENT">Stationnement</option><option value="FOURRIERE">Fourrière</option>
-          <option value="GLOBAL">Global</option>
-        </select>
+/* ═══ Sidebar navigation ════════════════════════════════════════════ */
+.params-nav { background:var(--card);border-radius:12px;border:1px solid var(--border);
+  box-shadow:var(--shadow);overflow:hidden;position:sticky;top:16px }
+.params-nav-header { padding:10px 14px;border-bottom:1px solid var(--border);
+  font-size:.72rem;font-weight:800;text-transform:uppercase;color:var(--muted);
+  background:var(--bg) }
+.nav-item { display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;
+  border-bottom:1px solid var(--border);font-size:.8rem;font-weight:700;color:var(--text);
+  transition:all .15s;text-decoration:none }
+.nav-item:hover { background:rgba(37,99,235,.06);color:var(--primary) }
+.nav-item.active { background:var(--primary);color:#fff }
+.nav-item .ni-icon { font-size:1rem;flex-shrink:0;width:22px;text-align:center }
+.nav-item .ni-lbl { flex:1;line-height:1.2 }
+.nav-item .ni-count { background:rgba(255,255,255,.2);border-radius:10px;padding:1px 7px;
+  font-size:.62rem;font-weight:900;flex-shrink:0 }
+.nav-item:not(.active) .ni-count { background:var(--bg);color:var(--muted) }
+
+/* ═══ Section module ════════════════════════════════════════════════ */
+.param-section { display:none }
+.param-section.active { display:block }
+
+/* ═══ Module header ════════════════════════════════════════════════ */
+.mod-hero { border-radius:14px;padding:18px 22px;margin-bottom:16px;
+  display:flex;align-items:center;gap:16px;color:#fff }
+.mod-hero.tnb    { background:linear-gradient(135deg,#166534,#16a34a) }
+.mod-hero.tdb    { background:linear-gradient(135deg,#7c2d12,#c2410c) }
+.mod-hero.sta    { background:linear-gradient(135deg,#075985,#0284c7) }
+.mod-hero.tpv    { background:linear-gradient(135deg,#581c87,#7c3aed) }
+.mod-hero.fou    { background:linear-gradient(135deg,#9f1239,#e11d48) }
+.mod-hero.odp    { background:linear-gradient(135deg,#78350f,#d97706) }
+.mod-hero.loc    { background:linear-gradient(135deg,#1e3a5f,#2563eb) }
+.mod-hero.other  { background:linear-gradient(135deg,#374151,#6b7280) }
+.mod-hero-icon { font-size:2.2rem;flex-shrink:0 }
+.mod-hero-title { font-size:1rem;font-weight:900;margin:0 }
+.mod-hero-sub { font-size:.72rem;opacity:.8;margin-top:3px }
+.mod-hero-badge { margin-left:auto;background:rgba(255,255,255,.2);border-radius:20px;
+  padding:4px 12px;font-size:.68rem;font-weight:800;white-space:nowrap }
+
+/* ═══ Formule box ═══════════════════════════════════════════════════ */
+.formula-box { border-radius:10px;padding:11px 14px;margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.78rem }
+.formula-box.penalite { background:linear-gradient(135deg,#fff7ed,#fed7aa);border:1.5px solid #fb923c }
+.formula-box.clean { background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border:1.5px solid #4ade80 }
+.ftag { display:inline-block;border-radius:5px;padding:2px 8px;font-size:.68rem;
+  font-weight:800;margin:1px;vertical-align:middle }
+.ftag.blue { background:#2563eb;color:#fff }
+.ftag.red  { background:#dc2626;color:#fff }
+.ftag.orng { background:#d97706;color:#fff }
+.ftag.grn  { background:#16a34a;color:#fff }
+
+/* ═══ Paramètre card ════════════════════════════════════════════════ */
+.param-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px }
+.param-card { background:var(--card);border:1.5px solid var(--border);border-radius:10px;
+  padding:12px 14px;transition:all .2s;position:relative;overflow:hidden }
+.param-card::before { content:'';position:absolute;top:0;left:0;width:3px;height:100%;
+  background:var(--primary);border-radius:3px 0 0 3px;opacity:0;transition:.2s }
+.param-card:hover { border-color:var(--primary);box-shadow:0 4px 16px rgba(37,99,235,.1) }
+.param-card:hover::before { opacity:1 }
+.param-card.readonly { opacity:.65 }
+
+.pc-label { font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px;
+  display:flex;align-items:center;gap:5px }
+.pc-code { font-family:monospace;font-size:.6rem;color:var(--muted);background:var(--bg);
+  border-radius:3px;padding:1px 4px }
+.pc-input-row { display:flex;align-items:center;gap:6px;margin-bottom:5px }
+.pc-input-row input { width: 150px;padding:8px 10px;font-size:.95rem;font-weight:900;
+  border:2px solid var(--border);border-radius:7px;background:var(--bg);
+  color:var(--text);transition:border-color .15s;text-align:center }
+.pc-input-row input:focus { outline:none;border-color:var(--primary);background:var(--card) }
+.pc-input-row input[readonly] { cursor:not-allowed }
+.pc-unit { font-size:.78rem;font-weight:800;color:var(--primary);min-width:40px;text-align:center;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 4px }
+.pc-desc { font-size:.62rem;color:var(--muted);line-height:1.5 }
+
+/* ═══ Simulateur ════════════════════════════════════════════════════ */
+.sim-panel { background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;
+  border-radius:14px;padding:18px 20px;margin-bottom:16px;
+  box-shadow:0 8px 32px rgba(15,23,42,.35) }
+.sim-panel h4 { color:#fff;margin:0 0 12px;font-size:.9rem;display:flex;align-items:center;gap:8px }
+.sim-inputs { display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px }
+.sim-inputs label { font-size:.65rem;font-weight:800;color:rgba(255,255,255,.7);display:block;margin-bottom:3px }
+.sim-inputs input,.sim-inputs select { width:100%;padding:7px 10px;border-radius:7px;
+  border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);
+  color:#fff;font-size:.85rem;font-weight:700;box-sizing:border-box }
+.sim-inputs select option { background:#1e3a5f }
+.sim-results { display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px }
+.sim-box { background:rgba(255,255,255,.08);border-radius:9px;padding:10px;text-align:center;
+  border:1px solid rgba(255,255,255,.1) }
+.sim-box.total { background:rgba(99,102,241,.3);border-color:rgba(99,102,241,.5) }
+.sb-lbl { font-size:.6rem;color:rgba(255,255,255,.65);margin-bottom:3px;font-weight:700;text-transform:uppercase }
+.sb-val { font-size:1.1rem;font-weight:900 }
+.sim-box.total .sb-val { color:#fde68a;font-size:1.25rem }
+.sim-detail { margin-top:12px;font-size:.72rem;color:rgba(255,255,255,.75);
+  background:rgba(0,0,0,.2);border-radius:7px;padding:8px 12px;line-height:2 }
+
+/* ═══ Sticky save ═══════════════════════════════════════════════════ */
+.sticky-bar { position:sticky;bottom:14px;z-index:30;display:flex;justify-content:flex-end;
+  gap:10px;align-items:center;margin-top:16px }
+.sticky-bar button { box-shadow:0 6px 24px rgba(37,99,235,.35);padding:11px 28px;font-size:.9rem }
+
+/* ═══ Quick search ══════════════════════════════════════════════════ */
+.search-params { display:flex;align-items:center;gap:8px;background:var(--bg);
+  border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;margin-bottom:12px }
+.search-params input { border:none;background:transparent;flex:1;font-size:.82rem;color:var(--text);outline:none }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ═══ SIMULATEUR ══════════════════════════════════════════════════════════ -->
+<div class="sim-panel">
+  <h4>🧮 Simulateur de Pénalités
+    <span style="font-size:.7rem;opacity:.7;font-weight:400">— Loi 47-06 : Principal × Pen% + (5% 1er mois + 0,5%/mois sup.)</span>
+  </h4>
+  <div class="sim-inputs">
+    <div><label>Montant Principal (DH)</label>
+      <input type="number" id="simM" value="1000" step="0.01" oninput="sim()"></div>
+    <div><label>Date Échéance</label>
+      <input type="date" id="simE" oninput="sim()"></div>
+    <div><label>Date Paiement</label>
+      <input type="date" id="simP" oninput="sim()"></div>
+    <div><label>Module</label>
+      <select id="simMod" onchange="sim()">
+        <option value="TNB">🏗️ TNB</option>
+        <option value="DEBITS_BOISSONS">🍺 Débits de Boissons</option>
+        <option value="TRANSPORT_VOYAGEURS" selected>🚌 Transport Voyageurs (TPV)</option>
+        <option value="STATIONNEMENT">🚗 Stationnement</option>
+        <option value="FOURRIERE">🔑 Fourrière</option>
+      </select></div>
+  </div>
+  <div class="sim-results">
+    <div class="sim-box"><div class="sb-lbl">Principal</div><div class="sb-val" id="sM">—</div></div>
+    <div class="sim-box"><div class="sb-lbl">Pénalité (10%)</div><div class="sb-val" id="sPen">—</div></div>
+    <div class="sim-box"><div class="sb-lbl">Majoration</div><div class="sb-val" id="sMaj">—</div></div>
+    <div class="sim-box total"><div class="sb-lbl">TOTAL À PAYER</div><div class="sb-val" id="sTot">—</div></div>
+  </div>
+  <div class="sim-detail" id="simDetail" style="display:none"></div>
+</div>
+
+<!-- Alerte globale -->
+<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:10px;padding:10px 16px;
+  margin-bottom:14px;font-size:.78rem;color:#78350f;border:1px solid #fde68a;display:flex;align-items:center;gap:8px">
+  ⚠️ <span>Toute modification est <strong>immédiatement appliquée</strong> aux calculs futurs. Les déclarations existantes ne sont pas recalculées.</span>
+</div>
+
+<!-- ═══ LAYOUT avec sidebar navigation ═══════════════════════════════ -->
+<div class="params-layout">
+
+  <!-- ── Sidebar nav ── -->
+  <div class="params-nav">
+    <div class="params-nav-header">📋 Modules</div>
+    {% set mod_map = {
+      'TNB':{'icon':'🏗️','cls':'tnb','label':'TNB'},
+      'DEBITS_BOISSONS':{'icon':'🍺','cls':'tdb','label':'Débits Boissons'},
+      'TRANSPORT_VOYAGEURS':{'icon':'🚌','cls':'tpv','label':'Transport'},
+      'STATIONNEMENT':{'icon':'🚗','cls':'sta','label':'Stationnement'},
+      'FOURRIERE':{'icon':'🔑','cls':'fou','label':'Fourrière'},
+      'OCCUPATION_DOMAINE':{'icon':'🏪','cls':'odp','label':'Domaine Public'},
+      'LOCATION_LOCAUX':{'icon':'🏢','cls':'loc','label':'Location'},
+      'AFFERMAGE_SOUKS':{'icon':'🛒','cls':'odp','label':'Souks'},
+    } %}
+    {% for mod, params in grouped.items() %}
+    {% set info = mod_map.get(mod, {'icon':'📋','cls':'other','label':mod[:14]}) %}
+    <a class="nav-item {% if loop.first %}active{% endif %}"
+       data-mod="{{ mod }}" href="#" onclick="return switchParam('{{ mod }}',this)">
+      <span class="ni-icon">{{ info.icon }}</span>
+      <span class="ni-lbl">{{ info.label }}</span>
+      <span class="ni-count">{{ params|length }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- ── Contenu principal ── -->
+  <div>
+    <form method="post" action="{{ url_for('config.modifier_parametres') }}" id="paramsForm">
+
+      <!-- Recherche rapide -->
+      <div class="search-params">
+        🔍 <input id="searchParam" type="text" placeholder="Rechercher un paramètre..."
+                   oninput="filterParams()">
       </div>
-    </div>
-    <div id="simResult"></div>
+
+      {% for mod, params in grouped.items() %}
+      {% set info = mod_map.get(mod, {'icon':'📋','cls':'other','label':mod}) %}
+      <div class="param-section {% if loop.first %}active{% endif %}" id="ps-{{ mod }}">
+
+        <!-- Hero module -->
+        <div class="mod-hero {{ info.cls }}">
+          <div class="mod-hero-icon">{{ info.icon }}</div>
+          <div>
+            <div class="mod-hero-title">
+              {% if mod=='TNB' %}Taxe sur les Terrains Urbains Non Bâtis
+              {% elif mod=='DEBITS_BOISSONS' %}Taxe sur les Débits de Boissons
+              {% elif mod=='TRANSPORT_VOYAGEURS' %}Taxe Transport Public des Voyageurs
+              {% elif mod=='STATIONNEMENT' %}Droit de Stationnement TPV
+              {% elif mod=='FOURRIERE' %}Droits de Fourrière Municipale
+              {% elif mod=='OCCUPATION_DOMAINE' %}Occupation du Domaine Public
+              {% elif mod=='LOCATION_LOCAUX' %}Location de Locaux Commerciaux
+              {% elif mod=='AFFERMAGE_SOUKS' %}Affermage des Souks Communaux
+              {% else %}{{ mod }}{% endif %}
+            </div>
+            <div class="mod-hero-sub">{{ params|length }} paramètre(s) configuré(s)</div>
+          </div>
+          <div class="mod-hero-badge">
+            {% if mod=='STATIONNEMENT' %}✅ Sans pénalités
+            {% elif mod in ['TNB','DEBITS_BOISSONS','TRANSPORT_VOYAGEURS'] %}⚠️ Pén. + Majoration
+            {% elif mod=='FOURRIERE' %}💰 Tarif journalier
+            {% else %}📋 Paramètres{% endif %}
+          </div>
+        </div>
+
+        <!-- Formule visuelle -->
+        {% if mod in ['TNB','DEBITS_BOISSONS','TRANSPORT_VOYAGEURS','FOURRIERE'] %}
+        <div class="formula-box penalite">
+          <span>📐 <strong>Pénalités :</strong></span>
+          <span class="ftag blue">Principal</span>
+          <span>×</span>
+          <span class="ftag red">Pen %</span>
+          <span>+</span>
+          <span class="ftag orng">5% / 1er mois</span>
+          <span>+</span>
+          <span class="ftag orng">0,5% × mois sup.</span>
+        </div>
+        {% elif mod=='STATIONNEMENT' %}
+        <div class="formula-box clean">
+          ✅ <strong>Aucune pénalité</strong> sur le droit de stationnement — seule la taxe TPV (module TRANSPORT_VOYAGEURS) est soumise aux majorations.
+        </div>
+        {% endif %}
+
+        <!-- Grille paramètres -->
+        <div class="param-grid">
+          {% for p in params %}
+          <div class="param-card {% if not user.peut_config %}readonly{% endif %} param-item"
+               data-label="{{ p.libelle|lower }} {{ p.code|lower }} {{ (p.description or '')|lower }}">
+            <div class="pc-label">
+              {{ p.libelle }}
+              <span class="pc-code">{{ p.code }}</span>
+            </div>
+            <div class="pc-input-row">
+              {% if user.peut_config %}
+              <input type="number" name="param_{{ p.id }}" value="{{ p.valeur }}"
+                     step="0.01" min="0" id="pi-{{ p.id }}"
+                     {% if mod=='STATIONNEMENT' and p.code in ['PENALITE_RETARD','MAJORATION_1ER_MOIS','MAJORATION_MOIS_SUP'] %}
+                     style="border-color:#4ade80;background:#f0fdf4;color:#166534"
+                     title="Valeur fixée à 0 — Pas de pénalités pour le Stationnement"
+                     {% endif %}
+                     onchange="markChanged(this)">
+              {% else %}
+              <input type="number" value="{{ p.valeur }}" step="0.01" readonly>
+              {% endif %}
+              <span class="pc-unit">{{ p.unite }}</span>
+            </div>
+            {% if p.description %}
+            <div class="pc-desc">{{ p.description }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+      </div><!-- /param-section -->
+      {% endfor %}
+
+      {% if user.peut_config %}
+      <div class="sticky-bar">
+        <span id="changedBadge" style="display:none;background:#fef3c7;color:#78350f;border:1px solid #fde68a;
+          border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700">
+          ⚡ Modifications en attente
+        </span>
+        <button type="submit" class="btn btn-primary">
+          💾 Enregistrer les paramètres
+        </button>
+      </div>
+      {% endif %}
+
+    </form>
   </div>
 </div>
 
-<!-- Paramètres par module -->
-<form method="post" action="{{ url_for('config.modifier_parametres') }}">
-  {% for module, params in grouped.items() %}
-  <div class="card">
-    <div class="card-header">
-      <h3>
-        {% if module=='TNB' %}🏗️ Terrains Urbains Non Bâtis
-        {% elif module=='DEBITS_BOISSONS' %}🍺 Taxe Débits de Boissons
-        {% elif module=='STATIONNEMENT' %}🚗 Droit de Stationnement TPV
-        {% elif module=='TRANSPORT_VOYAGEURS' %}🚌 Transport Voyageurs
-        {% elif module=='FOURRIERE' %}🔑 Droits de Fourrière
-        {% elif module=='OCCUPATION_DOMAINE' %}🏪 Occupation Domaine Public
-        {% elif module=='LOCATION_LOCAUX' %}🏢 Location Locaux
-        {% elif module=='AFFERMAGE_SOUKS' %}🛒 Affermage Souks
-        {% elif module=='GLOBAL' %}⚙️ Paramètres Globaux
-        {% else %}📋 {{ module }}{% endif %}
-      </h3>
-      {% if module=='TNB' %}<span class="badge b-primary" style="font-size:.65rem">Art. 39-46 Loi 47-06 | Décl. avant 31/03</span>
-      {% elif module=='DEBITS_BOISSONS' %}<span class="badge b-info" style="font-size:.65rem">Décl. trimestrielle, 30 jours après fin trimestre</span>
-      {% elif module=='STATIONNEMENT' %}<span class="badge b-warn" style="font-size:.65rem">Paiement annuel — Janvier</span>{% endif %}
-    </div>
-    <div class="card-body">
-      <div class="form-grid">
-        {% for p in params %}
-        <div class="form-group">
-          <label title="{{ p.description }}">{{ p.libelle }}</label>
-          <div style="display:flex;align-items:center;gap:6px">
-            <input type="number" name="p_{{ p.id }}" value="{{ p.valeur }}" step="0.01" style="flex:1">
-            <span style="font-size:.72rem;color:var(--muted);min-width:40px;font-weight:700">{{ p.unite }}</span>
-          </div>
-          <small style="font-size:.65rem;color:var(--muted)">{{ p.description }}</small>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-
-  {% if user.peut_config %}
-  <div style="position:sticky;bottom:16px;z-index:10;text-align:right">
-    <button type="submit" class="btn btn-primary" style="box-shadow:0 4px 16px rgba(30,58,95,.3);padding:12px 24px">
-      💾 Enregistrer Tous les Paramètres
-    </button>
-  </div>
-  {% endif %}
-</form>
-
 <script>
-function sim(){
-  const m=parseFloat(document.getElementById('simM').value)||0;
-  const e=document.getElementById('simE').value;
-  const p=document.getElementById('simP').value;
-  const mod=document.getElementById('simMod').value;
-  if(!m||!e||!p){document.getElementById('simResult').innerHTML='';return;}
+// ─── Navigation sidebar ───────────────────────────────────────────────
+function switchParam(mod, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.param-section').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  const sec = document.getElementById('ps-' + mod);
+  if (sec) sec.classList.add('active');
+}
+
+// ─── Recherche rapide ─────────────────────────────────────────────────
+function filterParams() {
+  const q = document.getElementById('searchParam').value.toLowerCase().trim();
+  if (!q) {
+    document.querySelectorAll('.param-item').forEach(c => c.style.display = '');
+    return;
+  }
+  // Afficher toutes les sections
+  document.querySelectorAll('.param-section').forEach(s => s.classList.add('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  document.querySelectorAll('.param-item').forEach(card => {
+    const ok = card.dataset.label.includes(q);
+    card.style.display = ok ? '' : 'none';
+  });
+}
+
+// ─── Badge modifications ──────────────────────────────────────────────
+function markChanged(input) {
+  input.style.borderColor = 'var(--accent)';
+  input.style.background = 'rgba(37,99,235,.05)';
+  document.getElementById('changedBadge').style.display = '';
+}
+
+// ─── Simulateur ───────────────────────────────────────────────────────
+function sim() {
+  const m   = parseFloat(document.getElementById('simM').value) || 0;
+  const e   = document.getElementById('simE').value;
+  const p   = document.getElementById('simP').value;
+  const mod = document.getElementById('simMod').value;
+
+  if (!m || !e || !p) {
+    ['sM','sPen','sMaj','sTot'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('simDetail').style.display = 'none';
+    return;
+  }
+
+  const ech = new Date(e);
+  const pay = new Date(p);
+  document.getElementById('sM').textContent = m.toFixed(2) + ' DH';
+
+  if (pay <= ech) {
+    document.getElementById('sPen').textContent = '0.00 DH';
+    document.getElementById('sMaj').textContent = '0.00 DH';
+    document.getElementById('sTot').textContent = m.toFixed(2) + ' DH';
+    const det = document.getElementById('simDetail');
+    det.style.display = '';
+    det.innerHTML = '✅ Paiement dans les délais — aucune pénalité applicable.';
+    return;
+  }
+
   fetch(`/api/calcul?montant=${m}&echeance=${e}&paiement=${p}&module=${mod}&hors_delai=0`)
-    .then(r=>r.json()).then(d=>{
-      document.getElementById('simResult').innerHTML=`
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center">
-          <div style="font-size:.68rem;color:var(--muted)">Principal</div>
-          <div style="font-size:1.2rem;font-weight:800;color:var(--primary)">${m.toFixed(2)} DH</div>
-        </div>
-        <div style="background:#fff3cd;border-radius:8px;padding:12px;text-align:center">
-          <div style="font-size:.68rem;color:#856404">Pénalité 10%</div>
-          <div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${d.penalite.toFixed(2)} DH</div>
-        </div>
-        <div style="background:#f8d7da;border-radius:8px;padding:12px;text-align:center">
-          <div style="font-size:.68rem;color:#721c24">Majoration</div>
-          <div style="font-size:1.2rem;font-weight:800;color:var(--danger)">${d.majoration.toFixed(2)} DH</div>
-        </div>
-        <div style="background:linear-gradient(135deg,var(--primary),var(--primary-l));border-radius:8px;padding:12px;text-align:center">
-          <div style="font-size:.68rem;color:rgba(255,255,255,.7)">TOTAL À PAYER</div>
-          <div style="font-size:1.3rem;font-weight:800;color:#fff">${d.total.toFixed(2)} DH</div>
-        </div>
-      </div>`;
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('sPen').textContent = d.penalite.toFixed(2) + ' DH';
+      document.getElementById('sMaj').textContent = d.majoration.toFixed(2) + ' DH';
+      document.getElementById('sTot').textContent = d.total.toFixed(2) + ' DH';
+
+      const diffDays = Math.floor((pay - ech) / 86400000);
+      const moisRetard = Math.max(1, Math.ceil(diffDays / 30));
+      const det = document.getElementById('simDetail');
+      det.style.display = '';
+      det.innerHTML =
+        `⏱️ Retard : <strong>${diffDays} jours</strong> (≈ ${moisRetard} mois)
+         &nbsp;|&nbsp; Pénalité principale : <strong>${d.penalite.toFixed(2)} DH</strong>
+         ${moisRetard >= 1 ? '&nbsp;|&nbsp; Majoration 1er mois : <strong>5%</strong>' : ''}
+         ${moisRetard > 1 ? `+ <strong>0,5% × ${moisRetard-1} mois sup. = ${((moisRetard-1)*0.5).toFixed(1)}%</strong>` : ''}
+         &nbsp;|&nbsp; <strong style="color:#fde68a">Surplus : +${(d.penalite+d.majoration).toFixed(2)} DH (${((d.penalite+d.majoration)/m*100).toFixed(1)}%)</strong>`;
+    })
+    .catch(() => {
+      const det = document.getElementById('simDetail');
+      det.style.display = '';
+      det.innerHTML = '⚠️ API indisponible — calcul local approximatif';
     });
 }
-// Init dates
-const now = new Date().toISOString().split('T')[0];
-document.getElementById('simP').value = now;
-const d3 = new Date(); d3.setMonth(d3.getMonth()-3);
-document.getElementById('simE').value = d3.toISOString().split('T')[0];
-sim();
+
+// ─── Init ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const now = new Date().toISOString().split('T')[0];
+  document.getElementById('simP').value = now;
+  const q = new Date();
+  q.setMonth(q.getMonth() - 3);
+  const trimIdx = Math.floor(q.getMonth() / 3);
+  const deadlines = [4, 7, 10, 1];
+  let dMonth = deadlines[trimIdx];
+  let dYear  = dMonth === 1 ? q.getFullYear() + 1 : q.getFullYear();
+  document.getElementById('simE').value = `${dYear}-${String(dMonth).padStart(2,'0')}-01`;
+  sim();
+});
 </script>
 {% endblock %}

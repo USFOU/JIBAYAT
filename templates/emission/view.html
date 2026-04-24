@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Détails du mois - Bordereaux d'Émission{% endblock %}
+{% block page_title %}📊 Détails : {{ mois_nom }} {{ bv.annee }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.mod-header{
+  background: color-mix(in srgb, #3498db 10%, transparent);
+  border: 1px solid color-mix(in srgb, #3498db 25%, transparent);
+  border-left: 5px solid #3498db;
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.mod-header-left { display: flex; align-items: center; gap: 14px; }
+.mod-header-icon {
+  width: 54px; height: 54px; border-radius: 14px;
+  background: color-mix(in srgb, #3498db 15%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+  border: 1px solid color-mix(in srgb, #3498db 30%, transparent);
+}
+.mod-header-title { font-size: 1.35rem; font-weight: 900; color: var(--primary); }
+.mod-header-sub { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.kpi-card {
+  background: var(--card);
+  border-radius: 13px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  border-top: 4px solid var(--kpi-color, var(--primary));
+}
+.kpi-icon { font-size: 1.5rem; margin-bottom: 8px; display: block; }
+.kpi-val { font-size: 1.9rem; font-weight: 900; color: var(--kpi-color, var(--primary)); line-height: 1; }
+.kpi-label { font-size: .7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="mod-header">
+  <div class="mod-header-left">
+    <div class="mod-header-icon">📅</div>
+    <div>
+      <div class="mod-header-title">{{ mois_nom }} {{ bv.annee }}</div>
+      <div class="mod-header-sub">Détails des bordereaux importés (Source : {{ bv.fichier_source }})</div>
+    </div>
+  </div>
+  <div class="df gap-2" style="flex-wrap:wrap;">
+    <a href="{{ url_for('emission.dashboard', annee=bv.annee) }}" class="btn btn-outline btn-sm">
+      <i class="bi bi-arrow-left"></i> Retour
+    </a>
+    <button type="button" class="btn btn-success btn-sm" onclick="openModal('addModal')" style="background:#27ae60; border-color:#219653;">
+      <i class="bi bi-plus-circle"></i> Ajouter une Rubrique
+    </button>
+    <a href="{{ url_for('emission.download_pdf', annee=bv.annee, mois=bv.mois) }}" class="btn btn-primary btn-sm" style="background:#e74c3c; border-color:#c0392b;">
+      <i class="bi bi-file-zip"></i> Télécharger tout (ZIP)
+    </a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card" style="--kpi-color:#27ae60">
+    <span class="kpi-icon">💰</span>
+    <div class="kpi-val">{{ "%.2f"|format(bv.total_general) }} DH</div>
+    <div class="kpi-label">Total Général du Mois</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:#8e44ad">
+    <span class="kpi-icon">📋</span>
+    <div class="kpi-val">{{ lignes|length }}</div>
+    <div class="kpi-label">Rubriques Traitées</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:#3498db">
+    <span class="kpi-icon">🕒</span>
+    <div class="kpi-val" style="font-size:1.1rem; margin-top:8px;">{{ bv.date_import }}</div>
+    <div class="kpi-label">Date d'importation</div>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white">
+        <h3 class="mb-0">Liste des bordereaux générés</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>N° BE</th>
+                    <th>Code Budgétaire</th>
+                    <th>Intitulé</th>
+                    <th class="text-end">Montant Présent</th>
+                    <th class="text-end">Total Emission</th>
+                    <th class="text-end" style="min-width:180px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in lignes %}
+                <tr>
+                    <td><strong>{{ l.numero_bordereau }}</strong></td>
+                    <td><span class="badge b-primary" style="font-size:0.8rem;">{{ l.code_budgetaire }}</span></td>
+                    <td>{{ l.intitule }}</td>
+                    <td class="text-end">{{ "%.2f"|format(l.montant_present) }}</td>
+                    <td class="text-end fw-bold text-success">{{ "%.2f"|format(l.total) }} DH</td>
+                    <td class="text-end">
+                        <div class="d-flex justify-content-end gap-1">
+                            <!-- Editer -->
+                            <button class="btn btn-sm btn-outline-primary" title="Modifier le montant" onclick="editMontant('{{ l.code_budgetaire }}', {{ l.montant_present }})">
+                                ✏️
+                            </button>
+                            
+                            <!-- Annuler -->
+                            <form action="{{ url_for('emission.edit_montant', annee=bv.annee, mois=bv.mois, code=l.code_budgetaire or 'default') }}" method="POST" style="display:inline;" data-confirm="warning" data-confirm-title="Annuler le montant" data-confirm-msg="Le montant de cette rubrique sera remis à zéro (0.00). Confirmez-vous ?">
+                                <input type="hidden" name="montant" value="0.0">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Annuler le montant (Mettre à zéro)">
+                                    🚫
+                                </button>
+                            </form>
+
+                            <!-- Supprimer -->
+                            <form action="{{ url_for('emission.delete_montant', annee=bv.annee, mois=bv.mois, code=l.code_budgetaire or 'default') }}" method="POST" style="display:inline;" data-confirm="danger" data-confirm-title="Supprimer la ligne" data-confirm-msg="Cette ligne sera définitivement supprimée. Confirmez-vous ?">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer la ligne">
+                                    🗑️
+                                </button>
+                            </form>
+
+                            {% if l.chemin_pdf %}
+                            <a href="{{ url_for('emission.download_pdf_rubrique', annee=bv.annee, mois=bv.mois, rubrique=l.rubrique) }}" target="_blank" class="btn btn-sm btn-danger" style="background:#e74c3c;" title="Ouvrir PDF">
+                                📄
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">Aucun bordereau généré.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal pour l'édition du montant -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Modifier le montant</h3>
+            <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+        </div>
+        <form id="editForm" method="POST" action="">
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label>Nouveau Montant (DH)</label>
+                    <input type="number" step="0.01" name="montant" id="editMontantInput" class="form-control" required>
+                </div>
+                <div class="alert alert-info">
+                    Note : La modification du montant va entraîner le recalcul du Total Général et la regénération de tous les PDFs de ce mois.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editModal')">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal pour l'ajout d'une rubrique -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Ajouter une Rubrique Manuellement</h3>
+            <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('emission.add_rubrique', annee=bv.annee, mois=bv.mois) }}">
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label>Code Budgétaire</label>
+                    <input type="text" name="code_budgetaire" class="form-control" placeholder="Ex: 1140201016" required>
+                    <small class="form-text text-muted">Le libellé de la rubrique sera automatiquement déterminé à partir de ce code.</small>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Montant (DH)</label>
+                    <input type="number" step="0.01" name="montant" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addModal')">Annuler</button>
+                <button type="submit" class="btn btn-success" style="background:#27ae60; border-color:#219653;">Ajouter et Générer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editMontant(code, montantActuel) {
+    document.getElementById('editMontantInput').value = montantActuel;
+    const form = document.getElementById('editForm');
+    form.action = `/emission/{{ bv.annee }}/{{ bv.mois }}/edit_montant/${code}`;
+    openModal('editModal');
+}
+</script>
+{% endblock %}

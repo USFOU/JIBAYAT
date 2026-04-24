@@ -25,7 +25,12 @@
         <tr>
           <td><strong style="color:var(--primary)">{{ e.numero }}</strong></td>
           <td><strong>{{ e.nom_etablissement }}</strong></td>
-          <td>{{ e.nom }} {{ e.prenom or e.raison_sociale or '' }}<br><small class="text-muted">{{ e.ctb_num }}</small></td>
+          <td>
+            <a class="ctb-link" onclick="showCtbInfo({{ e.contribuable_id }})" style="cursor:pointer;color:var(--primary);font-weight:600;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+              {{ e.nom }} {{ e.prenom or e.raison_sociale or '' }}
+            </a>
+            <br><small class="text-muted">{{ e.ctb_num }}</small>
+          </td>
           <td><span class="badge b-info">{{ e.type_etablissement }}</span></td>
           <td style="font-size:.78rem">{{ e.adresse or '—' }}</td>
           <td style="font-size:.78rem">{{ e.numero_autorisation or '—' }}</td>

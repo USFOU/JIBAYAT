@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block page_title %}Versements — Régie{% endblock %}
+
+{% block content %}
+<style>
+.ecart-pos { color:var(--ok); font-weight:700 }
+.ecart-neg { color:var(--danger); font-weight:700 }
+.ecart-zero { color:var(--muted) }
+.step-badge {
+  display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border-radius:50%;font-weight:800;font-size:.82rem;
+  background:var(--primary);color:#fff;flex-shrink:0;
+}
+.step-badge.step-2 { background:var(--accent,#f59e0b); }
+.step-badge.step-3 { background:var(--ok,#22c55e); }
+.caisse-total-bar {
+  display:flex;align-items:center;gap:12px;padding:10px 16px;
+  background:linear-gradient(90deg,#fef3c7,#fffbeb);
+  border:1.5px solid #f59e0b;border-radius:10px;
+  font-size:.88rem;color:#92400e;font-weight:600;
+}
+</style>
+
+<div class="alert alert-info" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <span>💰 <strong>Versements Régie</strong> — Suivi du flux : Employé → Régisseur → Percepteur</span>
+  <a href="{{ url_for('regie.carnets') }}" class="btn btn-outline btn-sm" style="background:#fff">📗 Retour aux Carnets</a>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ÉTAPE 1 — Carnets affectés : en attente de versement employé
+═══════════════════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <h3 style="display:flex;align-items:center;gap:10px">
+      <span class="step-badge">1</span>
+      📤 En attente de versement — Employé → Régisseur
+      {% if affectes %}<span class="badge" style="background:#dbeafe;color:#1e40af">{{ affectes|length }}</span>{% endif %}
+    </h3>
+  </div>
+  <div style="padding:16px">
+    {% if not affectes %}
+    <div class="empty-state"><span class="ei">✅</span>Aucun carnet affecté en attente de versement</div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr>
+          <th>N° Carnet</th><th>Type</th><th>Employé</th><th>Service</th>
+          <th>Valeur théorique</th><th>Affecté le</th><th>Action</th>
+        </tr></thead>
+        <tbody>
+        {% for c in affectes %}
+        <tr>
+          <td><strong>{{ c.numero_carnet }}</strong></td>
+          <td><span class="badge">{{ c.designation }}</span></td>
+          <td>{{ c.emp_nom }} {{ c.emp_prenom or '' if c.emp_nom else '—' }}</td>
+          <td>{{ c.service_nom or '—' }}</td>
+          <td><strong>{{ c.valeur_theorique|int }} DH</strong></td>
+          <td style="font-size:.78rem;color:var(--muted)">{{ c.date_affectation or '—' }}</td>
+          <td>
+            <button class="btn btn-outline" style="font-size:.72rem;padding:4px 10px"
+              onclick="openVersement({{ c.id }}, '{{ c.numero_carnet }}', {{ c.valeur_theorique }})">
+              💰 Enregistrer versement
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ÉTAPE 2 — Versés par les employés : en attente de bordereau
+═══════════════════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <h3 style="display:flex;align-items:center;gap:10px">
+      <span class="step-badge step-2">2</span>
+      💼 Caisse Régisseur — En attente de versement au Percepteur
+      {% if en_attente_bordereau %}
+      <span class="badge" style="background:#fef3c7;color:#92400e">{{ en_attente_bordereau|length }}</span>
+      {% endif %}
+    </h3>
+    {% if en_attente_bordereau %}
+    <div class="caisse-total-bar">
+      <span>💰 Total en caisse :</span>
+      <strong style="font-size:1.05rem;color:#b45309">{{ "%.2f"|format(total_en_attente) }} DH</strong>
+      <span style="font-size:.75rem;font-weight:400;color:#a16207">({{ en_attente_bordereau|length }} carnet(s) non bordereautés)</span>
+    </div>
+    {% endif %}
+  </div>
+  <div style="padding:16px">
+    {% if not en_attente_bordereau %}
+    <div class="empty-state"><span class="ei">📋</span>Aucun versement employé en attente de bordereau</div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr>
+          <th style="width:36px">
+            <input type="checkbox" id="checkAll2" onchange="toggleAll2(this)" title="Tout sélectionner">
+          </th>
+          <th>N° Carnet</th><th>Type</th><th>Employé</th><th>Service</th>
+          <th>Montant versé</th><th>Écart</th><th>Versé le</th>
+        </tr></thead>
+        <tbody>
+        {% for c in en_attente_bordereau %}
+        <tr>
+          <td><input type="checkbox" class="brd-check" value="{{ c.id }}" data-montant="{{ c.montant_verse or 0 }}"></td>
+          <td><strong>{{ c.numero_carnet }}</strong></td>
+          <td><span class="badge">{{ c.designation }}</span></td>
+          <td>{{ c.emp_nom }} {{ c.emp_prenom or '' if c.emp_nom else '—' }}</td>
+          <td>{{ c.service_nom or '—' }}</td>
+          <td>
+            <strong style="color:var(--ok)">{{ "%.2f"|format(c.montant_verse or 0) }} DH</strong>
+          </td>
+          <td>
+            {% set ecart = (c.montant_verse or 0) - c.valeur_theorique %}
+            {% if ecart > 0.01 %}
+              <span class="ecart-pos">+{{ "%.2f"|format(ecart) }}</span>
+            {% elif ecart < -0.01 %}
+              <span class="ecart-neg">{{ "%.2f"|format(ecart) }}</span>
+            {% else %}
+              <span class="ecart-zero">—</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.78rem;color:var(--muted)">{{ c.date_versement_employe or '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Barre de sélection et action bordereau -->
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0 0">
+      <span id="selCount" style="font-size:.82rem;color:var(--muted)">0 carnet(s) sélectionné(s)</span>
+      <span id="selTotal" style="font-size:.88rem;font-weight:700;color:var(--primary)"></span>
+      <button class="btn" onclick="openBordereau()" id="btnBordereau" disabled style="margin-left:auto">
+        📄 Créer Bordereau → Percepteur
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ÉTAPE 3 — Bordereaux envoyés au Percepteur
+═══════════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="card-header">
+    <h3 style="display:flex;align-items:center;gap:10px">
+      <span class="step-badge step-3">3</span>
+      📄 Bordereaux — Versements au Percepteur
+    </h3>
+  </div>
+  <div style="padding:16px">
+    {% if not bordereaux %}
+    <div class="empty-state"><span class="ei">📄</span>Aucun bordereau créé</div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr>
+          <th>N° Bordereau</th><th>Date versement</th><th>Nb carnets</th>
+          <th>Total versé</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+        {% for b in bordereaux %}
+        <tr>
+          <td><strong>{{ b.numero }}</strong></td>
+          <td>{{ b.date_versement or '—' }}</td>
+          <td><span class="badge">{{ b.nb_carnets or 0 }}</span></td>
+          <td><strong style="color:var(--ok)">{{ "%.2f"|format(b.total_verse or 0) }} DH</strong></td>
+          <td>
+            <a href="{{ url_for('regie.imprimer_bordereau', bid=b.id) }}" target="_blank"
+               class="btn btn-outline" style="font-size:.72rem;padding:4px 10px">🖨️ Imprimer</a>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- ══════ MODAL — Versement employé ══════ -->
+<div id="modalVersement" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">💰 Enregistrer un versement employé</div>
+      <button class="modal-close" onclick="document.getElementById('modalVersement').style.display='none'">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('regie.versement_employe') }}">
+      <input type="hidden" name="carnet_id" id="vCarnetId">
+      <div class="modal-body" style="display:grid;gap:14px">
+        <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:.85rem">
+          Carnet : <strong id="vCarnetNum"></strong><br>
+          Valeur théorique : <strong id="vValeurTh" style="color:var(--primary)"></strong> DH
+        </div>
+        <div class="form-group">
+          <label>Montant versé par l'employé (DH) *</label>
+          <input type="number" step="0.01" name="montant_verse" id="vMontant" required class="form-control"
+            oninput="calcEcart()">
+        </div>
+        <div id="ecartInfo" style="padding:8px 12px;border-radius:8px;font-size:.82rem;display:none"></div>
+        <div class="form-group">
+          <label>Date de versement</label>
+          <input type="date" name="date_versement" class="form-control" id="vDate">
+        </div>
+        <div class="form-group">
+          <label>Observation</label>
+          <input type="text" name="observation" class="form-control" placeholder="Motif d'écart, remarques...">
+        </div>
+        <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.78rem;color:#92400e">
+          ℹ️ Après confirmation, le carnet passera en <strong>caisse régisseur</strong> (Étape 2) en attente d'être inclus dans un bordereau percepteur.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modalVersement').style.display='none'">Annuler</button>
+        <button type="submit" class="btn">Confirmer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════ MODAL — Bordereau percepteur ══════ -->
+<div id="modalBordereau" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">📄 Créer un bordereau — Versement au Percepteur</div>
+      <button class="modal-close" onclick="document.getElementById('modalBordereau').style.display='none'">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('regie.creer_bordereau') }}" id="formBordereau">
+      <div id="bordereauCarnetsList"></div>
+      <div class="modal-body" style="display:grid;gap:14px">
+
+        <!-- Numéro de bordereau manuel -->
+        <div class="form-group">
+          <label>N° Bordereau <span style="color:var(--danger);font-weight:700">*</span>
+            <span style="font-size:.72rem;color:var(--muted);font-weight:400"> — N° du registre du percepteur</span>
+          </label>
+          <input type="text" name="numero_bordereau" id="bNumero" required class="form-control"
+            placeholder="ex: 00125 / 2026" autocomplete="off"
+            style="font-size:1rem;font-weight:700;letter-spacing:.03em">
+          <small style="color:var(--muted);font-size:.73rem">Numéro figurant sur le bordereau physique du percepteur.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Date de versement au percepteur *</label>
+          <input type="date" name="date_versement" class="form-control" id="bDate">
+        </div>
+        <div id="bordereauSummary" style="background:var(--bg);border-radius:10px;padding:12px;font-size:.85rem"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modalBordereau').style.display='none'">Annuler</button>
+        <button type="submit" class="btn">Créer le bordereau</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const today = new Date().toISOString().split('T')[0];
+let valeurTh = 0;
+
+document.querySelectorAll('#vDate, #bDate').forEach(i => i.value = today);
+
+// ── Sélection tout (étape 2) ──
+function toggleAll2(cb) {
+  document.querySelectorAll('.brd-check').forEach(c => c.checked = cb.checked);
+  updateBordereauBtn();
+}
+
+document.querySelectorAll('.brd-check').forEach(c => c.addEventListener('change', updateBordereauBtn));
+
+function updateBordereauBtn() {
+  const checked = [...document.querySelectorAll('.brd-check:checked')];
+  const btn = document.getElementById('btnBordereau');
+  const countEl = document.getElementById('selCount');
+  const totalEl = document.getElementById('selTotal');
+  btn.disabled = checked.length === 0;
+  countEl.textContent = `${checked.length} carnet(s) sélectionné(s)`;
+  if (checked.length > 0) {
+    const total = checked.reduce((s, c) => s + parseFloat(c.dataset.montant || 0), 0);
+    totalEl.textContent = `→ Total : ${total.toFixed(2)} DH`;
+  } else {
+    totalEl.textContent = '';
+  }
+}
+
+// ── Modal versement employé ──
+function openVersement(cid, num, valeur) {
+  valeurTh = valeur;
+  document.getElementById('vCarnetId').value = cid;
+  document.getElementById('vCarnetNum').textContent = num;
+  document.getElementById('vValeurTh').textContent = valeur;
+  document.getElementById('vMontant').value = '';
+  document.getElementById('ecartInfo').style.display = 'none';
+  document.getElementById('modalVersement').style.display = 'flex';
+}
+
+function calcEcart() {
+  const m = parseFloat(document.getElementById('vMontant').value) || 0;
+  const ecart = m - valeurTh;
+  const el = document.getElementById('ecartInfo');
+  el.style.display = 'block';
+  if (Math.abs(ecart) < 0.01) {
+    el.style.background = '#dcfce7'; el.style.color = '#15803d';
+    el.textContent = '✅ Aucun écart — montant exact';
+  } else if (ecart > 0) {
+    el.style.background = '#fef3c7'; el.style.color = '#92400e';
+    el.textContent = `⚠️ Excédent : +${ecart.toFixed(2)} DH`;
+  } else {
+    el.style.background = '#fee2e2'; el.style.color = '#dc2626';
+    el.textContent = `⚠️ Déficit : ${ecart.toFixed(2)} DH`;
+  }
+}
+
+// ── Modal bordereau percepteur ──
+function openBordereau() {
+  const checked = [...document.querySelectorAll('.brd-check:checked')];
+  if (checked.length === 0) return;
+  const total = checked.reduce((s, c) => s + parseFloat(c.dataset.montant || 0), 0);
+  document.getElementById('bordereauCarnetsList').innerHTML = '';
+  checked.forEach(c => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'carnet_ids'; inp.value = c.value;
+    document.getElementById('bordereauCarnetsList').appendChild(inp);
+  });
+  document.getElementById('bordereauSummary').innerHTML =
+    `<strong>${checked.length}</strong> carnet(s) sélectionné(s) &nbsp;|&nbsp; Total : <strong>${total.toFixed(2)} DH</strong>`;
+  document.getElementById('bNumero').value = '';
+  document.getElementById('modalBordereau').style.display = 'flex';
+}
+</script>
+{% endblock %}

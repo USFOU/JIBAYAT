@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% block title %}Enchères Fourrière{% endblock %}
+{% block page_title %}🔨 Ventes aux Enchères — Fourrière{% endblock %}
+{% block extra_head %}
+<style>
+.section-title{font-size:.88rem;font-weight:800;color:var(--primary);border-bottom:2px solid var(--primary);padding-bottom:6px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.veh-card{background:var(--card);border-radius:10px;padding:10px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.veh-card .vc-immat{font-weight:900;font-size:.9rem;color:var(--primary)}
+.veh-card .vc-info{font-size:.65rem;color:var(--muted)}
+.veh-card .badge-plus365{background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-size:.58rem;font-weight:900}
+.veh-card.in-group{opacity:.55;pointer-events:none}
+.groupe-card{background:var(--card);border-radius:12px;border:1px solid var(--border);margin-bottom:16px;box-shadow:var(--shadow)}
+.groupe-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#2d3561,#4a4e69);color:#fff;border-radius:12px 12px 0 0}
+.gh-num{font-size:.7rem;opacity:.75}
+.gh-title{font-size:.95rem;font-weight:900}
+.gh-prix{font-size:1rem;font-weight:900;color:#ffc107}
+.etat-tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.6rem;font-weight:700}
+.etat-BON{background:#d4edda;color:#155724}.etat-MOYEN{background:#fff3cd;color:#856404}.etat-MAUVAIS{background:#f8d7da;color:#721c24}
+.groupe-body{padding:12px 16px}
+.groupe-footer{padding:8px 16px;border-top:1px solid var(--border);background:var(--bg);border-radius:0 0 12px 12px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* Modal */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal-box{background:var(--card);border-radius:14px;padding:22px;width:min(500px,94vw);max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-box h3{margin:0 0 14px;font-size:.95rem}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="df gap-2 mb-3">
+  <a href="{{ url_for('fou.fou_liste') }}" class="btn btn-outline btn-sm">← Fourrière</a>
+  <button onclick="document.getElementById('modalGroupe').classList.add('open')"
+          class="btn btn-primary btn-sm">➕ Nouveau groupe enchères</button>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
+
+  <!-- Colonne gauche : véhicules +365j -->
+  <div>
+    <div class="section-title">📅 Véhicules +365 jours ({{ veh_plus365|length }})</div>
+    {% if veh_plus365 %}
+    {% for v in veh_plus365 %}
+    <div class="veh-card {{ 'in-group' if v.id in already_grouped else '' }}">
+      <div style="font-size:1.4rem">🚗</div>
+      <div style="flex:1">
+        <div class="vc-immat">{{ v.immatriculation or '—' }}
+          {% if v.id in already_grouped %}<span style="font-size:.6rem;color:var(--ok)"> ✓ groupe</span>{% endif %}
+        </div>
+        <div class="vc-info">{{ v.type_vehicule }} · Dépôt: {{ v.num_depot or '—' }}</div>
+        <div class="vc-info">Entrée: {{ v.date_mise_fourriere }} · <strong style="color:var(--danger)">{{ v.nb_jours }} jours</strong></div>
+      </div>
+      {% if v.id not in already_grouped %}
+      <button onclick="openAddVehModal({{ v.id }}, '{{ v.immatriculation }}', '{{ v.type_vehicule }}')"
+              class="btn btn-sm btn-primary" style="font-size:.68rem">➕ Groupe</button>
+      {% else %}
+      <span class="badge-plus365">✓ Groupé</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state"><span class="ei">📅</span>Aucun véhicule +365 jours</div>
+    {% endif %}
+  </div>
+
+  <!-- Colonne droite : groupes -->
+  <div>
+    <div class="section-title">📋 Groupes d'enchères ({{ groupes|length }})</div>
+    {% for g in groupes %}
+    <div class="groupe-card">
+      <div class="groupe-header">
+        <div>
+          <div class="gh-num">{{ g.numero }}</div>
+          <div class="gh-title">{{ g.libelle }}</div>
+          {% if g.type_vehicule %}<div style="font-size:.65rem;opacity:.75">Type: {{ g.type_vehicule }}</div>{% endif %}
+        </div>
+        <div style="text-align:right">
+          <div class="gh-prix">
+            {% if g.prix_ouverture > 0 %}{{ "%.0f"|format(g.prix_ouverture) }} DH{% else %}—{% endif %}
+          </div>
+          <div style="font-size:.62rem;opacity:.7">prix ouverture</div>
+          <div style="font-size:.65rem;margin-top:2px">
+            {% if g.date_enchere %}📅 {{ g.date_enchere }}{% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="groupe-body">
+        {% if g.vehicules %}
+        <table style="width:100%;font-size:.73rem;border-collapse:collapse">
+          <thead><tr style="color:var(--muted);font-size:.65rem">
+            <th style="text-align:left;padding:3px 0">#</th>
+            <th style="text-align:left">Immat.</th>
+            <th style="text-align:left">Type</th>
+            <th>État</th>
+            <th>Jours</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+          {% for ve in g.vehicules %}
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:5px 4px;color:var(--muted)">{{ loop.index }}</td>
+            <td><strong>{{ ve.immatriculation }}</strong></td>
+            <td style="font-size:.65rem">{{ ve.type_vehicule }}</td>
+            <td style="text-align:center"><span class="etat-tag etat-{{ ve.etat_vehicule|upper }}">{{ ve.etat_vehicule }}</span></td>
+            <td style="text-align:center;color:var(--danger)">
+              {% set nb = ((today | string)[:10] | length) %}
+              {{ ve.date_mise_fourriere }}
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('fou.fou_groupe_retirer', gid=g.id, vid=ve.id) }}"
+                    onsubmit="return confirmForm(this, {title:'Retirer du groupe',msg:'Retirer ce véhicule du groupe d\'enchères ?',type:'warning',confirmText:'Retirer',icon:'❌'})">
+                <button class="btn btn-xs" style="background:var(--danger);color:#fff">✕</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;color:var(--muted);font-size:.75rem;padding:8px">🚗 Aucun véhicule</div>
+        {% endif %}
+      </div>
+      <div class="groupe-footer">
+        <a href="{{ url_for('fou.fou_groupe_imprimer', gid=g.id) }}" target="_blank"
+           class="btn btn-outline btn-xs">🖨️ Imprimer liste</a>
+        <button onclick="openPrixModal({{ g.id }}, {{ g.prix_ouverture }}, '{{ g.date_enchere or '' }}', '{{ g.lieu or '' }}')"
+                class="btn btn-outline btn-xs">💰 Prix ouverture</button>
+        {% if g.vehicules and g.statut != 'vendu' %}
+        <button onclick="openVenteModal({{ g.id }})"
+                class="btn btn-xs" style="background:#28a745;color:#fff">✅ Valider vente</button>
+        {% endif %}
+        {% if g.statut == 'vendu' %}
+        <span class="badge b-ok">✅ Vendu</span>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state"><span class="ei">📋</span>Aucun groupe créé</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── MODALS ── -->
+
+<!-- Nouveau groupe -->
+<div class="modal-backdrop" id="modalGroupe" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <h3>➕ Créer un groupe d'enchères</h3>
+    <form method="post" action="{{ url_for('fou.fou_groupe_ajouter') }}">
+      <div class="form-group mb-3">
+        <label>Libellé du groupe <span style="color:var(--danger)">*</span></label>
+        <input name="libelle" placeholder="Ex: Voitures particulières — Mars 2026" required>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Type de véhicule (filtre)</label>
+          <select name="type_vehicule">
+            <option value="">Tous types</option>
+            {% for t in types_vh %}<option value="{{ t.libelle }}">{{ t.libelle }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Date enchères</label>
+          <input type="date" name="date_enchere">
+        </div>
+        <div class="form-group">
+          <label>Lieu</label>
+          <input name="lieu" placeholder="Ex: Salle des ventes communale">
+        </div>
+        <div class="form-group">
+          <label>Prix d'ouverture (DH)</label>
+          <input type="number" name="prix_ouverture" value="0" min="0" step="100">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input name="notes">
+      </div>
+      <div class="df gap-2" style="margin-top:14px;justify-content:flex-end">
+        <button type="button" onclick="document.getElementById('modalGroupe').classList.remove('open')"
+                class="btn btn-outline btn-sm">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">✅ Créer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Ajouter véhicule à un groupe -->
+<div class="modal-backdrop" id="modalAddVeh" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <h3>➕ Ajouter véhicule au groupe</h3>
+    <div id="vehInfo" style="background:var(--bg);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:.8rem;font-weight:700"></div>
+    <form method="post" id="addVehForm">
+      <input type="hidden" name="dossier_id" id="addVehDossierId">
+      <div class="form-group mb-3">
+        <label>Groupe cible <span style="color:var(--danger)">*</span></label>
+        <select name="groupe_id_redirect" id="groupeSelect">
+          {% for g in groupes %}
+          {% if g.statut != 'vendu' %}
+          <option value="{{ g.id }}">{{ g.numero }} — {{ g.libelle }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group mb-3">
+        <label>État du véhicule</label>
+        <select name="etat_vehicule">
+          {% for e in etats_vh %}
+          <option value="{{ e.code }}">{{ e.libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group mb-3">
+        <label>Notes</label>
+        <input name="notes">
+      </div>
+      <div class="df gap-2" style="justify-content:flex-end">
+        <button type="button" onclick="document.getElementById('modalAddVeh').classList.remove('open')"
+                class="btn btn-outline btn-sm">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">➕ Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Prix ouverture -->
+<div class="modal-backdrop" id="modalPrix" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <h3>💰 Définir prix d'ouverture des enchères</h3>
+    <form method="post" id="prixForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Prix d'ouverture (DH) <span style="color:var(--danger)">*</span></label>
+          <input type="number" name="prix_ouverture" id="prixInput" min="0" step="100">
+        </div>
+        <div class="form-group">
+          <label>Date enchères</label>
+          <input type="date" name="date_enchere" id="dateEnchereInput">
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>Lieu</label>
+          <input name="lieu" id="lieuInput">
+        </div>
+      </div>
+      <div class="df gap-2" style="margin-top:14px;justify-content:flex-end">
+        <button type="button" onclick="document.getElementById('modalPrix').classList.remove('open')"
+                class="btn btn-outline btn-sm">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Valider vente -->
+<div class="modal-backdrop" id="modalVente" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <h3>✅ Valider la vente aux enchères</h3>
+    <form method="post" id="venteForm" enctype="multipart/form-data">
+      <div class="form-group mb-3">
+        <label>Véhicule vendu</label>
+        <select name="dossier_id" id="venteDossierSelect">
+          <!-- Rempli par JS -->
+        </select>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nom acheteur <span style="color:var(--danger)">*</span></label>
+          <input name="nom_acheteur" required>
+        </div>
+        <div class="form-group">
+          <label>CIN acheteur</label>
+          <input name="cin_acheteur" placeholder="M123456">
+        </div>
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input name="telephone_acheteur">
+        </div>
+        <div class="form-group">
+          <label>Prix adjudication (DH) <span style="color:var(--danger)">*</span></label>
+          <input type="number" name="prix_adjudication" min="0" step="100" required>
+        </div>
+        <div class="form-group">
+          <label>N° Quittance</label>
+          <input name="numero_quittance">
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>PV de vente (PDF)</label>
+          <input type="file" name="pv_vente" accept=".pdf,.jpg,.png">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input name="notes">
+      </div>
+      <div class="df gap-2" style="margin-top:14px;justify-content:flex-end">
+        <button type="button" onclick="document.getElementById('modalVente').classList.remove('open')"
+                class="btn btn-outline btn-sm">Annuler</button>
+        <button type="submit" class="btn btn-sm" style="background:#28a745;color:#fff">✅ Valider vente</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Données groupes et vehicules pour les modals
+const GROUPES = {{ groupes | tojson | safe }};
+
+function openAddVehModal(dossierId, immat, type) {
+  document.getElementById('addVehDossierId').value = dossierId;
+  document.getElementById('vehInfo').textContent = '🚗 ' + immat + ' — ' + type;
+  // L'action du form sera définie par le groupe sélectionné
+  document.getElementById('addVehForm').onsubmit = function(e) {
+    e.preventDefault();
+    const gid = document.getElementById('groupeSelect').value;
+    this.action = '/fourriere/encheres/groupe/' + gid + '/ajouter-vehicule';
+    this.submit();
+  };
+  document.getElementById('modalAddVeh').classList.add('open');
+}
+
+function openPrixModal(gid, prix, dateEnch, lieu) {
+  document.getElementById('prixForm').action = '/fourriere/encheres/groupe/' + gid + '/prix';
+  document.getElementById('prixInput').value = prix || 0;
+  document.getElementById('dateEnchereInput').value = dateEnch || '';
+  document.getElementById('lieuInput').value = lieu || '';
+  document.getElementById('modalPrix').classList.add('open');
+}
+
+function openVenteModal(gid) {
+  document.getElementById('venteForm').action = '/fourriere/encheres/groupe/' + gid + '/vente';
+  // Récupérer les véhicules du groupe
+  const g = GROUPES.find(x => x.id === gid);
+  const sel = document.getElementById('venteDossierSelect');
+  sel.innerHTML = '';
+  if (g && g.vehicules && g.vehicules.length > 0) {
+    g.vehicules.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.dossier_id;
+      opt.textContent = v.immatriculation + ' — ' + v.type_vehicule;
+      sel.appendChild(opt);
+    });
+  }
+  document.getElementById('modalVente').classList.add('open');
+}
+</script>
+{% endblock %}

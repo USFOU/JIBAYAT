@@ -1,6 +1,6 @@
 """modules/helpers.py — Fonctions partagées entre tous les blueprints"""
 import hashlib
-from flask import session, redirect, url_for
+from flask import session, redirect, url_for, flash
 from functools import wraps
 from datetime import datetime, date
 from database import get_db
@@ -26,6 +26,61 @@ def get_current_user():
     conn.close()
     return user
 
+def get_user_module_permissions(user, module_code):
+    """Retourne les permissions de l'utilisateur pour un module donné.
+    Retourne un dict {peut_voir, peut_ajouter, peut_modifier, peut_supprimer}.
+    Les super_admin/admin ont tous les droits par défaut.
+    """
+    if user is None:
+        return {'peut_voir': 0, 'peut_ajouter': 0, 'peut_modifier': 0, 'peut_supprimer': 0}
+    # Admin / super_admin : accès total
+    if user['role_nom'] in ('super_admin', 'admin'):
+        return {'peut_voir': 1, 'peut_ajouter': 1, 'peut_modifier': 1, 'peut_supprimer': 1}
+    conn = get_db()
+    row = conn.execute(
+        '''SELECT rmp.* FROM role_module_permissions rmp
+           WHERE rmp.role_id = ? AND rmp.module_code = ?''',
+        (user['role_id'], module_code)
+    ).fetchone()
+    conn.close()
+    if row:
+        return {
+            'peut_voir':      row['peut_voir'],
+            'peut_ajouter':   row['peut_ajouter'],
+            'peut_modifier':  row['peut_modifier'],
+            'peut_supprimer': row['peut_supprimer'],
+        }
+    # Pas de règle = pas d'accès
+    return {'peut_voir': 0, 'peut_ajouter': 0, 'peut_modifier': 0, 'peut_supprimer': 0}
+
+def get_all_user_modules(user):
+    """Retourne tous les modules avec permissions pour un utilisateur."""
+    if user is None:
+        return {}
+    conn = get_db()
+    modules = conn.execute('SELECT * FROM app_modules WHERE actif=1 ORDER BY ordre').fetchall()
+    result = {}
+    for m in modules:
+        result[m['code']] = get_user_module_permissions(user, m['code'])
+    conn.close()
+    return result
+
+def module_required(module_code, perm='peut_voir'):
+    """Décorateur qui vérifie l'accès à un module spécifique."""
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if 'user_id' not in session:
+                return redirect(url_for('login'))
+            user = get_current_user()
+            perms = get_user_module_permissions(user, module_code)
+            if not perms.get(perm, 0):
+                flash(f'Accès refusé au module {module_code}. Contactez votre administrateur.', 'danger')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
 def get_param(module, code, default=0):
     conn = get_db()
     row = conn.execute('SELECT valeur FROM parametres_calcul WHERE module=? AND code=?', (module, code)).fetchone()
@@ -34,6 +89,9 @@ def get_param(module, code, default=0):
     except: return default
 
 def calculer_penalites(montant, date_ech_str, date_pay_str=None, module='GLOBAL'):
+    """Calcule pénalité (10%) + majoration (5% 1er mois + 0.5% par mois COMPLET supérieur).
+    Un mois commencé mais non terminé n'est PAS comptabilisé dans les 0.5%.
+    """
     if not date_pay_str: date_pay_str = date.today().isoformat()
     try:
         d_ech = datetime.strptime(date_ech_str[:10], '%Y-%m-%d').date()
@@ -43,15 +101,33 @@ def calculer_penalites(montant, date_ech_str, date_pay_str=None, module='GLOBAL'
     pen  = round(montant * get_param(module, 'PENALITE_RETARD', 10) / 100, 2)
     maj1 = get_param(module, 'MAJORATION_1ER_MOIS', 5) / 100
     majS = get_param(module, 'MAJORATION_MOIS_SUP', 0.5) / 100
-    mois = max(1, ((d_pay - d_ech).days + 29) // 30)
-    maj  = round(montant * maj1 + (montant * majS * (mois - 1) if mois > 1 else 0), 2)
+    jours = (d_pay - d_ech).days
+    # Mois COMPLETS de retard (floor) — un mois commencé ne compte pas
+    mois_complets = jours // 30
+    # 5% s'applique dès le 1er jour de retard (même mois partiel)
+    # 0.5% uniquement pour les mois COMPLETS au-delà du 1er mois
+    extra_mois = max(0, mois_complets - 1)
+    maj = round(montant * maj1 + montant * majS * extra_mois, 2)
     return pen, maj
 
-def gen_num(prefix, table, col='numero'):
-    conn = get_db()
-    n = conn.execute(f'SELECT COUNT(*) as c FROM {table}').fetchone()['c'] + 1
-    conn.close()
-    return f"{prefix}{datetime.now().year}{n:05d}"
+def gen_num(prefix, table, col='numero', db_conn=None):
+    """Genere un numero unique base sur MAX (safe en boucle et concurrence)."""
+    conn = db_conn or get_db()
+    year = datetime.now().year
+    row = conn.execute(
+        f"SELECT MAX({col}) as m FROM {table} WHERE {col} LIKE ?",
+        (f"{prefix}{year}%",)
+    ).fetchone()
+    if row and row['m']:
+        try:
+            n = int(str(row['m'])[-5:]) + 1
+        except Exception:
+            n = conn.execute(f'SELECT COUNT(*) as c FROM {table}').fetchone()['c'] + 1
+    else:
+        n = 1
+    if not db_conn:
+        conn.close()
+    return f"{prefix}{year}{n:05d}"
 
 def annees_non_payees(module, ref_id, debut=2020):
     conn = get_db()

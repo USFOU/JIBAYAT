@@ -1,49 +1,154 @@
 {% extends 'base.html' %}
 {% block title %}Tableau de Bord{% endblock %}
-{% block page_title %}📊 Tableau de Bord{% endblock %}
+{% block page_title %}📊 Tableau de Bord — {{ annee_cur }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px}
+.kpi{background:var(--card);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;border-left:5px solid var(--primary);transition:transform .2s,box-shadow .2s}
+.kpi:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.13)}
+.kpi-icon{font-size:2rem;line-height:1}
+.kpi-val{font-size:1.5rem;font-weight:900;color:var(--primary);line-height:1}
+.kpi-lbl{font-size:.68rem;color:var(--muted);font-weight:600;margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+.kpi-sub{font-size:.72rem;font-weight:700;margin-top:4px}
+
+.mod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:22px}
+.mod-card{background:var(--card);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);border-top:4px solid #ccc;transition:transform .2s,box-shadow .2s;text-decoration:none;color:var(--text);display:block}
+.mod-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.13)}
+.mod-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.mod-icon{font-size:1.6rem}
+.mod-title{font-size:.85rem;font-weight:800;color:var(--primary)}
+.mod-count{font-size:.7rem;color:var(--muted)}
+.mod-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.mod-row-lbl{font-size:.7rem;color:var(--muted)}
+.mod-row-val{font-size:.82rem;font-weight:700}
+.mod-bar-bg{background:#f0f4f8;border-radius:99px;height:6px;margin-top:10px;overflow:hidden}
+.mod-bar-fill{height:6px;border-radius:99px;transition:width .8s ease}
+.mod-taux{font-size:.68rem;font-weight:700;text-align:right;margin-top:3px}
+
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:22px}
+.chart-wrap{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px 20px}
+.chart-title{font-size:.88rem;font-weight:800;color:var(--primary);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+canvas{max-height:260px}
+
+@media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="stats-grid">
-  <div class="stat" style="border-left-color:#1e3a5f"><span class="si">👥</span><div><div class="sv">{{ stats.contribuables }}</div><div class="sl">Contribuables</div></div></div>
-  <div class="stat" style="border-left-color:#e8a020"><span class="si">🏗️</span><div><div class="sv">{{ stats.terrains }}</div><div class="sl">Terrains TNB</div></div></div>
-  <div class="stat" style="border-left-color:#e74c3c"><span class="si">⏳</span><div><div class="sv">{{ stats.bulletins_attente }}</div><div class="sl">Bulletins en attente</div></div></div>
-  <div class="stat" style="border-left-color:#e74c3c"><span class="si">📨</span><div><div class="sv">{{ stats.avis_emis }}</div><div class="sl">Avis non-paiement</div></div></div>
-  <div class="stat" style="border-left-color:#27ae60"><span class="si">💰</span><div><div class="sv" style="font-size:1rem">{{ "%.0f"|format(stats.total_emis) }} DH</div><div class="sl">Total émis</div></div></div>
-  <div class="stat" style="border-left-color:#27ae60"><span class="si">✅</span><div><div class="sv" style="font-size:1rem">{{ "%.0f"|format(stats.total_paye) }} DH</div><div class="sl">Total recouvré</div></div></div>
+
+{# ── KPI GLOBAUX ───────────────────────────────────────────── #}
+<div class="kpi-grid">
+  <div class="kpi" style="border-left-color:#1e3a5f">
+    <span class="kpi-icon">👥</span>
+    <div>
+      <div class="kpi-val">{{ stats.contribuables }}</div>
+      <div class="kpi-lbl">Contribuables actifs</div>
+    </div>
+  </div>
+  <div class="kpi" style="border-left-color:#e74c3c">
+    <span class="kpi-icon">⏳</span>
+    <div>
+      <div class="kpi-val" style="color:#e74c3c">{{ stats.bulletins_attente }}</div>
+      <div class="kpi-lbl">Bulletins en attente</div>
+      <div class="kpi-sub"><a href="{{ url_for('paiements') }}" style="color:#e74c3c;text-decoration:none">→ Voir bulletins</a></div>
+    </div>
+  </div>
+  <div class="kpi" style="border-left-color:#e8a020">
+    <span class="kpi-icon">📨</span>
+    <div>
+      <div class="kpi-val" style="color:#e8a020">{{ stats.avis_emis }}</div>
+      <div class="kpi-lbl">Avis non-paiement émis</div>
+      <div class="kpi-sub"><a href="{{ url_for('avis') }}" style="color:#e8a020;text-decoration:none">→ Voir avis</a></div>
+    </div>
+  </div>
+  <div class="kpi" style="border-left-color:#2980b9">
+    <span class="kpi-icon">📋</span>
+    <div>
+      <div class="kpi-val" style="color:#2980b9;font-size:1.1rem">{{ "%.0f"|format(stats.total_emis) }} DH</div>
+      <div class="kpi-lbl">Total émis (toutes années)</div>
+    </div>
+  </div>
+  <div class="kpi" style="border-left-color:#27ae60">
+    <span class="kpi-icon">✅</span>
+    <div>
+      <div class="kpi-val" style="color:#27ae60;font-size:1.1rem">{{ "%.0f"|format(stats.total_paye) }} DH</div>
+      <div class="kpi-lbl">Total recouvré</div>
+      {% set taux_global = ((stats.total_paye / stats.total_emis * 100) if stats.total_emis > 0 else 0)|round(1) %}
+      <div class="kpi-sub" style="color:#27ae60">Taux: {{ taux_global }}%</div>
+    </div>
+  </div>
 </div>
 
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:18px">
+{# ── GRAPHIQUES ────────────────────────────────────────────── #}
+<div class="charts-grid">
+  <div class="chart-wrap">
+    <div class="chart-title">📈 Recouvrement mensuel {{ annee_cur }}</div>
+    <canvas id="chartMois"></canvas>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-title">🥧 Répartition recettes par module</div>
+    <canvas id="chartModules"></canvas>
+  </div>
+</div>
+
+{# ── STATS PAR MODULE ──────────────────────────────────────── #}
+<div class="card" style="margin-bottom:22px">
+  <div class="card-header"><h3>📦 Performance par Module — {{ annee_cur }}</h3></div>
+  <div class="card-body" style="padding:16px">
+    <div class="mod-grid">
+      {% for key, m in modules_stats.items() %}
+      {% set taux = ((m.paye / m.emis * 100) if m.emis > 0 else 0)|round(0)|int %}
+      <a href="{{ url_for(m.url) }}" class="mod-card" style="border-top-color:{{ m.color }}">
+        <div class="mod-head">
+          <span class="mod-icon">{{ m.icon }}</span>
+          <div>
+            <div class="mod-title">{{ m.label }}</div>
+            <div class="mod-count">{{ m.count }} dossier{{ 's' if m.count != 1 else '' }}</div>
+          </div>
+        </div>
+        <div class="mod-row">
+          <span class="mod-row-lbl">Émis {{ annee_cur }}</span>
+          <span class="mod-row-val" style="color:{{ m.color }}">{{ "%.0f"|format(m.emis) }} DH</span>
+        </div>
+        <div class="mod-row">
+          <span class="mod-row-lbl">Recouvré</span>
+          <span class="mod-row-val" style="color:#27ae60">{{ "%.0f"|format(m.paye) }} DH</span>
+        </div>
+        <div class="mod-bar-bg">
+          <div class="mod-bar-fill" style="width:{{ [taux,100]|min }}%;background:{{ m.color }}"></div>
+        </div>
+        <div class="mod-taux" style="color:{{ m.color }}">{{ taux }}% recouvré</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ── ACCÈS RAPIDE + ACTIVITÉ ───────────────────────────────── #}
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:22px">
   <div class="card">
-    <div class="card-header"><h3>🗂️ Accès Rapide Modules Fiscaux</h3></div>
-    <div class="card-body" style="padding:14px">
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px">
-        {% set modules = [
-          ('tnb.tnb_liste','🏗️','TNB','Terrains Non Bâtis'),
-          ('tdb.tdb_liste','🍺','Débits Boissons','Taxe trimestrielle'),
-          ('sta.sta_liste','🚗','Stationnement','Droit annuel TPV'),
-          ('fou.fou_liste','🔑','Fourrière','Droits & remorquage'),
-          ('odp.odp_liste','🏪','Domaine Public','Occupation temporaire'),
-          ('loc.loc_liste','🏢','Location Locaux','Baux communaux'),
-          ('sou.sou_liste','🛒','Souks','Affermage marchés'),
-        ] %}
-        {% for route, icon, label, sublabel in modules %}
-        <a href="{{ url_for(route) }}" style="background:var(--bg);border-radius:10px;padding:14px;text-align:center;text-decoration:none;color:var(--text);border:1.5px solid var(--border);transition:all .2s;display:block" onmouseover="this.style.borderColor='var(--primary)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
-          <div style="font-size:1.8rem">{{ icon }}</div>
-          <div style="font-size:.78rem;font-weight:800;color:var(--primary);margin-top:4px">{{ label }}</div>
-          <div style="font-size:.65rem;color:var(--muted)">{{ sublabel }}</div>
-        </a>
-        {% endfor %}
-      </div>
+    <div class="card-header"><h3>⚡ Actions Rapides</h3></div>
+    <div class="card-body df gap-2" style="flex-wrap:wrap">
+      <a href="{{ url_for('contribuables.ajouter_contribuable') }}" class="btn btn-primary">👤 Nouveau Contribuable</a>
+      <a href="{{ url_for('paiements') }}" class="btn btn-ok">💳 Bulletins Paiement</a>
+      <a href="{{ url_for('avis') }}" class="btn btn-danger">📨 Avis Non-Paiement</a>
+      <a href="{{ url_for('tnb.tnb_liste') }}" class="btn btn-accent">🏗️ TNB</a>
+      <a href="{{ url_for('tdb.tdb_liste') }}" class="btn btn-outline">🍺 TDB</a>
+      <a href="{{ url_for('fou.fou_liste') }}" class="btn btn-outline">🔑 Fourrière</a>
+      <a href="{{ url_for('config.arretes_fiscaux') }}" class="btn btn-outline">📜 Arrêtés</a>
     </div>
   </div>
 
   <div class="card">
     <div class="card-header"><h3>📋 Activité Récente</h3></div>
-    <div style="overflow-y:auto;max-height:320px">
+    <div style="overflow-y:auto;max-height:200px">
       {% for d in recentes %}
-      <div style="padding:9px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center">
+      <div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center">
         <div style="flex:1;min-width:0">
           <div style="font-size:.78rem;font-weight:700;color:var(--primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.nom }} {{ d.prenom or d.raison_sociale or '' }}</div>
-          <div style="font-size:.68rem;color:var(--muted)">{{ d.module }} — {{ d.annee }}</div>
+          <div style="font-size:.65rem;color:var(--muted)">{{ d.module }} — {{ d.annee }}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:.8rem;font-weight:700">{{ "%.0f"|format(d.montant_total) }} DH</div>
@@ -57,15 +162,96 @@
   </div>
 </div>
 
-<div class="card">
-  <div class="card-header"><h3>⚡ Actions Rapides</h3></div>
-  <div class="card-body df gap-2" style="flex-wrap:wrap">
-    <a href="{{ url_for('contribuables.ajouter_contribuable') }}" class="btn btn-primary">👤 Nouveau Contribuable</a>
-    <a href="{{ url_for('tnb.tnb_liste') }}" class="btn btn-accent">🏗️ Gérer TNB</a>
-    <a href="{{ url_for('tdb.tdb_liste') }}" class="btn btn-outline">🍺 Débits Boissons</a>
-    <a href="{{ url_for('paiements') }}" class="btn btn-ok">💳 Bulletins Paiement</a>
-    <a href="{{ url_for('avis') }}" class="btn btn-danger">📨 Avis Non-Paiement</a>
-    <a href="{{ url_for('config.arretes_fiscaux') }}" class="btn btn-outline">💰 Arrêté Fiscal</a>
-  </div>
-</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Graphique Recouvrement Mensuel ────────────────────────
+const ctxMois = document.getElementById('chartMois').getContext('2d');
+new Chart(ctxMois, {
+  type: 'bar',
+  data: {
+    labels: {{ mois_labels | tojson }},
+    datasets: [
+      {
+        label: 'Émis (DH)',
+        data: {{ mois_emis | tojson }},
+        backgroundColor: 'rgba(41,128,185,0.2)',
+        borderColor: '#2980b9',
+        borderWidth: 2,
+        borderRadius: 6,
+        order: 2,
+      },
+      {
+        label: 'Recouvré (DH)',
+        data: {{ mois_paye | tojson }},
+        backgroundColor: 'rgba(39,174,96,0.85)',
+        borderColor: '#27ae60',
+        borderWidth: 0,
+        borderRadius: 6,
+        order: 1,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { position: 'top', labels: { font: { size: 11 } } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('fr-MA') + ' DH'
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: v => v === 0 ? '0' : (v >= 1000 ? (v/1000).toFixed(0)+'k' : v) + ' DH',
+          font: { size: 10 }
+        },
+        grid: { color: 'rgba(0,0,0,.05)' }
+      },
+      x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+// ── Graphique Répartition par Module (Doughnut) ───────────
+const ctxMod = document.getElementById('chartModules').getContext('2d');
+const modData = {{ chart_modules_data | tojson }};
+const hasData = modData.some(v => v > 0);
+new Chart(ctxMod, {
+  type: 'doughnut',
+  data: {
+    labels: {{ chart_modules_labels | tojson }},
+    datasets: [{
+      data: hasData ? modData : [1],
+      backgroundColor: hasData ? {{ chart_modules_colors | tojson }} : ['#e0e0e0'],
+      borderWidth: 2,
+      borderColor: '#fff',
+      hoverOffset: 8,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    cutout: '60%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { font: { size: 10 }, padding: 10, boxWidth: 12 }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => hasData
+            ? ctx.label + ': ' + ctx.parsed.toLocaleString('fr-MA') + ' DH'
+            : 'Aucune donnée'
+        }
+      }
+    }
+  }
+});
+</script>
 {% endblock %}

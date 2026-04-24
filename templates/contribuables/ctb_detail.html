@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+{% block title %}{{ contrib.nom }} {{ contrib.prenom or contrib.raison_sociale or '' }} — Fiche{% endblock %}
+{% block page_title %}👤 Fiche Contribuable{% endblock %}
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root { --cairo: 'Cairo', sans-serif; }
+
+/* ─── Hero ─── */
+.hero {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+  color: #fff; border-radius: 18px; padding: 26px 30px;
+  margin-bottom: 20px; display: flex; align-items: center;
+  gap: 22px; box-shadow: 0 8px 32px rgba(37,99,235,.25);
+}
+.hero-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: rgba(255,255,255,.18); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 2rem; flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,.3);
+}
+.hero-info { flex: 1 }
+.hero-info h2 { margin: 0; font-size: 1.35rem; font-weight: 900; letter-spacing: .01em }
+.hero-info .name-ar {
+  font-family: var(--cairo); font-size: 1.15rem;
+  font-weight: 800; direction: rtl; opacity: .92;
+  margin-top: 3px; letter-spacing: .02em;
+}
+.hero-info .sub { font-size: .8rem; opacity: .75; margin-top: 4px }
+.hero-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px }
+.hero-badge {
+  background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: .72rem; font-weight: 700;
+}
+.hero-badge.danger { background: rgba(231,76,60,.45); border-color: rgba(231,76,60,.4) }
+.hero-badge.ok { background: rgba(39,174,96,.4); border-color: rgba(39,174,96,.3) }
+
+/* ─── KPIs ─── */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 14px; margin-bottom: 20px }
+.kpi {
+  background: var(--card); border-radius: 14px; padding: 16px;
+  box-shadow: var(--shadow); text-align: center;
+  border-top: 4px solid var(--primary); position: relative; overflow: hidden;
+}
+.kpi::before {
+  content: ''; position: absolute; top: -20px; right: -20px;
+  width: 70px; height: 70px; border-radius: 50%;
+  background: currentColor; opacity: .04;
+}
+.kpi.danger { border-top-color: var(--danger); color: var(--danger) }
+.kpi.ok  { border-top-color: var(--ok); color: var(--ok) }
+.kpi.accent { border-top-color: var(--accent); color: var(--accent) }
+.kpi .kv { font-size: 1.5rem; font-weight: 900; color: inherit }
+.kpi .kl { font-size: .63rem; color: var(--muted); font-weight: 700; text-transform: uppercase; margin-top: 4px }
+.kpi .ku { font-size: .6rem; color: var(--muted) }
+
+/* ─── Actions ─── */
+.action-bar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 12px 16px; background: var(--bg);
+  border-radius: 14px; margin-bottom: 18px;
+  border: 1.5px solid var(--border);
+}
+
+/* ─── Tabs ─── */
+.ctb-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto }
+.ctb-tab-btn {
+  padding: 10px 20px; font-size: .8rem; font-weight: 700;
+  cursor: pointer; border: none; background: none;
+  color: var(--muted); border-bottom: 3px solid transparent;
+  margin-bottom: -2px; transition: all .15s; white-space: nowrap;
+}
+.ctb-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(30,58,95,.04) }
+.ctb-tab-pane { display: none !important }
+.ctb-tab-pane.active { display: block !important }
+
+/* ─── Info Tables ─── */
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px }
+@media(max-width:860px){.detail-grid{grid-template-columns:1fr}}
+
+.info-table { width: 100%; border-collapse: collapse }
+.info-table tr:hover td { background: rgba(30,58,95,.03) }
+.info-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: .84rem; vertical-align: top }
+.info-table td:first-child {
+  font-weight: 700; color: var(--muted); width: 38%;
+  font-size: .75rem; text-transform: uppercase; letter-spacing: .03em;
+}
+.info-table .val-ar {
+  font-family: var(--cairo); font-size: 1rem;
+  font-weight: 700; direction: rtl; color: var(--primary);
+}
+.info-table .val-strong { font-weight: 800; font-size: .9rem; color: var(--text) }
+
+/* ─── Module cards ─── */
+.module-card {
+  border-radius: 10px; padding: 12px 16px;
+  background: var(--bg); border-left: 4px solid var(--primary);
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px; transition: transform .15s;
+}
+.module-card:hover { transform: translateX(3px) }
+.module-card .mc-label { font-weight: 800; font-size: .84rem }
+.module-card .mc-count { font-size: .68rem; color: var(--muted); margin-top: 2px }
+.module-card .mc-imp { font-weight: 900; color: var(--danger); font-size: .88rem }
+.module-card .mc-ok { color: var(--ok); font-size: .8rem; font-weight: 700 }
+
+/* ─── History badges ─── */
+.hist-badge { display: inline-block; border-radius: 5px; padding: 2px 7px; font-size: .63rem; font-weight: 700 }
+.hist-badge.valide,.hist-badge.encaisse,.hist-badge.paye { background: #d4edda; color: #155724 }
+.hist-badge.en_attente { background: #fff3cd; color: #856404 }
+.hist-badge.emis { background: #cce5ff; color: #004085 }
+.hist-badge.rejete { background: #f8d7da; color: #721c24 }
+
+/* ─── Upload ─── */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 12px;
+  padding: 20px; text-align: center; cursor: pointer;
+  transition: all .2s;
+}
+.upload-zone:hover { border-color: var(--primary); background: rgba(30,58,95,.04) }
+.doc-card {
+  background: var(--bg); border-radius: 9px; padding: 9px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  border: 1px solid var(--border); margin-bottom: 6px;
+}
+.doc-card .doc-type { font-size: .62rem; font-weight: 700; text-transform: uppercase; color: var(--muted) }
+.doc-card .doc-name { font-size: .8rem; font-weight: 600; color: var(--text) }
+
+/* Contact chips */
+.contact-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 4px 12px; font-size: .78rem;
+  font-weight: 600; margin: 3px 2px; transition: all .15s;
+}
+.contact-chip:hover { border-color: var(--primary); color: var(--primary) }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="df gap-2 mb-3">
+  <a href="{{ url_for('contribuables.contribuables') }}" class="btn btn-outline btn-sm">← Retour liste</a>
+</div>
+
+<!-- ─── Hero ─── -->
+<div class="hero">
+  <div class="hero-avatar">{{ '🏢' if contrib.type_personne=='morale' else '👤' }}</div>
+  <div class="hero-info" style="flex:1">
+    <h2>{{ contrib.nom }} {{ contrib.prenom or contrib.raison_sociale or '' }}</h2>
+    {% if contrib.nom_ar %}
+    <div class="name-ar">{{ contrib.nom_ar }} {{ contrib.prenom_ar or '' }}</div>
+    {% elif contrib.raison_sociale_ar %}
+    <div class="name-ar">{{ contrib.raison_sociale_ar }}</div>
+    {% endif %}
+    <div class="sub">N° {{ contrib.numero }} · {{ contrib.type_personne or 'physique' }} · {{ contrib.commune_nom or '—' }}</div>
+    <div class="hero-badges">
+      {% if contrib.cin %}<span class="hero-badge">🪪 {{ contrib.cin }}</span>{% endif %}
+      {% if contrib.ice %}<span class="hero-badge">🏭 ICE: {{ contrib.ice }}</span>{% endif %}
+      {% if contrib.telephone %}<span class="hero-badge">📞 {{ contrib.telephone }}</span>{% endif %}
+      {% if contrib.ville %}<span class="hero-badge">🏙️ {{ contrib.ville }}</span>{% endif %}
+      {% if total_impaye > 0 %}
+        <span class="hero-badge danger">⚠️ Impayé : {{ "%.2f"|format(total_impaye) }} DH</span>
+      {% else %}
+        <span class="hero-badge ok">✅ À jour</span>
+      {% endif %}
+    </div>
+  </div>
+  <div style="text-align:right;flex-shrink:0;font-size:.72rem;opacity:.7">
+    <div>Enregistré le</div>
+    <div style="font-weight:700;font-size:.82rem">{{ (contrib.date_creation or '')[:10] }}</div>
+  </div>
+</div>
+
+<!-- ─── KPIs ─── -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kv" style="color:var(--primary)">{{ modules|length }}</div>
+    <div class="kl">Modules actifs</div>
+  </div>
+  <div class="kpi danger">
+    <div class="kv">{{ "%.0f"|format(total_impaye) }}</div>
+    <div class="kl">Impayé</div>
+    <div class="ku">DH</div>
+  </div>
+  <div class="kpi ok">
+    <div class="kv">{{ "%.0f"|format(total_encaisse or 0) }}</div>
+    <div class="kl">Encaissé</div>
+    <div class="ku">DH</div>
+  </div>
+  <div class="kpi accent">
+    <div class="kv" style="color:var(--accent)">{{ bulletins|length }}</div>
+    <div class="kl">Bulletins</div>
+  </div>
+</div>
+
+<!-- ─── Actions ─── -->
+<div class="action-bar">
+  <a href="{{ url_for('contribuables.modifier_contribuable', id=contrib.id) }}" class="btn btn-primary btn-sm">✏️ Modifier</a>
+  {% if total_impaye > 0 %}
+  <a href="{{ url_for('contribuables.ctb_avis_non_paiement', id=contrib.id) }}"
+     target="_blank" class="btn btn-sm" style="background:#fd7e14;color:#fff">
+    📋 Avis de non-paiement
+  </a>
+  {% endif %}
+  {% for m in modules %}
+    {% if m.code == 'TNB' %}<a href="{{ url_for('tnb.tnb_liste') }}" class="btn btn-outline btn-xs">🏗️ TNB</a>{% endif %}
+    {% if m.code == 'AFFERMAGE_SOUKS' %}<a href="{{ url_for('sou.sou_liste') }}" class="btn btn-outline btn-xs">🛒 Souks</a>{% endif %}
+    {% if m.code == 'LOCATION' %}<a href="{{ url_for('loc.loc_liste') }}" class="btn btn-outline btn-xs">🏢 Location</a>{% endif %}
+    {% if m.code == 'STATIONNEMENT' %}<a href="{{ url_for('sta.sta_liste') }}" class="btn btn-outline btn-xs">🚗 Stationnement</a>{% endif %}
+    {% if m.code == 'ODP' %}<a href="{{ url_for('odp.odp_liste') }}" class="btn btn-outline btn-xs">🎪 ODP</a>{% endif %}
+    {% if m.code == 'FOURRIERE' %}<a href="{{ url_for('fou.fou_liste') }}" class="btn btn-outline btn-xs">🔑 Fourrière</a>{% endif %}
+    {% if m.code == 'TDB' %}<a href="{{ url_for('tdb.tdb_liste') }}" class="btn btn-outline btn-xs">🍺 TDB</a>{% endif %}
+  {% endfor %}
+  <!-- Supprimer le contribuable (droits requis) -->
+  <form method="post" action="{{ url_for('contribuables.supprimer_contribuable', id=contrib.id) }}"
+        style="margin-left:auto"
+        onsubmit="return confirmForm(this, {title:'Supprimer le contribuable',msg:'Archiver <strong>{{ contrib.nom }} {{ contrib.prenom or contrib.raison_sociale or '' }}</strong> ? Il ne sera plus visible dans la liste. Ses déclarations seront conservées.',type:'danger',confirmText:'🗑️ Supprimer le contribuable',icon:'🗑️'})">
+    <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5">🗑️ Supprimer</button>
+  </form>
+</div>
+
+<!-- ─── TABS ─── -->
+<div class="ctb-tabs" id="ctbTabs">
+  <button class="ctb-tab-btn" data-tab="ctbPaneInfo">📋 Informations</button>
+  <button class="ctb-tab-btn" data-tab="ctbPaneModules">📦 Modules &amp; Impayés</button>
+  <button class="ctb-tab-btn" data-tab="ctbPaneHisto">💳 Historique
+    {% if bulletins %}<span style="background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;font-size:.6rem;margin-left:3px">{{ bulletins|length }}</span>{% endif %}
+  </button>
+  <button class="ctb-tab-btn" data-tab="ctbPaneDocs">📁 Documents
+    {% if documents %}<span style="background:#6f42c1;color:#fff;border-radius:10px;padding:0 5px;font-size:.6rem;margin-left:3px">{{ documents|length }}</span>{% endif %}
+  </button>
+</div>
+
+<!-- ─── Pane : Informations ─── -->
+<div id="ctbPaneInfo" class="ctb-tab-pane">
+  <div class="detail-grid">
+    <!-- Identité -->
+    <div class="card">
+      <div class="card-header"><h3>👤 Identité</h3></div>
+      <table class="info-table">
+        <tr><td>Type</td><td>{{ '🏢 Personne Morale' if contrib.type_personne=='morale' else '👤 Personne Physique' }}</td></tr>
+        <tr>
+          <td>Nom complet (FR)</td>
+          <td><span class="val-strong">{{ contrib.nom }} {{ contrib.prenom or '' }}</span></td>
+        </tr>
+        {% if contrib.nom_ar %}
+        <tr>
+          <td>الاسم الكامل</td>
+          <td><span class="val-ar" style="font-size:1.1rem">{{ contrib.nom_ar }} {{ contrib.prenom_ar or '' }}</span></td>
+        </tr>
+        {% endif %}
+        {% if contrib.raison_sociale %}
+        <tr>
+          <td>Raison sociale</td>
+          <td><span class="val-strong">{{ contrib.raison_sociale }}</span></td>
+        </tr>
+        {% endif %}
+        {% if contrib.raison_sociale_ar %}
+        <tr>
+          <td>الاسم التجاري</td>
+          <td><span class="val-ar">{{ contrib.raison_sociale_ar }}</span></td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>N° Contribuable</td>
+          <td><strong style="color:var(--primary);font-size:.95rem">{{ contrib.numero }}</strong></td>
+        </tr>
+        <tr><td>CIN</td><td>{{ contrib.cin or '—' }}</td></tr>
+        <tr><td>ICE</td><td>{{ contrib.ice or '—' }}</td></tr>
+        {% if contrib.rc %}<tr><td>RC</td><td>{{ contrib.rc }}</td></tr>{% endif %}
+        <tr><td>Enregistré le</td><td>{{ (contrib.date_creation or '')[:10] }}</td></tr>
+      </table>
+    </div>
+
+    <!-- Contact & Adresse -->
+    <div class="card">
+      <div class="card-header"><h3>📍 Contact &amp; Adresse</h3></div>
+      <!-- Chips de contact -->
+      <div style="padding:12px 14px;display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--border)">
+        {% if contrib.telephone %}
+        <a href="tel:{{ contrib.telephone }}" class="contact-chip">📞 {{ contrib.telephone }}</a>
+        {% endif %}
+        {% if contrib.email %}
+        <a href="mailto:{{ contrib.email }}" class="contact-chip" style="color:var(--accent)">✉️ {{ contrib.email }}</a>
+        {% endif %}
+        {% if not contrib.telephone and not contrib.email %}
+        <span style="font-size:.78rem;color:var(--muted);padding:8px">Aucune coordonnée</span>
+        {% endif %}
+      </div>
+      <table class="info-table">
+        <tr>
+          <td>Adresse (FR)</td>
+          <td>{{ contrib.adresse or '—' }}</td>
+        </tr>
+        {% if contrib.adresse_ar %}
+        <tr>
+          <td>العنوان</td>
+          <td><span class="val-ar" style="font-size:1rem">{{ contrib.adresse_ar }}</span></td>
+        </tr>
+        {% endif %}
+        <tr><td>Ville</td><td>{{ contrib.ville or '—' }}</td></tr>
+        <tr><td>Code postal</td><td>{{ contrib.code_postal or '—' }}</td></tr>
+        <tr><td>Téléphone</td><td>{{ contrib.telephone or '—' }}</td></tr>
+        <tr><td>Email</td><td>{{ contrib.email or '—' }}</td></tr>
+        <tr><td>Commune</td><td>{{ contrib.commune_nom or '—' }}</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Pane : Modules ─── -->
+<div id="ctbPaneModules" class="ctb-tab-pane">
+  <div class="detail-grid">
+    <div class="card">
+      <div class="card-header"><h3>📦 Modules actifs ({{ modules|length }})</h3></div>
+      <div style="padding:12px">
+        {% for m in modules %}
+        <div class="module-card">
+          <div>
+            <div class="mc-label">{{ m.label }}</div>
+            <div class="mc-count">{{ m.nb }} enregistrement(s)</div>
+          </div>
+          {% if impaye_par_module.get(m.code) %}
+          <span class="mc-imp">⚠️ {{ "%.2f"|format(impaye_par_module[m.code].montant) }} DH</span>
+          {% else %}
+          <span class="mc-ok">✅ À jour</span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:24px"><span class="ei">📦</span>Aucun module actif pour ce contribuable</div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>📊 Récapitulatif impayés</h3></div>
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Module</th><th>Impayé DH</th></tr></thead>
+          <tbody>
+            {% for code, data in impaye_par_module.items() %}
+            <tr>
+              <td>{{ data.label }}</td>
+              <td><strong style="color:var(--danger)">{{ "%.2f"|format(data.montant) }} DH</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" style="text-align:center;padding:20px;color:var(--ok);font-weight:700">✅ Aucun impayé</td></tr>
+            {% endfor %}
+            {% if total_impaye > 0 %}
+            <tr style="background:var(--bg);font-weight:900;border-top:2px solid var(--border)">
+              <td>TOTAL</td>
+              <td style="color:var(--danger);font-size:1.05rem">{{ "%.2f"|format(total_impaye) }} DH</td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Pane : Historique ─── -->
+<div id="ctbPaneHisto" class="ctb-tab-pane">
+  <div class="card">
+    <div class="card-header">
+      <h3>💳 Historique paiements</h3>
+      <span style="font-size:.72rem;color:var(--muted)">{{ bulletins|length }} bulletin(s)</span>
+    </div>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr><th>N° Bulletin</th><th>Module</th><th>Année</th><th>Montant</th><th>Mode</th><th>Date</th><th>Statut</th></tr>
+        </thead>
+        <tbody>
+          {% for b in bulletins %}
+          <tr>
+            <td><strong style="color:var(--primary);font-size:.78rem">{{ b.numero_bulletin or '—' }}</strong></td>
+            <td style="font-size:.74rem">{{ b.module or '—' }}</td>
+            <td>{{ b.annee or '—' }}</td>
+            <td><strong>{{ "%.2f"|format(b.montant or 0) }} DH</strong></td>
+            <td style="font-size:.74rem">{{ b.mode_paiement or '—' }}</td>
+            <td style="font-size:.74rem">{{ (b.date_paiement or b.date_creation or '')[:10] }}</td>
+            <td><span class="hist-badge {{ b.statut or '' }}">{{ b.statut or '—' }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)"><span style="font-size:1.8rem">💳</span><br>Aucun paiement enregistré</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if bulletins %}
+    <div style="padding:10px 16px;background:var(--bg);border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:.78rem;font-weight:700">
+      <span style="color:var(--muted)">Total encaissé</span>
+      <strong style="color:var(--ok);font-size:.9rem">{{ "%.2f"|format(total_encaisse or 0) }} DH</strong>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ─── Pane : Documents ─── -->
+<div id="ctbPaneDocs" class="ctb-tab-pane">
+  <div class="detail-grid">
+    <div class="card">
+      <div class="card-header"><h3>📁 Documents uploadés</h3></div>
+      <div style="padding:12px">
+        {% for doc in documents %}
+        <div class="doc-card">
+          <div>
+            <div class="doc-type">{{ doc.type_doc }}</div>
+            <div class="doc-name">{{ doc.nom_fichier }}</div>
+            <div style="font-size:.6rem;color:var(--muted)">{{ doc.date_upload or '' }}</div>
+          </div>
+          <div class="df gap-1">
+            <a href="{{ url_for('contribuables.ctb_doc_telecharger', doc_id=doc.id) }}"
+               class="btn btn-outline btn-xs">⬇️</a>
+            <form method="post" action="{{ url_for('contribuables.ctb_doc_supprimer', doc_id=doc.id) }}"
+                  onsubmit="return confirmForm(this, {title:'Supprimer le document',msg:'Ce document sera supprimé définitivement.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+              <button type="submit" class="btn btn-xs" style="background:var(--danger);color:#fff">🗑</button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:24px;color:var(--muted)"><span style="font-size:2rem">📁</span><br>Aucun document</div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>⬆️ Uploader un document</h3></div>
+      <div style="padding:16px">
+        <form method="post" action="{{ url_for('contribuables.ctb_upload', id=contrib.id) }}" enctype="multipart/form-data">
+          <div class="form-group mb-3">
+            <label>Type de document</label>
+            <select name="type_doc" class="form-control">
+              <option value="cin">🪪 Carte Nationale (CIN)</option>
+              <option value="rc">📋 Registre de Commerce</option>
+              <option value="ice">🏭 Certificat ICE</option>
+              <option value="contrat">📝 Contrat</option>
+              <option value="quittance">🧾 Quittance</option>
+              <option value="autre">📄 Autre</option>
+            </select>
+          </div>
+          <div class="form-group mb-3">
+            <label>Fichier <span style="color:var(--danger)">*</span></label>
+            <div class="upload-zone" onclick="document.getElementById('ctbFileInput').click()">
+              <div style="font-size:1.8rem">📎</div>
+              <div style="font-size:.82rem;color:var(--muted);margin-top:6px">Cliquez pour sélectionner</div>
+              <div style="font-size:.7rem;color:var(--muted)">PDF, JPG, PNG, DOCX…</div>
+              <div id="ctbFileName" style="font-size:.78rem;color:var(--primary);margin-top:8px;font-weight:700"></div>
+            </div>
+            <input type="file" name="fichier" id="ctbFileInput" style="display:none"
+                   onchange="document.getElementById('ctbFileName').textContent = this.files[0]?.name || ''">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">⬆️ Uploader</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var TABS = ['ctbPaneInfo','ctbPaneModules','ctbPaneHisto','ctbPaneDocs'];
+  function activateTab(tabId) {
+    TABS.forEach(function(id) {
+      var el = document.getElementById(id);
+      if(el) el.classList.remove('active');
+    });
+    document.querySelectorAll('.ctb-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    var pane = document.getElementById(tabId);
+    if(pane) pane.classList.add('active');
+    var btn = document.querySelector('.ctb-tab-btn[data-tab="' + tabId + '"]');
+    if(btn) btn.classList.add('active');
+    try { sessionStorage.setItem('ctbActiveTab', tabId); } catch(e) {}
+  }
+  document.querySelectorAll('.ctb-tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { activateTab(this.getAttribute('data-tab')); });
+  });
+  var saved = '';
+  try { saved = sessionStorage.getItem('ctbActiveTab') || ''; } catch(e) {}
+  activateTab((saved && document.getElementById(saved)) ? saved : 'ctbPaneInfo');
+})();
+</script>
+{% endblock %}

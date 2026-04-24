@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block page_title %}Configuration — Régie{% endblock %}
+
+{% block content %}
+<style>
+.config-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:20px; align-items:start }
+
+/* Panel card */
+.cfg-panel {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+  transition:box-shadow .2s;
+}
+.cfg-panel:hover { box-shadow:0 4px 18px rgba(0,0,0,.1) }
+
+.cfg-panel-head {
+  padding:14px 18px;
+  background:linear-gradient(135deg, var(--primary), var(--primary-l));
+  color:#fff;
+  font-weight:700;
+  font-size:.88rem;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.cfg-panel-head .add-btn {
+  background:rgba(255,255,255,.2);
+  border:1px solid rgba(255,255,255,.4);
+  color:#fff;
+  border-radius:8px;
+  padding:4px 12px;
+  font-size:.72rem;
+  font-weight:700;
+  cursor:pointer;
+  transition:background .2s;
+  white-space:nowrap;
+}
+.cfg-panel-head .add-btn:hover { background:rgba(255,255,255,.35) }
+
+/* Item row */
+.cfg-item {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 16px;
+  border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.cfg-item:last-child { border-bottom:none }
+.cfg-item:hover { background:var(--bg) }
+.cfg-item.inactive { opacity:.5 }
+
+.cfg-item-icon {
+  width:36px; height:36px;
+  border-radius:10px;
+  background:var(--bg);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.1rem;
+  flex-shrink:0;
+  border:1px solid var(--border);
+}
+
+.cfg-item-info { flex:1; min-width:0 }
+.cfg-item-name { font-size:.85rem; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.cfg-item-sub { font-size:.71rem; color:var(--muted); margin-top:1px }
+
+.cfg-item-actions { display:flex; gap:4px; flex-shrink:0 }
+.action-btn {
+  width:28px; height:28px;
+  border-radius:7px;
+  border:1px solid var(--border);
+  background:var(--card);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:.8rem;
+  transition:all .15s;
+  color:var(--text);
+}
+.action-btn:hover { transform:scale(1.08) }
+.action-btn.edit:hover { background:#dbeafe; border-color:#93c5fd; color:#1d4ed8 }
+.action-btn.del:hover { background:#fee2e2; border-color:#fca5a5; color:#dc2626 }
+.action-btn.toggle-on { background:#dcfce7; border-color:#86efac; color:#15803d }
+.action-btn.toggle-off { background:#fef3c7; border-color:#fde047; color:#92400e }
+
+/* Valeur badge pill */
+.vtype-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 9px; border-radius:12px; font-size:.68rem; font-weight:700;
+}
+.vtype-timbre { background:#dbeafe; color:#1e40af }
+.vtype-ticket { background:#fce7f3; color:#9d174d }
+
+/* Empty state */
+.cfg-empty { padding:24px; text-align:center; color:var(--muted); font-size:.78rem }
+.cfg-empty .ei { font-size:1.8rem; display:block; margin-bottom:6px }
+</style>
+
+<div class="df gap-2 mb-3" style="align-items:center;justify-content:space-between;flex-wrap:wrap">
+  <h2 style="font-size:1.1rem;font-weight:800;color:var(--primary)">⚙️ Configuration — Régie des Recettes</h2>
+  <a href="{{ url_for('regie.index') }}" class="btn btn-outline" style="font-size:.78rem">← Tableau de bord</a>
+</div>
+
+<div class="config-grid">
+
+  <!-- ─── Services ─── -->
+  <div class="cfg-panel">
+    <div class="cfg-panel-head">
+      <span>🏢 Services</span>
+      <button type="button" class="add-btn" onclick="openRegieModal('modalService')">+ Ajouter</button>
+    </div>
+    {% for s in services %}
+    <div class="cfg-item {{ 'inactive' if not s.actif else '' }}">
+      <div class="cfg-item-icon">🏢</div>
+      <div class="cfg-item-info">
+        <div class="cfg-item-name">{{ s.nom }}</div>
+        <div class="cfg-item-sub">{{ s.nb_emp }} employé(s) rattaché(s)</div>
+      </div>
+      <div class="cfg-item-actions">
+        <button class="action-btn edit" title="Modifier"
+          onclick="openEditService({{ s.id }}, '{{ s.nom|e }}')">✏️</button>
+        <button class="action-btn {{ 'toggle-on' if s.actif else 'toggle-off' }}" title="{{ 'Désactiver' if s.actif else 'Activer' }}"
+          onclick="submitForm('form-stoggle-{{ s.id }}')">{{ '✅' if s.actif else '⏸️' }}</button>
+        <form id="form-stoggle-{{ s.id }}" method="POST" action="{{ url_for('regie.toggle_service', sid=s.id) }}" style="display:none"></form>
+        <button class="action-btn del" title="Supprimer"
+          onclick="confirmAction(() => submitForm('form-sdel-{{ s.id }}'), {title:'Supprimer le service',msg:'Supprimer <strong>{{ s.nom }}</strong> ? Les employés associés seront également affectés.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">🗑️</button>
+        <form id="form-sdel-{{ s.id }}" method="POST" action="{{ url_for('regie.supprimer_service', sid=s.id) }}" style="display:none"></form>
+      </div>
+    </div>
+    {% else %}
+    <div class="cfg-empty"><span class="ei">🏢</span>Aucun service configuré</div>
+    {% endfor %}
+  </div>
+
+  <!-- ─── Employés ─── -->
+  <div class="cfg-panel">
+    <div class="cfg-panel-head">
+      <span>👤 Employés</span>
+      <button type="button" class="add-btn" onclick="openRegieModal('modalEmploye')">+ Ajouter</button>
+    </div>
+    {% for e in employes %}
+    <div class="cfg-item {{ 'inactive' if not e.actif else '' }}">
+      <div class="cfg-item-icon" style="background:linear-gradient(135deg,#dbeafe,#ede9fe);border-color:#c7d2fe">
+        👤
+      </div>
+      <div class="cfg-item-info">
+        <div class="cfg-item-name">{{ e.nom }} {{ e.prenom or '' }}</div>
+        <div class="cfg-item-sub">
+          {% if e.matricule %}Mat. {{ e.matricule }} · {% endif %}
+          {{ e.service_nom or '—' }}
+        </div>
+      </div>
+      <div class="cfg-item-actions">
+        <button class="action-btn edit" title="Modifier"
+          onclick="openEditEmploye({{ e.id }}, '{{ e.nom|e }}', '{{ (e.prenom or '')|e }}', '{{ (e.matricule or '')|e }}', {{ e.service_id or 0 }})">✏️</button>
+        <button class="action-btn {{ 'toggle-on' if e.actif else 'toggle-off' }}" title="{{ 'Désactiver' if e.actif else 'Activer' }}"
+          onclick="submitForm('form-etoggle-{{ e.id }}')">{{ '✅' if e.actif else '⏸️' }}</button>
+        <form id="form-etoggle-{{ e.id }}" method="POST" action="{{ url_for('regie.toggle_employe', eid=e.id) }}" style="display:none"></form>
+        <button class="action-btn del" title="Supprimer"
+          onclick="confirmAction(() => submitForm('form-edel-{{ e.id }}'), {title:'Supprimer l\'employé',msg:'Supprimer <strong>{{ e.nom }} {{ e.prenom or "" }}</strong> de la liste des employés ?',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">🗑️</button>
+        <form id="form-edel-{{ e.id }}" method="POST" action="{{ url_for('regie.supprimer_employe', eid=e.id) }}" style="display:none"></form>
+      </div>
+    </div>
+    {% else %}
+    <div class="cfg-empty"><span class="ei">👤</span>Aucun employé configuré</div>
+    {% endfor %}
+  </div>
+
+  <!-- ─── Types de valeurs ─── -->
+  <div class="cfg-panel">
+    <div class="cfg-panel-head">
+      <span>🏷️ Types de valeurs</span>
+      <button type="button" class="add-btn" onclick="openRegieModal('modalValeur')">+ Ajouter</button>
+    </div>
+    {% for v in valeurs %}
+    <div class="cfg-item">
+      <div class="cfg-item-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#fcd34d">
+        {{ '🏷️' if v.type_valeur=='timbre' else '🎟️' }}
+      </div>
+      <div class="cfg-item-info">
+        <div class="cfg-item-name">{{ v.designation }}</div>
+        <div class="cfg-item-sub">
+          <span class="vtype-badge {{ 'vtype-timbre' if v.type_valeur=='timbre' else 'vtype-ticket' }}">
+            {{ '🏷️ Timbre' if v.type_valeur=='timbre' else '🎟️ Ticket' }}
+          </span>
+          &nbsp;{{ v.valeur_unitaire }} DH × {{ v.nb_unites_carnet }} =
+          <strong>{{ (v.valeur_unitaire * v.nb_unites_carnet)|int }} DH/carnet</strong>
+        </div>
+      </div>
+      <div class="cfg-item-actions">
+        <button class="action-btn edit" title="Modifier"
+          onclick="openEditValeur({{ v.id }}, '{{ v.designation|e }}', {{ v.valeur_unitaire }}, {{ v.nb_unites_carnet }}, '{{ v.type_valeur }}')">✏️</button>
+        <button class="action-btn del" title="Supprimer"
+          onclick="confirmAction(() => submitForm('form-vdel-{{ v.id }}'), {title:'Supprimer le type de valeur',msg:'Supprimer <strong>{{ v.designation }}</strong> ? Les carnets de ce type ne seront plus accessibles.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">🗑️</button>
+        <form id="form-vdel-{{ v.id }}" method="POST" action="{{ url_for('regie.supprimer_valeur', vid=v.id) }}" style="display:none"></form>
+      </div>
+    </div>
+    {% else %}
+    <div class="cfg-empty"><span class="ei">🏷️</span>Aucun type configuré</div>
+    {% endfor %}
+  </div>
+
+</div>
+
+
+<!-- ══════ MODALS ADD ══════ -->
+
+<!-- Modal Ajouter Service -->
+<div id="modalService" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header"><div class="modal-title">🏢 Nouveau service</div>
+      <button type="button" class="modal-close" onclick="closeRegieModal('modalService')">✕</button></div>
+    <form method="POST" action="{{ url_for('regie.ajouter_service') }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nom du service *</label>
+          <input type="text" name="nom" required class="form-control" placeholder="ex: Légalisation des documents">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeRegieModal('modalService')">Annuler</button>
+        <button type="submit" class="btn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Modifier Service -->
+<div id="modalEditService" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header"><div class="modal-title">✏️ Modifier service</div>
+      <button type="button" class="modal-close" onclick="closeRegieModal('modalEditService')">✕</button></div>
+    <form method="POST" id="formEditService">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nom du service *</label>
+          <input type="text" name="nom" id="editServiceNom" required class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeRegieModal('modalEditService')">Annuler</button>
+        <button type="submit" class="btn">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Ajouter Employé -->
+<div id="modalEmploye" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><div class="modal-title">👤 Nouvel employé</div>
+      <button type="button" class="modal-close" onclick="closeRegieModal('modalEmploye')">✕</button></div>
+    <form method="POST" action="{{ url_for('regie.ajouter_employe') }}">
+      <div class="modal-body" style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group"><label>Nom *</label><input type="text" name="nom" required class="form-control"></div>
+          <div class="form-group"><label>Prénom</label><input type="text" name="prenom" class="form-control"></div>
+        </div>
+        <div class="form-group"><label>Matricule</label><input type="text" name="matricule" class="form-control" placeholder="MAT-001"></div>
+        <div class="form-group">
+          <label>Service *</label>
+          <select name="service_id" required class="form-control">
+            <option value="">— Sélectionner —</option>
+            {% for s in services %}<option value="{{ s.id }}">{{ s.nom }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeRegieModal('modalEmploye')">Annuler</button>
+        <button type="submit" class="btn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Modifier Employé -->
+<div id="modalEditEmploye" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><div class="modal-title">✏️ Modifier employé</div>
+      <button type="button" class="modal-close" onclick="closeRegieModal('modalEditEmploye')">✕</button></div>
+    <form method="POST" id="formEditEmploye">
+      <div class="modal-body" style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group"><label>Nom *</label><input type="text" name="nom" id="editEmpNom" required class="form-control"></div>
+          <div class="form-group"><label>Prénom</label><input type="text" name="prenom" id="editEmpPrenom" class="form-control"></div>
+        </div>
+        <div class="form-group"><label>Matricule</label><input type="text" name="matricule" id="editEmpMat" class="form-control"></div>
+        <div class="form-group">
+          <label>Service *</label>
+          <select name="service_id" id="editEmpService" required class="form-control">
+            {% for s in services %}<option value="{{ s.id }}">{{ s.nom }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeRegieModal('modalEditEmploye')">Annuler</button>
+        <button type="submit" class="btn">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Ajouter Valeur -->
+<div id="modalValeur" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><div class="modal-title">🏷️ Nouveau type de valeur</div>
+      <button type="button" class="modal-close" onclick="closeRegieModal('modalValeur')">✕</button></div>
+    <form method="POST" action="{{ url_for('regie.ajouter_valeur') }}">
+      <div class="modal-body" style="display:grid;gap:12px">
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select name="type_valeur" class="form-control">
+            <option value="timbre">🏷️ Timbre</option>
+            <option value="ticket">🎟️ Ticket</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Désignation *</label><input type="text" name="designation" required class="form-control" placeholder="ex: Timbre État Civil"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group"><label>Valeur unitaire (DH) *</label><input type="number" step="0.01" name="valeur_unitaire" required class="form-control" placeholder="2.00"></div>
+          <div class="form-group"><label>Unités/carnet *</label><input type="number" name="nb_unites_carnet" required class="form-control" placeholder="500"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeRegieModal('modalValeur')">Annuler</button>
+        <button type="submit" class="btn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Modifier Valeur -->
+<div id="modalEditValeur" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><div class="modal-title">✏️ Modifier le type de valeur</div>
+      <button type="button" class="modal-close" onclick="closeRegieModal('modalEditValeur')">✕</button></div>
+    <form method="POST" id="formEditValeur">
+      <div class="modal-body" style="display:grid;gap:12px">
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select name="type_valeur" id="editValType" class="form-control">
+            <option value="timbre">🏷️ Timbre</option>
+            <option value="ticket">🎟️ Ticket</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Désignation *</label><input type="text" name="designation" id="editValDesig" required class="form-control"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group"><label>Valeur unitaire (DH) *</label><input type="number" step="0.01" name="valeur_unitaire" id="editValUnitaire" required class="form-control"></div>
+          <div class="form-group"><label>Unités/carnet *</label><input type="number" name="nb_unites_carnet" id="editValNb" required class="form-control"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeRegieModal('modalEditValeur')">Annuler</button>
+        <button type="submit" class="btn">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script>
+function openRegieModal(id) { document.getElementById(id).style.display = 'flex' }
+function closeRegieModal(id) { document.getElementById(id).style.display = 'none' }
+function submitForm(id) { document.getElementById(id).submit() }
+
+// Close on backdrop click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.style.display = 'none' });
+});
+
+function openEditService(sid, nom) {
+  document.getElementById('editServiceNom').value = nom;
+  document.getElementById('formEditService').action = `/regie/config/service/${sid}/modifier`;
+  openRegieModal('modalEditService');
+}
+
+function openEditEmploye(eid, nom, prenom, matricule, serviceId) {
+  document.getElementById('editEmpNom').value = nom;
+  document.getElementById('editEmpPrenom').value = prenom;
+  document.getElementById('editEmpMat').value = matricule;
+  document.getElementById('editEmpService').value = serviceId;
+  document.getElementById('formEditEmploye').action = `/regie/config/employe/${eid}/modifier`;
+  openRegieModal('modalEditEmploye');
+}
+
+function openEditValeur(vid, desig, unitaire, nb, typeVal) {
+  document.getElementById('editValDesig').value = desig;
+  document.getElementById('editValUnitaire').value = unitaire;
+  document.getElementById('editValNb').value = nb;
+  document.getElementById('editValType').value = typeVal;
+  document.getElementById('formEditValeur').action = `/regie/config/valeur/${vid}/modifier`;
+  openRegieModal('modalEditValeur');
+}
+</script>
+{% endblock %}

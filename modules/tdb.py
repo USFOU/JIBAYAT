@@ -433,3 +433,28 @@ def tdb_avis(id):
                            commune=commune, province=province,
                            today=date.today().isoformat(), n_avis=n_avis,
                            TRIMESTRES=TRIMESTRES)
+
+
+# ═══════════════════════════════════════════════════════════
+# SUPPRIMER UN ÉTABLISSEMENT TDB (archivage logique)
+# ═══════════════════════════════════════════════════════════
+@bp.route('/debits-boissons/<int:id>/supprimer', methods=['POST'])
+@login_required
+def tdb_supprimer(id):
+    user = get_current_user()
+    if not user['peut_supprimer']:
+        flash('❌ Droits insuffisants pour supprimer un dossier.', 'danger')
+        return redirect(url_for('tdb.tdb_detail', id=id))
+    conn = get_db()
+    nb_payes = conn.execute(
+        "SELECT COUNT(*) as c FROM declarations WHERE module='DEBITS_BOISSONS' AND reference_id=? AND statut='paye'",
+        (id,)
+    ).fetchone()['c']
+    if nb_payes > 0:
+        flash(f'⚠️ Impossible de supprimer : {nb_payes} déclaration(s) payée(s) liée(s) à cet établissement.', 'warning')
+        conn.close()
+        return redirect(url_for('tdb.tdb_detail', id=id))
+    conn.execute('UPDATE debits SET actif=0 WHERE id=?', (id,))
+    conn.commit(); conn.close()
+    flash('✅ Établissement archivé et retiré de la liste.', 'success')
+    return redirect(url_for('tdb.tdb_liste'))

@@ -1,60 +1,590 @@
 {% extends 'base.html' %}
 {% block title %}Location Locaux Commerciaux{% endblock %}
-{% block page_title %}🏢 Produit de Location Locaux Commerciaux{% endblock %}
+{% block page_title %}🏢 Location Locaux Commerciaux{% endblock %}
+{% block extra_head %}
+<style>
+/* ── Stats ── */
+.loc-stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.loc-stat{background:var(--card);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow);
+  border-left:4px solid var(--primary);display:flex;align-items:center;gap:10px}
+.loc-stat .ls-icon{font-size:1.4rem}
+.loc-stat .ls-val{font-size:1.2rem;font-weight:900;color:var(--primary)}
+.loc-stat .ls-lbl{font-size:.62rem;color:var(--muted);font-weight:600}
+.loc-stat.danger{border-left-color:var(--danger)}.loc-stat.danger .ls-val{color:var(--danger)}
+.loc-stat.ok{border-left-color:#10b981}.loc-stat.ok .ls-val{color:#10b981}
+.loc-stat.purple{border-left-color:#7c3aed}.loc-stat.purple .ls-val{color:#7c3aed}
+
+/* ── Filter bar ── */
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;background:var(--bg);
+  border-bottom:1px solid var(--border);align-items:center}
+.filter-bar input,.filter-bar select{padding:7px 10px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:.8rem;min-width:0}
+.filter-bar input{flex:2;min-width:160px}
+.filter-bar select{flex:1;min-width:120px}
+.filter-bar .fb-reset{background:none;border:1.5px solid var(--border);border-radius:8px;
+  padding:6px 12px;font-size:.75rem;cursor:pointer;color:var(--muted);font-weight:700}
+.filter-bar .fb-reset:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
+#filterCount{font-size:.72rem;color:var(--muted);white-space:nowrap;font-weight:700}
+
+/* ── Table ── */
+.boutique-cell{display:flex;flex-direction:column;gap:2px}
+.bout-num{font-family:monospace;font-weight:900;color:#7c3aed;font-size:.82rem}
+.bout-sec{font-size:.62rem;color:var(--muted);font-weight:700}
+.loyer-pill{display:inline-block;background:linear-gradient(135deg,var(--primary),var(--primary-l));
+  color:#fff;border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:800}
+.loyer-pill.purple{background:linear-gradient(135deg,#7c3aed,#5b21b6)}
+.ref-local-cell{background:rgba(30,58,95,.06);border-radius:5px;padding:2px 7px;
+  font-weight:800;color:var(--primary);font-size:.78rem}
+
+/* ── Modal cascade ── */
+.cascade-row{display:flex;flex-direction:column;gap:8px;background:var(--bg);
+  border:1.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px}
+.cascade-step{display:flex;align-items:center;gap:8px}
+.cascade-step .cs-num{width:20px;height:20px;border-radius:50%;background:var(--primary);
+  color:#fff;font-size:.65rem;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cascade-step label{font-size:.72rem;font-weight:800;width:80px;color:var(--text);flex-shrink:0}
+.cascade-step select{flex:1;font-size:.78rem}
+.boutique-preview{background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1.5px solid #c4b5fd;
+  border-radius:8px;padding:10px 14px;margin-top:8px;display:none}
+.bp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:5px}
+.bp-item .bp-lbl{font-size:.58rem;color:#7c3aed;opacity:.7;font-weight:700;text-transform:uppercase}
+.bp-item .bp-val{font-size:.82rem;font-weight:900;color:#5b21b6}
+
+/* ── Dispo chips ── */
+.dispo-strip{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.dispo-chip{background:#d1fae5;border:1.5px solid #6ee7b7;color:#065f46;border-radius:6px;
+  padding:3px 10px;font-size:.68rem;font-weight:700;cursor:pointer;transition:all .15s}
+.dispo-chip:hover{background:#a7f3d0;transform:scale(1.03)}
+
+/* ── Modal section titles ── */
+.modal-section-title{font-size:.65rem;font-weight:800;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.5px;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.ctb-select-wrapper{position:relative}
+.ctb-select-wrapper select{width:100%;appearance:none;cursor:pointer}
+.ctb-select-wrapper::after{content:'▾';position:absolute;right:10px;top:50%;
+  transform:translateY(-50%);color:var(--muted);pointer-events:none}
+
+/* ── Print ── */
+@media print {
+  body * { visibility: hidden; }
+  #printZone, #printZone * { visibility: visible; }
+  #printZone { position: fixed; top: 0; left: 0; width: 100%; }
+  .no-print { display: none !important; }
+  .print-header { display: block !important; }
+  table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+  th, td { border: 1px solid #999; padding: 4px 6px; }
+  th { background: #1e3a5f !important; color: #fff !important; -webkit-print-color-adjust: exact; }
+}
+.print-header { display: none; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="alert alert-info">📋 Produit de location des locaux à usage commercial ou professionnel appartenant à la commune.
-  <div class="ms-auto"><a href="{{ url_for('export_excel', module='LOCATION_LOCAUX') }}" class="btn btn-success btn-sm">📊 Excel</a></div>
-</div>
-<div class="card">
-  <div class="card-header"><h3>Baux ({{ items|length }})</h3><button onclick="openModal('addLoc')" class="btn btn-primary btn-sm">➕ Nouveau Bail</button></div>
-  <div class="table-responsive">
-    <table>
-      <thead><tr><th>N°</th><th>Réf. Local</th><th>Locataire</th><th>Adresse</th><th>Loyer/mois</th><th>Statut</th><th>Actions</th></tr></thead>
-      <tbody>
-        {% for item in items %}
-        <tr>
-          <td><strong style="color:var(--primary)">{{ item.numero }}</strong></td>
-          <td><strong>{{ item.ref_local or '—' }}</strong></td>
-          <td>{{ item.nom }} {{ item.prenom or item.raison_sociale or '' }}<br><small class="text-muted">{{ item.ctb_num }}</small></td>
-          <td style="font-size:.78rem">{{ item.adresse or '—' }}</td>
-          <td><strong>{{ item.loyer_mensuel or '—' }} DH</strong></td>
-          <td><span class="badge {{ 'b-ok' if item.statut=='actif' else 'b-danger' }}">{{ item.statut }}</span></td>
-          <td><div class="df gap-2">
-            <a href="{{ url_for('loc.loc_detail', id=item.id) }}" class="btn btn-primary btn-xs">🔍</a>
-            <a href="{{ url_for('loc.loc_paiement', id=item.id) }}" class="btn btn-accent btn-xs">💳</a>
-          </div></td>
-        </tr>
-        {% else %}
-        <tr><td colspan="7" class="empty-state"><span class="ei">🏢</span>Aucun bail</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="no-print">
+
+<!-- Bandeau -->
+<div class="alert alert-info" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <span>📋 Location des locaux commerciaux appartenant à la commune.</span>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <a href="{{ url_for('loc.loc_secteurs') }}" class="btn btn-outline btn-sm">🗂️ Secteurs & Tarifs</a>
+    <button onclick="imprimerListe()" class="btn btn-outline btn-sm">🖨️ Imprimer</button>
+    <a href="{{ url_for('export_excel', module='LOCATION_LOCAUX') }}" class="btn btn-success btn-sm">📊 Excel</a>
   </div>
 </div>
-<div class="modal-overlay" id="addLoc">
-  <div class="modal">
-    <div class="modal-header"><h3>🏢 Nouveau Bail Commercial</h3><button class="modal-close" onclick="closeModal('addLoc')">✕</button></div>
-    <div class="modal-body">
-      <form method="post" action="{{ url_for('loc.loc_ajouter') }}">
-        <div class="form-group mb-3"><label>Locataire (Contribuable) *</label>
-          <select name="contribuable_id" required><option value="">— Sélectionner —</option>
-            {% for c in contribuables %}<option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="form-grid mb-3">
-          <div class="form-group"><label>Référence Local *</label><input name="ref_local" required></div>
-          <div class="form-group"><label>Adresse</label><input name="adresse"></div>
-          <div class="form-group"><label>Superficie (m²)</label><input type="number" name="superficie" step="0.1"></div>
-          <div class="form-group"><label>Loyer Mensuel (DH)</label><input type="number" name="loyer_mensuel" step="1"></div>
-          <div class="form-group"><label>Date début</label><input type="date" name="date_debut"></div>
-          <div class="form-group"><label>Date fin</label><input type="date" name="date_fin"></div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline" onclick="closeModal('addLoc')">Annuler</button>
-          <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
-        </div>
-      </form>
+
+<!-- KPIs -->
+{% set ns = namespace(total_loyer=0) %}
+{% for item in items %}{% set ns.total_loyer = ns.total_loyer + (item.loyer_mensuel|float(0)) %}{% endfor %}
+<div class="loc-stat-strip no-print">
+  <div class="loc-stat"><span class="ls-icon">🏢</span>
+    <div><div class="ls-val">{{ items|length }}</div><div class="ls-lbl">Total baux</div></div></div>
+  <div class="loc-stat ok"><span class="ls-icon">✅</span>
+    <div><div class="ls-val">{{ items|selectattr('statut','eq','actif')|list|length }}</div><div class="ls-lbl">Actifs</div></div></div>
+  <div class="loc-stat danger"><span class="ls-icon">⚠️</span>
+    <div><div class="ls-val">{{ items|rejectattr('statut','eq','actif')|list|length }}</div><div class="ls-lbl">Résiliés</div></div></div>
+  <div class="loc-stat purple"><span class="ls-icon">🔴</span>
+    <div><div class="ls-val">{{ boutiques_dispo|length }}</div><div class="ls-lbl">Boutiques disponibles</div></div></div>
+</div>
+
+<!-- Boutiques disponibles -->
+{% if boutiques_dispo %}
+<div style="background:#f0fdf4;border:1.5px solid #6ee7b7;border-radius:10px;padding:10px 14px;margin-bottom:14px" class="no-print">
+  <div style="font-size:.72rem;font-weight:800;color:#065f46;margin-bottom:6px">
+    ✅ {{ boutiques_dispo|length }} boutique(s) disponible(s) — cliquez pour pré-remplir
+  </div>
+  <div class="dispo-strip">
+    {% for b in boutiques_dispo %}
+    <div class="dispo-chip"
+         data-boutique-id="{{ b.id }}"
+         data-boutique-num="{{ b.numero }}"
+         data-secteur-code="{{ b.secteur_code }}"
+         data-tarif-label="{{ b.tarif_libelle }}"
+         data-tarif-val="{{ b.tarif_valeur }}"
+         onclick="preselectBoutiqueFromEl(this)">
+      🏪 N°{{ b.numero }} — {{ b.secteur_code }}
+      <span style="opacity:.7">({{ "%.2f"|format(b.tarif_valeur) }} DH)</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+</div>{# /no-print #}
+
+<!-- ══ Zone imprimable ══ -->
+<div id="printZone">
+
+  <!-- ══ Tableau ══ -->
+  <div class="card">
+    <div class="card-header no-print">
+      <h3>📋 Baux commerciaux (<span id="visibleCount">{{ items|length }}</span>)</h3>
+      <button onclick="openModal('addLoc')" class="btn btn-primary btn-sm">➕ Nouveau Bail</button>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-bar no-print">
+      <input type="text" id="searchInput" placeholder="🔍 Nom, CIN, N° boutique, ref local..." oninput="filterTable()">
+      <select id="filterSecteur" onchange="filterTable()">
+        <option value="">— Tous les secteurs —</option>
+        {% for s in secteurs %}
+        <option value="{{ s.code }}">{{ s.code }} — {{ s.libelle }}</option>
+        {% endfor %}
+      </select>
+      <select id="filterStatut" onchange="filterTable()">
+        <option value="">— Tous les statuts —</option>
+        <option value="actif">✅ Actifs</option>
+        <option value="resilie">❌ Résiliés</option>
+        <option value="suspendu">⏸️ Suspendus</option>
+      </select>
+      <button class="fb-reset" onclick="resetFilters()">✕ Réinitialiser</button>
+      <span id="filterCount"></span>
+    </div>
+
+    <div class="table-responsive">
+      <table id="locTable">
+        <thead><tr>
+          <th>N° Bail</th>
+          <th>Boutique / Local</th>
+          <th>Locataire</th>
+          <th>CIN / Tél</th>
+          <th>Tarif / Loyer</th>
+          <th>Période</th>
+          <th>Statut</th>
+          <th class="no-print">Actions</th>
+        </tr></thead>
+        <tbody>
+          {% for item in items %}
+          <tr class="loc-row"
+              data-nom="{{ (item.nom ~ ' ' ~ (item.prenom or item.raison_sociale or ''))|lower }}"
+              data-cin="{{ (item.cin or '')|lower }}"
+              data-boutique="{{ (item.boutique_numero or item.ref_local or '')|lower }}"
+              data-secteur="{{ (item.secteur_code or '')|lower }}"
+              data-statut="{{ item.statut }}">
+            <td><strong style="color:var(--primary);font-size:.78rem">{{ item.numero }}</strong></td>
+            <td>
+              <div class="boutique-cell">
+                {% if item.boutique_numero %}
+                <span class="bout-num">🏪 N°{{ item.boutique_numero }}</span>
+                {% if item.boutique_libelle %}<span style="font-size:.65rem;color:var(--muted)">{{ item.boutique_libelle }}</span>{% endif %}
+                {% elif item.ref_local %}
+                <span class="ref-local-cell">{{ item.ref_local }}</span>
+                {% else %}<span style="color:var(--muted);font-size:.75rem">—</span>{% endif %}
+                {% if item.secteur_code %}
+                <span class="bout-sec">{{ item.secteur_code }}{% if item.tarif_libelle %} · {{ item.tarif_libelle }}{% endif %}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              <a onclick="showCtbInfo({{ item.contribuable_id }})" style="cursor:pointer;color:var(--primary);font-weight:700;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                {{ item.nom }} {{ item.prenom or item.raison_sociale or '' }}
+              </a>
+              <br><small class="text-muted">{{ item.ctb_num }}</small>
+            </td>
+            <td style="font-size:.75rem">
+              {% if item.cin %}<div>🪪 {{ item.cin }}</div>{% endif %}
+              {% if item.telephone %}<div style="color:var(--muted)">📞 {{ item.telephone }}</div>{% endif %}
+            </td>
+            <td>
+              {% if item.tarif_valeur %}
+              <span class="loyer-pill purple">
+                {% if item.type_tarif=='m2' %}{{ item.tarif_valeur }} DH/m²
+                {% else %}{{ "%.2f"|format(item.tarif_valeur|float) }} DH{% endif %}
+              </span>
+              {% if item.type_tarif=='m2' and item.boutique_superficie %}
+              <div style="font-size:.6rem;color:var(--muted)">= {{ "%.2f"|format(item.tarif_valeur * item.boutique_superficie) }} DH/mois</div>
+              {% endif %}
+              {% else %}
+              <span class="loyer-pill">{{ "%.2f"|format(item.loyer_mensuel|float(0)) }} DH/mois</span>
+              {% endif %}
+            </td>
+            <td style="font-size:.75rem">
+              <div>{{ item.date_debut or '—' }}</div>
+              <div style="color:var(--muted)">→ {{ item.date_fin or 'En cours' }}</div>
+            </td>
+            <td>
+              <span class="badge {{ 'b-ok' if item.statut=='actif' else 'b-danger' }}">{{ item.statut }}</span>
+            </td>
+            <td class="no-print">
+              <div class="df gap-1">
+                <a href="{{ url_for('loc.loc_paiement', id=item.id) }}" class="btn btn-accent btn-xs" title="Paiement">💳</a>
+                <button class="btn btn-outline btn-xs" title="Modifier"
+                        onclick="openEditBail({{ item.id }},
+                          '{{ item.ref_local or '' }}',
+                          '{{ item.adresse or '' }}',
+                          {{ item.superficie or 0 }},
+                          {{ item.loyer_mensuel or 0 }},
+                          '{{ item.date_debut or '' }}',
+                          '{{ item.date_fin or '' }}',
+                          '{{ item.statut }}',
+                          {{ item.secteur_id or 'null' }},
+                          {{ item.tarif_id or 'null' }},
+                          {{ item.boutique_id or 'null' }})">✏️</button>
+                <form method="post" action="{{ url_for('loc.loc_supprimer', id=item.id) }}"
+                      onsubmit="return confirmForm(this, {title:'Supprimer le bail',msg:'Le bail N°<strong>{{ item.numero }}</strong> sera archivé. Cette action est irréversible.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+                  <button class="btn btn-xs" style="background:#fee2e2;color:#dc2626;border:none" title="Supprimer">🗑️</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="empty-state">
+            <span class="ei">🏢</span>Aucun bail commercial enregistré
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
+
+</div>{# /printZone #}
+
+
+<!-- ══ MODAL : Nouveau Bail ══ -->
+<div class="modal-overlay" id="addLoc">
+  <div class="modal" style="max-width:680px;width:95vw">
+    <div class="modal-header">
+      <h3>🏢 Nouveau Bail Commercial</h3>
+      <button class="modal-close" onclick="closeModal('addLoc')">✕</button>
+    </div>
+    <form method="post" action="{{ url_for('loc.loc_ajouter') }}" id="addLocForm">
+      <!-- Locataire -->
+      <div class="modal-section-title">👤 Locataire</div>
+      <div class="form-group mb-3">
+        <label>Contribuable (Locataire) *</label>
+        <div class="ctb-select-wrapper">
+          <select name="contribuable_id" required id="ctbSelect">
+            <option value="">— Sélectionner —</option>
+            {% for c in contribuables %}
+            <option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Sélection Boutique cascade -->
+      <div class="modal-section-title">🏪 Boutique — Secteur → Tarif → Boutique</div>
+      <div class="cascade-row">
+        <div class="cascade-step">
+          <div class="cs-num">1</div>
+          <label>Secteur</label>
+          <select id="cascSecteur" onchange="onCascSecteurChange()">
+            <option value="">— Tous —</option>
+            {% for s in secteurs %}<option value="{{ s.id }}">{{ s.code }} — {{ s.libelle }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cascade-step">
+          <div class="cs-num" style="background:#7c3aed">2</div>
+          <label>Tarif</label>
+          <select id="cascTarif" onchange="onCascTarifChange()" disabled>
+            <option value="">— Secteur d'abord —</option>
+          </select>
+        </div>
+        <div class="cascade-step">
+          <div class="cs-num" style="background:#059669">3</div>
+          <label>Boutique</label>
+          <select id="cascBoutique" name="boutique_id" onchange="onCascBoutiqueChange()" disabled>
+            <option value="">— Tarif d'abord —</option>
+          </select>
+        </div>
+        <div id="boutiquePreview" class="boutique-preview">
+          <div style="font-size:.68rem;font-weight:800;color:#7c3aed">🏪 Boutique sélectionnée</div>
+          <div class="bp-grid">
+            <div class="bp-item"><div class="bp-lbl">Numéro</div><div class="bp-val" id="bpNum">—</div></div>
+            <div class="bp-item"><div class="bp-lbl">Superficie</div><div class="bp-val" id="bpSup">—</div></div>
+            <div class="bp-item"><div class="bp-lbl">Loyer/mois</div><div class="bp-val" id="bpTarif">—</div></div>
+            <div class="bp-item"><div class="bp-lbl">Statut</div><div class="bp-val" id="bpStatut">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Infos local -->
+      <div class="modal-section-title">🏢 Infos du local</div>
+      <div class="form-grid mb-3" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label>Réf. locale</label>
+          <input name="ref_local" id="refLocalInput" placeholder="Ex: 55/E, A-12...">
+        </div>
+        <div class="form-group">
+          <label>Adresse</label>
+          <input name="adresse" placeholder="Adresse du local">
+        </div>
+        <div class="form-group">
+          <label>Superficie (m²)</label>
+          <input type="number" name="superficie" step="0.1" min="0" placeholder="0.0" id="superficieInput" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+          <label>Loyer mensuel (DH)</label>
+          <input type="number" name="loyer_mensuel" step="0.01" min="0" placeholder="0.00" id="loyerInput" oninput="updatePreview()">
+        </div>
+      </div>
+
+      <!-- Période -->
+      <div class="modal-section-title">📅 Période</div>
+      <div class="form-grid mb-3" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label>Date de début *</label>
+          <input type="date" name="date_debut" required id="dateDebut" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+          <label>Date de fin</label>
+          <input type="date" name="date_fin">
+        </div>
+      </div>
+
+      <!-- Aperçu -->
+      <div id="previewBox" style="display:none;background:linear-gradient(135deg,var(--primary),var(--primary-l));
+           border-radius:10px;padding:12px 16px;color:#fff;margin-bottom:14px">
+        <div style="font-size:.68rem;opacity:.7;font-weight:700;margin-bottom:5px">📋 APERÇU</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div><div style="font-size:.6rem;opacity:.65">Mois écoulés</div><div id="pvMois" style="font-weight:800"></div></div>
+          <div><div style="font-size:.6rem;opacity:.65">Durée</div><div id="pvDuree" style="font-weight:800"></div></div>
+          <div><div style="font-size:.6rem;opacity:.65">Total estimé</div><div id="pvTotal" style="font-weight:800;color:#fbbf24"></div></div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding-top:12px;border-top:1px solid var(--border)">
+        <button type="button" class="btn btn-outline" onclick="closeModal('addLoc')">Annuler</button>
+        <button type="submit" class="btn btn-primary">💾 Créer le bail</button>
+      </div>
+    </form>
+  </div>
 </div>
+
+
+<!-- ══ MODAL : Modifier Bail ══ -->
+<div class="modal-overlay" id="editLoc">
+  <div class="modal" style="max-width:600px;width:95vw">
+    <div class="modal-header">
+      <h3>✏️ Modifier le Bail</h3>
+      <button class="modal-close" onclick="closeModal('editLoc')">✕</button>
+    </div>
+    <form method="post" id="editLocForm">
+      <div class="modal-section-title">🏢 Local</div>
+      <div class="form-grid mb-3" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label>Réf. locale</label>
+          <input name="ref_local" id="eRefLocal" placeholder="Ex: 55/E">
+        </div>
+        <div class="form-group">
+          <label>Adresse</label>
+          <input name="adresse" id="eAdresse">
+        </div>
+        <div class="form-group">
+          <label>Superficie (m²)</label>
+          <input type="number" name="superficie" id="eSuperficie" step="0.1" min="0">
+        </div>
+        <div class="form-group">
+          <label>Loyer mensuel (DH)</label>
+          <input type="number" name="loyer_mensuel" id="eLoyer" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="modal-section-title">📅 Période & Statut</div>
+      <div class="form-grid mb-3" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="form-group">
+          <label>Date début *</label>
+          <input type="date" name="date_debut" id="eDebut" required>
+        </div>
+        <div class="form-group">
+          <label>Date fin</label>
+          <input type="date" name="date_fin" id="eFin">
+        </div>
+        <div class="form-group">
+          <label>Statut</label>
+          <select name="statut" id="eStatut">
+            <option value="actif">✅ Actif</option>
+            <option value="resilie">❌ Résilié</option>
+            <option value="suspendu">⏸️ Suspendu</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding-top:12px;border-top:1px solid var(--border)">
+        <button type="button" class="btn btn-outline" onclick="closeModal('editLoc')">Annuler</button>
+        <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script>
+// ── Filtres ─────────────────────────────────────────────
+function filterTable(){
+  const q       = document.getElementById('searchInput').value.toLowerCase().trim();
+  const secteur = document.getElementById('filterSecteur').value.toLowerCase();
+  const statut  = document.getElementById('filterStatut').value.toLowerCase();
+  const rows    = document.querySelectorAll('#locTable tbody .loc-row');
+  let visible   = 0;
+  rows.forEach(row => {
+    const nom     = row.dataset.nom || '';
+    const cin     = row.dataset.cin || '';
+    const bout    = row.dataset.boutique || '';
+    const sec     = row.dataset.secteur || '';
+    const stat    = row.dataset.statut || '';
+    const matchQ  = !q || nom.includes(q) || cin.includes(q) || bout.includes(q) || row.textContent.toLowerCase().includes(q);
+    const matchS  = !secteur || sec.includes(secteur);
+    const matchSt = !statut || stat === statut;
+    const show    = matchQ && matchS && matchSt;
+    row.style.display = show ? '' : 'none';
+    if(show) visible++;
+  });
+  const cnt = document.getElementById('filterCount');
+  const total = rows.length;
+  cnt.textContent = (q || secteur || statut) ? visible + '/' + total + ' résultat(s)' : '';
+  document.getElementById('visibleCount').textContent = visible || total;
+}
+function resetFilters(){
+  document.getElementById('searchInput').value = '';
+  document.getElementById('filterSecteur').value = '';
+  document.getElementById('filterStatut').value = '';
+  filterTable();
+}
+
+// ── Cascade Secteur → Tarif → Boutique ───────────────
+function onCascSecteurChange(){
+  const secId = document.getElementById('cascSecteur').value;
+  const tarifSel = document.getElementById('cascTarif');
+  const boutSel  = document.getElementById('cascBoutique');
+  tarifSel.innerHTML = '<option value="">— Choisir un tarif —</option>';
+  boutSel.innerHTML  = '<option value="">— Tarif d\'abord —</option>';
+  boutSel.disabled = true; hideBoutiquePreview();
+  if(!secId){ tarifSel.disabled=true; return; }
+  tarifSel.disabled=true;
+  fetch('/api/loc/secteur/'+secId+'/tarifs')
+    .then(r=>r.json())
+    .then(tarifs=>{
+      tarifs.forEach(t=>{
+        const opt=document.createElement('option');
+        opt.value=t.id; opt.dataset.type=t.type_tarif; opt.dataset.valeur=t.valeur; opt.dataset.unite=t.unite;
+        opt.textContent=t.libelle+' — '+parseFloat(t.valeur).toFixed(2)+' '+t.unite;
+        tarifSel.appendChild(opt);
+      });
+      tarifSel.disabled=tarifs.length===0;
+    });
+}
+function onCascTarifChange(){
+  const tarifId=document.getElementById('cascTarif').value;
+  const boutSel=document.getElementById('cascBoutique');
+  boutSel.innerHTML='<option value="">— Boutiques disponibles —</option>';
+  hideBoutiquePreview();
+  if(!tarifId){boutSel.disabled=true;return;}
+  boutSel.disabled=true;
+  fetch('/api/loc/tarif/'+tarifId+'/boutiques')
+    .then(r=>r.json())
+    .then(bouts=>{
+      bouts.filter(b=>b.statut!=='exploitee').forEach(b=>{
+        const opt=document.createElement('option');
+        opt.value=b.id; opt.dataset.numero=b.numero; opt.dataset.superficie=b.superficie||0; opt.dataset.statut=b.statut;
+        const sup=b.superficie?' — '+b.superficie+'m²':'';
+        opt.textContent='N°'+b.numero+sup+' ['+b.statut+']';
+        boutSel.appendChild(opt);
+      });
+      boutSel.disabled=false;
+    });
+}
+function onCascBoutiqueChange(){
+  const boutSel=document.getElementById('cascBoutique');
+  const tarifSel=document.getElementById('cascTarif');
+  const opt=boutSel.options[boutSel.selectedIndex];
+  if(!opt||!opt.value){hideBoutiquePreview();return;}
+  const tarifOpt=tarifSel.options[tarifSel.selectedIndex];
+  const type=tarifOpt?.dataset.type||'fixe';
+  const valeur=parseFloat(tarifOpt?.dataset.valeur||0);
+  const sup=parseFloat(opt.dataset.superficie||0);
+  let loyer=valeur;
+  if(type==='m2'&&sup>0) loyer=Math.round(valeur*sup*100)/100;
+  document.getElementById('bpNum').textContent='N°'+opt.dataset.numero;
+  document.getElementById('bpSup').textContent=sup?sup+'m²':'—';
+  document.getElementById('bpTarif').textContent=loyer.toFixed(2)+' DH/mois'+(type==='m2'?' ('+valeur+' DH/m²)':'');
+  document.getElementById('bpStatut').textContent=opt.dataset.statut;
+  document.getElementById('boutiquePreview').style.display='';
+  if(sup) document.getElementById('superficieInput').value=sup;
+  document.getElementById('loyerInput').value=loyer.toFixed(2);
+  document.getElementById('refLocalInput').value='N°'+opt.dataset.numero;
+  updatePreview();
+}
+function hideBoutiquePreview(){ document.getElementById('boutiquePreview').style.display='none'; }
+
+// ── Pré-sélection chips ───────────────────────────────
+function preselectBoutiqueFromEl(el){
+  preselectBoutique(el.dataset.boutiqueId, el.dataset.boutiqueNum, parseFloat(el.dataset.tarifVal||0));
+}
+function preselectBoutique(id, numero, tarifVal){
+  openModal('addLoc');
+  document.getElementById('bpNum').textContent='N°'+numero;
+  document.getElementById('bpTarif').textContent=tarifVal.toFixed(2)+' DH/mois';
+  document.getElementById('bpStatut').textContent='disponible';
+  document.getElementById('bpSup').textContent='—';
+  document.getElementById('boutiquePreview').style.display='';
+  document.getElementById('refLocalInput').value='N°'+numero;
+  document.getElementById('loyerInput').value=tarifVal.toFixed(2);
+  const boutSel=document.getElementById('cascBoutique');
+  boutSel.disabled=false;
+  let found=false;
+  for(let i=0;i<boutSel.options.length;i++){
+    if(boutSel.options[i].value==id){boutSel.value=id;found=true;break;}
+  }
+  if(!found){
+    const opt=document.createElement('option'); opt.value=id; opt.selected=true;
+    opt.textContent='N°'+numero+' [disponible]';
+    opt.dataset.numero=numero; opt.dataset.superficie='0'; opt.dataset.statut='disponible';
+    boutSel.appendChild(opt); boutSel.value=id;
+  }
+  updatePreview();
+}
+
+// ── Modifier bail ─────────────────────────────────────
+function openEditBail(id, refLocal, adresse, superficie, loyer, dateDebut, dateFin, statut, secteurId, tarifId, boutiqueId){
+  document.getElementById('editLocForm').action='/location-locaux/'+id+'/modifier';
+  document.getElementById('eRefLocal').value   = refLocal || '';
+  document.getElementById('eAdresse').value    = adresse || '';
+  document.getElementById('eSuperficie').value = superficie || '';
+  document.getElementById('eLoyer').value      = loyer || '';
+  document.getElementById('eDebut').value      = dateDebut || '';
+  document.getElementById('eFin').value        = dateFin || '';
+  document.getElementById('eStatut').value     = statut || 'actif';
+  openModal('editLoc');
+}
+
+// ── Aperçu dynamique ─────────────────────────────────
+function updatePreview(){
+  const loyer=parseFloat(document.getElementById('loyerInput').value)||0;
+  const debutStr=document.getElementById('dateDebut').value;
+  if(!loyer||!debutStr){document.getElementById('previewBox').style.display='none';return;}
+  const debut=new Date(debutStr), now=new Date();
+  const diffMs=now-debut;
+  if(diffMs<0){document.getElementById('previewBox').style.display='none';return;}
+  const moisEcoules=Math.floor(diffMs/(1000*60*60*24*30.44));
+  const annees=Math.floor(moisEcoules/12), moisReste=moisEcoules%12;
+  document.getElementById('previewBox').style.display='block';
+  document.getElementById('pvDuree').textContent=(annees>0?annees+'a ':'')+moisReste+'m';
+  document.getElementById('pvMois').textContent=moisEcoules+' mois';
+  document.getElementById('pvTotal').textContent=(moisEcoules*loyer).toFixed(2)+' DH';
+}
+
+// ── Impression ────────────────────────────────────────
+function imprimerListe(){
+  // Afficher uniquement les lignes visibles
+  window.print();
+}
+</script>
 {% endblock %}

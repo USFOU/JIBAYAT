@@ -165,18 +165,73 @@
     <option value="DEBITS_BOISSONS">Débits de Boissons</option>
     <option value="STATIONNEMENT">Stationnement</option>
     <option value="ODP">ODP</option>
+    <option value="AFFERMAGE_SOUKS">Souks</option>
+    <option value="LOCATION">Location</option>
+    <option value="FOURRIERE">🔑 Fourrière</option>
   </select>
+
   <button class="btn btn-outline btn-sm" onclick="selectAllVisible()">☑ Tout sélectionner</button>
 </div>
 
-<!-- Liste groupée par contribuable -->
+<!-- Déclarations émises (sans bulletin) -->
+{% if decls %}
+<div class="card" style="border: 2px solid var(--accent); margin-bottom: 24px;">
+  <div class="card-header" style="background-color: rgba(37,99,235,0.08);">
+    <h3 style="color:var(--accent)">📋 Demandes de Paiement Émises (à transformer en bulletin)</h3>
+    <span class="badge b-info">{{ decls|length }} Demandes</span>
+  </div>
+  <div class="table-responsive">
+    <table style="margin-bottom:0">
+      <thead>
+        <tr>
+          <th>N° Déclaration</th>
+          <th>Contribuable</th>
+          <th>Module</th>
+          <th>Montant</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in decls %}
+        <tr>
+          <td><strong style="color:var(--primary)">{{ d.numero }}</strong><br><small class="text-muted">{{ (d.date_creation or '')[:10] }}</small></td>
+          <td><strong>{{ d.nom }} {{ d.prenom or d.raison_sociale or '' }}</strong></td>
+          <td><span class="badge b-info">{{ d.module }}</span> <small style="color:var(--muted)">{{ d.annee or '' }}</small></td>
+          <td style="font-size:1.1rem"><strong>{{ "%.2f"|format(d.montant_total) }} DH</strong></td>
+          <td>
+            <form method="post" action="{{ url_for('creer_bulletin') }}" style="margin:0">
+              <input type="hidden" name="declaration_id" value="{{ d.id }}">
+              <input type="hidden" name="date_paiement" value="{{ today }}">
+              <button type="submit" class="btn btn-accent btn-sm">Générer Bulletin 💳</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Liste groupée par contribuable / identité -->
 <div id="bulletins-list">
-{% for ctb_nom in items|map(attribute='nom')|unique|list|sort %}
-  {% set ctb_items = items|selectattr('nom','eq',ctb_nom)|list %}
+{# Séparer bulletins avec et sans contribuable #}
+{% set items_avec = items|selectattr('nom')|list %}
+{% set items_sans = items|rejectattr('nom')|list %}
+{# Groupes avec contribuable #}
+{% for ctb_nom in items_avec|map(attribute='nom')|unique|list|sort %}
+  {% set ctb_items = items_avec|selectattr('nom','eq',ctb_nom)|list %}
+  {% if ctb_items %}
   <div class="group-card" data-group="{{ ctb_nom }}">
     <div class="group-header">
       <input type="checkbox" class="group-chk" onclick="toggleGroup(this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
-      <span>👤 <strong>{{ ctb_nom }}</strong> {{ ctb_items[0].prenom or '' }}</span>
+      <span>
+        {% if ctb_nom and ctb_nom != '— Fourrière / Divers —' %}
+        👤 <strong>{{ ctb_nom }}</strong> {{ ctb_items[0].prenom or '' }}
+        {% else %}
+        🔑 <strong>Fourrière / Sans contribuable</strong>
+        {% endif %}
+      </span>
       <span class="badge b-info" style="font-size:.62rem">{{ ctb_items|length }} BV</span>
       {% set att = ctb_items|selectattr('statut','eq','en_attente')|list %}
       {% if att %}
@@ -187,7 +242,7 @@
     <div class="bul-row"
          data-statut="{{ b.statut }}"
          data-module="{{ b.module }}"
-         data-search="{{ b.nom|lower }} {{ (b.prenom or '')|lower }} {{ b.numero_bulletin|lower }} {{ b.module|lower }}">
+         data-search="{{ (b.nom or '')|lower }} {{ (b.prenom or '')|lower }} {{ b.numero_bulletin|lower }} {{ b.module|lower }} {{ (b.notes or '')|lower }}">
       {% if b.statut == 'en_attente' %}
       <input type="checkbox" class="bul-chk"
              value="{{ b.id }}"
@@ -200,12 +255,13 @@
       <!-- N° Bulletin -->
       <div style="flex:0 0 140px">
         <strong style="color:var(--primary)">{{ b.numero_bulletin }}</strong>
-        <div style="font-size:.7rem;color:var(--muted)">{{ b.date_paiement or b.date_creation[:10] }}</div>
+        <div style="font-size:.7rem;color:var(--muted)">{{ b.date_paiement or (b.date_creation or '')[:10] }}</div>
       </div>
       <!-- Module + Année -->
       <div style="flex:1">
         <span class="badge b-info" style="font-size:.62rem">{{ b.module }}</span>
         {% if b.annee %}<small style="color:var(--muted);margin-left:4px">{{ b.annee }}</small>{% endif %}
+        {% if b.notes %}<div style="font-size:.65rem;color:var(--muted);margin-top:1px">📝 {{ b.notes[:60] }}{% if b.notes|length > 60 %}…{% endif %}</div>{% endif %}
       </div>
       <!-- Montant -->
       <div style="flex:0 0 110px;text-align:right">
@@ -236,10 +292,72 @@
     </div>
     {% endfor %}
   </div>
+  {% endif %}
 {% else %}
-<div class="card"><div class="empty-state"><span class="ei">💳</span>Aucun bulletin de versement.</div></div>
+<div class="card"><div class="empty-state"><span class="ei">💳</span>Aucun bulletin avec contribuable.</div></div>
 {% endfor %}
+
+{# ── Groupe Fourrière (sans contribuable) ── #}
+{% if items_sans %}
+<div class="group-card" data-group="fourriere">
+  <div class="group-header">
+    <input type="checkbox" class="group-chk" onclick="toggleGroup(this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
+    <span>🔑 <strong>Fourrière — Paiements directs</strong></span>
+    <span class="badge b-info" style="font-size:.62rem">{{ items_sans|length }} BV</span>
+    {% set att_f = items_sans|selectattr('statut','eq','en_attente')|list %}
+    {% if att_f %}
+    <span class="stat-en_attente group-total">⏳ {{ "%.2f"|format(att_f|sum(attribute='montant')) }} DH</span>
+    {% endif %}
+  </div>
+  {% for b in items_sans %}
+  <div class="bul-row"
+       data-statut="{{ b.statut }}"
+       data-module="{{ b.module }}"
+       data-search="{{ b.numero_bulletin|lower }} {{ b.module|lower }} {{ (b.notes or '')|lower }}">
+    {% if b.statut == 'en_attente' %}
+    <input type="checkbox" class="bul-chk"
+           value="{{ b.id }}"
+           data-montant="{{ b.montant }}"
+           data-num="{{ b.numero_bulletin }}"
+           onchange="updateSelBar()">
+    {% else %}
+    <span style="width:16px;display:inline-block"></span>
+    {% endif %}
+    <div style="flex:0 0 140px">
+      <strong style="color:var(--primary)">{{ b.numero_bulletin }}</strong>
+      <div style="font-size:.7rem;color:var(--muted)">{{ b.date_paiement or (b.date_creation or '')[:10] }}</div>
+    </div>
+    <div style="flex:1">
+      <span class="badge b-info" style="font-size:.62rem">{{ b.module }}</span>
+      {% if b.notes %}<div style="font-size:.65rem;color:var(--muted);margin-top:1px">📝 {{ b.notes[:70] }}{% if b.notes|length > 70 %}…{% endif %}</div>{% endif %}
+    </div>
+    <div style="flex:0 0 110px;text-align:right">
+      <strong>{{ "%.2f"|format(b.montant) }} DH</strong>
+      <div style="font-size:.7rem;color:var(--muted)">{{ b.mode_paiement }}</div>
+    </div>
+    <div style="flex:0 0 95px;text-align:center">
+      <span class="stat-{{ b.statut }}">
+        {% if b.statut=='paye' %}✅ Payé{% elif b.statut=='en_attente' %}⏳ Attente{% else %}❌ Rejeté{% endif %}
+      </span>
+    </div>
+    <div style="flex:0 0 120px;text-align:center">
+      {% if b.numero_quittance %}
+      <span style="font-weight:800;color:var(--ok);font-size:.78rem">{{ b.numero_quittance }}</span>
+      {% if b.date_quittance %}<div style="font-size:.65rem;color:var(--muted)">{{ b.date_quittance }}</div>{% endif %}
+      {% else %}—{% endif %}
+    </div>
+    <div style="flex:0 0 auto;display:flex;gap:5px">
+      {% if b.statut=='en_attente' and user.peut_valider_paiement %}
+      <button class="btn btn-ok btn-xs" title="Valider" onclick="openValidate({{ b.id }},'{{ b.numero_bulletin }}',{{ b.montant }})">✅</button>
+      <button class="btn btn-danger btn-xs" title="Rejeter" onclick="openReject({{ b.id }},'{{ b.numero_bulletin }}')">❌</button>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
 </div>
+{% endif %}
+</div>
+
 
 <script>
 // ─── Filtre par défaut : en_attente ──────────────────────────────

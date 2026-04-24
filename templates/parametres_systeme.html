@@ -1,0 +1,830 @@
+{% extends "base.html" %}
+{% block title %}⚙️ Paramètres Système — JIBAYAT{% endblock %}
+{% block page_title %}⚙️ Paramètres & Administration Système{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Page Paramètres Système ─────────────────────────────── */
+.sys-tabs{
+  display:flex;gap:4px;
+  background:rgba(0,0,0,0.15);
+  border-radius:14px;padding:6px;
+  margin-bottom:24px;flex-wrap:wrap;
+}
+.sys-tab{
+  padding:9px 18px;border:none;background:transparent;
+  border-radius:10px;font-size:.82rem;font-weight:600;
+  color:var(--muted);cursor:pointer;font-family:inherit;
+  transition:all .2s;display:flex;align-items:center;gap:7px;
+}
+.sys-tab.active{
+  background:#fff;color:var(--primary);
+  box-shadow:0 2px 10px rgba(0,0,0,0.15);
+}
+.sys-tab:hover:not(.active){color:var(--text);background:rgba(255,255,255,0.06);}
+
+.sys-panel{display:none;}
+.sys-panel.active{display:block;}
+
+/* ── Section ── */
+.sys-section{margin-bottom:24px;}
+.sys-section-title{
+  font-size:.78rem;font-weight:800;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;
+  margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.sys-section-title::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+
+/* ── Info boxes ── */
+.info-chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.info-chip{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:10px 16px;
+  display:flex;flex-direction:column;gap:3px;min-width:140px;
+}
+.info-chip .ic-label{font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.info-chip .ic-val{font-size:.95rem;font-weight:700;color:var(--text);}
+.info-chip.ok .ic-val{color:var(--ok);}
+.info-chip.warn .ic-val{color:#f59e0b;}
+.info-chip.accent .ic-val{color:var(--primary-l);}
+
+/* ── Module grid ── */
+.mod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.mod-item{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;
+  background:var(--bg);border:1.5px solid var(--border);
+  border-radius:10px;cursor:pointer;transition:all .2s;
+}
+.mod-item:hover{border-color:var(--primary-l);}
+.mod-item.checked{
+  background:#eff6ff;border-color:var(--primary-l);
+}
+.mod-item input[type=checkbox]{display:none;}
+.mod-check{
+  width:18px;height:18px;border-radius:5px;
+  background:var(--border);border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;flex-shrink:0;transition:all .2s;
+}
+.mod-item.checked .mod-check{
+  background:var(--primary);border-color:var(--primary);color:#fff;
+}
+.mod-text{font-size:.82rem;font-weight:500;color:var(--text);}
+
+/* ── Input rows ── */
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
+.field-row label{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.field-row input{
+  padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:.85rem;color:var(--text);background:#fff;font-family:inherit;
+  transition:border-color .15s;
+}
+.field-row input:focus{outline:none;border-color:var(--primary-l);box-shadow:0 0 0 3px rgba(42,82,152,.1);}
+.field-row input[dir=rtl]{text-align:right;font-family:'Cairo',system-ui,sans-serif;}
+
+/* ── Status feedback ── */
+.feedback{
+  display:none;margin-top:10px;padding:10px 14px;
+  border-radius:8px;font-size:.83rem;
+}
+.feedback.ok{background:#d4edda;color:#155724;border-left:4px solid var(--ok);}
+.feedback.err{background:#f8d7da;color:#721c24;border-left:4px solid var(--danger);}
+.feedback.loading{background:#d1ecf1;color:#0c5460;border-left:4px solid var(--info);}
+
+/* ── Backup log table ── */
+.log-table{width:100%;border-collapse:collapse;}
+.log-table th{padding:8px 12px;text-align:left;background:linear-gradient(135deg,var(--primary),var(--primary-l));color:#fff;font-size:.7rem;font-weight:700;text-transform:uppercase;}
+.log-table td{padding:7px 12px;font-size:.8rem;border-bottom:1px solid var(--border);}
+.log-table tr:hover td{background:rgba(30,58,95,.03);}
+
+/* ── Update badge ── */
+.update-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:20px;font-size:.72rem;font-weight:700;
+}
+.update-badge.ok{background:#d4edda;color:#155724;}
+.update-badge.avail{background:#fff3cd;color:#856404;}
+
+/* ── Zone danger ── */
+.danger-zone{
+  border:2px solid rgba(239,68,68,0.3);border-radius:12px;
+  padding:18px;background:rgba(239,68,68,0.04);
+}
+.danger-zone h4{color:var(--danger);font-size:.9rem;margin-bottom:12px;}
+
+/* ── Toggle switch ── */
+.toggle-wrap{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{
+  position:absolute;cursor:pointer;inset:0;
+  background:#cbd5e1;border-radius:12px;transition:.3s;
+}
+.toggle-slider:before{
+  content:'';position:absolute;
+  width:18px;height:18px;left:3px;bottom:3px;
+  background:#fff;border-radius:50%;transition:.3s;
+}
+.toggle input:checked + .toggle-slider{background:var(--ok);}
+.toggle input:checked + .toggle-slider:before{transform:translateX(20px);}
+.toggle-label{font-size:.88rem;font-weight:600;color:var(--text);}
+
+/* ── Upload drop zone ── */
+.dropzone{
+  border:2px dashed var(--border);border-radius:12px;
+  padding:24px;text-align:center;cursor:pointer;
+  transition:all .2s;background:var(--bg);
+}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--primary-l);background:#eff6ff;}
+.dropzone .dz-icon{font-size:2rem;margin-bottom:8px;}
+.dropzone .dz-text{font-size:.85rem;color:var(--muted);}
+.dropzone input[type=file]{display:none;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sys-tabs">
+  <button class="sys-tab active" onclick="showSysPanel('commune',this)">🏛️ Commune</button>
+  <button class="sys-tab" onclick="showSysPanel('modules',this)">🧩 Modules</button>
+  <button class="sys-tab" onclick="showSysPanel('sauvegarde',this)">💾 Sauvegarde</button>
+  <button class="sys-tab" onclick="showSysPanel('mises-a-jour',this)">🔄 Mises à jour</button>
+  <button class="sys-tab" onclick="showSysPanel('base-donnees',this)">🗄️ Base de données</button>
+  <button class="sys-tab" onclick="showSysPanel('feedback',this)">✉️ Support & Avis</button>
+  <button class="sys-tab" onclick="showSysPanel('apropos',this)">ℹ️ À propos</button>
+</div>
+
+{# ──────────────────────────────────────────── ONGLET COMMUNE ── #}
+<div id="panel-commune" class="sys-panel active">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>🏘️ Informations de la Commune</h3>
+    </div>
+    <div class="card-body">
+      {% if commune_db and commune_db.logo %}
+      <div style="text-align:center;margin-bottom:20px;">
+        <img src="{{ url_for('static', filename=commune_db.logo) }}" alt="Logo commune"
+             style="max-height:100px;border-radius:10px;border:2px solid var(--border);padding:6px;box-shadow:var(--shadow);">
+      </div>
+      {% else %}
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="display:inline-block;width:90px;height:90px;border:2px dashed var(--border);border-radius:10px;line-height:90px;color:var(--muted);font-size:.8rem;text-align:center;">
+          Aucun logo
+        </div>
+      </div>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('modifier_commune') }}" enctype="multipart/form-data">
+
+        <div class="form-group" style="margin-bottom:16px;text-align:center;">
+          <label>Changer le Logo de la Commune</label>
+          <input type="file" name="logo" accept="image/*"
+                 style="display:block;margin:8px auto 0;max-width:320px;font-size:.83rem;">
+          <span style="font-size:.73rem;color:var(--muted);">Formats acceptés : PNG, JPG, JPEG, WEBP</span>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+
+        <div class="form-grid" style="margin-bottom:14px;">
+          <div class="form-group">
+            <label>Nom de la commune (Français) *</label>
+            <input name="nom" required
+                   value="{{ commune_db.nom if commune_db else '' }}"
+                   placeholder="Commune de ...">
+          </div>
+          <div class="form-group">
+            <label>اسم الجماعة (العربية)</label>
+            <input name="nom_ar" dir="rtl"
+                   value="{{ commune_db.nom_ar if commune_db else '' }}"
+                   placeholder="جماعة ...">
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:14px;">
+          <div class="form-group">
+            <label>Président du Conseil (Français)</label>
+            <input name="president_fr"
+                   value="{{ commune_db.president_fr if commune_db else '' }}"
+                   placeholder="Nom complet du président">
+          </div>
+          <div class="form-group">
+            <label>رئيس المجلس (العربية)</label>
+            <input name="president_ar" dir="rtl"
+                   value="{{ commune_db.president_ar if commune_db else '' }}"
+                   placeholder="الاسم الكامل للرئيس">
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:14px;">
+          <div class="form-group">
+            <label>Région (Français)</label>
+            <input name="region"
+                   value="{{ commune_db.region if commune_db else '' }}"
+                   placeholder="Région ...">
+          </div>
+          <div class="form-group">
+            <label>الجهة (العربية)</label>
+            <input name="region_ar" dir="rtl"
+                   value="{{ commune_db.region_ar if commune_db else '' }}"
+                   placeholder="جهة ...">
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:20px;">
+          <div class="form-group">
+            <label>Province / Préfecture (Français)</label>
+            <input name="province"
+                   value="{{ commune_db.province if commune_db else '' }}"
+                   placeholder="Province ...">
+          </div>
+          <div class="form-group">
+            <label>العمالة / الإقليم (العربية)</label>
+            <input name="province_ar" dir="rtl"
+                   value="{{ commune_db.province_ar if commune_db else '' }}"
+                   placeholder="عمالة ...">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">
+            💾 Enregistrer les informations
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+
+
+{# ──────────────────────────────────────────── ONGLET MODULES ── #}
+<div id="panel-modules" class="sys-panel">
+  <div class="card">
+    <div class="card-header">
+      <h3>🧩 Modules Fiscaux Actifs</h3>
+      <div class="df gap-2">
+        <button class="btn btn-success btn-sm" onclick="toggleAllMods(true)">✅ Tout activer</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleAllMods(false)">❌ Tout désactiver</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;">
+        Activez uniquement les modules fiscaux correspondant aux taxes et contributions gérées par votre commune.
+      </p>
+      <form id="form-modules">
+        <div class="mod-grid" id="modules-grid">
+          {% set active_modules = cfg.get('modules', all_modules.keys()|list) %}
+          {% for code, label in all_modules.items() %}
+          <label class="mod-item {{ 'checked' if code in active_modules else '' }}" id="modlbl-{{ code }}" onclick="toggleMod('{{ code }}')">
+            <input type="checkbox" name="modules" value="{{ code }}"
+                   id="modcb-{{ code }}" {{ 'checked' if code in active_modules else '' }}>
+            <span class="mod-check">{{ '✓' if code in active_modules else '' }}</span>
+            <span class="mod-text">{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" onclick="saveSection('modules')">
+            💾 Sauvegarder la configuration des modules
+          </button>
+        </div>
+        <div class="feedback" id="fb-modules"></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+{# ──────────────────────────────────────────── ONGLET SAUVEGARDE ── #}
+<div id="panel-sauvegarde" class="sys-panel">
+
+  <!-- Option globale auto -->
+  <div class="card">
+    <div class="card-header"><h3>☁️ Configuration Sauvegarde Automatique</h3></div>
+    <div class="card-body">
+      <form id="form-backup-config">
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" name="auto_backup" value="1" id="cb-auto-backup"
+                   {{ 'checked' if cfg.get('auto_backup', True) else '' }}>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label">Activer la sauvegarde automatique à chaque opération critique</span>
+        </div>
+
+        <div class="sys-section-title">📁 Option A — Dossier local synchronisé</div>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+          Indiquez un dossier local synchronisé automatiquement avec le cloud (Google Drive, OneDrive, Dropbox…).
+          La copie sera déposée dans ce dossier à chaque arrêt du serveur.
+        </p>
+        <div class="field-row">
+          <label>Chemin du dossier de sauvegarde</label>
+          <input type="text" name="gdrive_backup" id="inp-gdrive-backup"
+                 value="{{ cfg.get('gdrive_backup','') }}"
+                 placeholder="Ex: C:\Users\...\Google Drive\Sauvegardes JIBAYAT">
+        </div>
+
+        <div class="sys-section-title" style="margin-top:20px;">🌐 Option B — Google Drive API (Cloud direct)</div>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+          Envoyez la base de données directement dans Google Drive via un Google Apps Script configuré.
+        </p>
+        <div class="form-grid">
+          <div class="field-row" style="grid-column:1/-1">
+            <label>URL Webhook Google Apps Script</label>
+            <input type="text" name="gdrive_webhook" id="inp-gdrive-webhook"
+                   value="{{ cfg.get('gdrive_webhook','') }}"
+                   placeholder="https://script.google.com/macros/s/.../exec">
+          </div>
+          <div class="field-row">
+            <label>ID du dossier Google Drive</label>
+            <input type="text" name="gdrive_folder_id" id="inp-gdrive-folder"
+                   value="{{ cfg.get('gdrive_folder_id','') }}"
+                   placeholder="Ex: 1qRS...EF9c">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" onclick="saveSection('backup-config')">
+            💾 Sauvegarder la configuration
+          </button>
+          <button type="button" class="btn btn-info" onclick="testGDrive()">
+            🧪 Tester la connexion Cloud
+          </button>
+        </div>
+        <div class="feedback" id="fb-backup-config"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sauvegarde manuelle -->
+  <div class="card">
+    <div class="card-header"><h3>📦 Sauvegarde & Export Manuel</h3></div>
+    <div class="card-body">
+      <div class="df gap-2" style="flex-wrap:wrap;margin-bottom:20px;">
+        <button class="btn btn-primary" onclick="backupNow()">
+          🚀 Sauvegarder maintenant
+        </button>
+        <a href="/api/systeme/export-db" class="btn btn-outline">
+          ⬇️ Télécharger la base (.db)
+        </a>
+      </div>
+      <div class="feedback" id="fb-backup-now"></div>
+
+      <div class="sys-section-title" style="margin-top:20px;">📋 Historique des sauvegardes</div>
+      {% if logs %}
+      <div class="table-responsive">
+        <table class="log-table" id="backup-log-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Destination</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody id="backup-log-body">
+            {% for log in logs[:20] %}
+            <tr>
+              <td>{{ log.get('date','—') }}</td>
+              <td>{{ log.get('type','—') }}</td>
+              <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                {{ log.get('dest','—') }}
+              </td>
+              <td>{{ log.get('status','—') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="ei">📋</span>Aucune sauvegarde enregistrée encore.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Restauration -->
+  <div class="card">
+    <div class="danger-zone">
+      <h4>⚠️ Zone Danger — Restauration de Base de Données</h4>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;">
+        L'importation d'une sauvegarde remplace <strong>complètement</strong> la base de données actuelle.
+        Une copie de sécurité sera créée automatiquement avant le remplacement.
+      </p>
+      <form id="form-import">
+        <div class="dropzone" id="dz" onclick="document.getElementById('file-db').click()">
+          <div class="dz-icon">📂</div>
+          <div class="dz-text" id="dz-text">Cliquer ou glisser-déposer un fichier <strong>.db</strong> ici</div>
+          <input type="file" id="file-db" accept=".db" onchange="handleFileSelect(this)">
+        </div>
+        <button type="button" class="btn btn-danger" style="margin-top:12px;" onclick="importDb()">
+          🔄 Restaurer cette sauvegarde
+        </button>
+      </form>
+      <div class="feedback" id="fb-import"></div>
+    </div>
+  </div>
+
+</div>
+
+
+{# ──────────────────────────────────────────── ONGLET MISES À JOUR ── #}
+<div id="panel-mises-a-jour" class="sys-panel">
+  <div class="card">
+    <div class="card-header"><h3>🔄 Gestion des Mises à Jour</h3></div>
+    <div class="card-body">
+      <div class="info-chips">
+        <div class="info-chip accent">
+          <span class="ic-label">Version locale</span>
+          <span class="ic-val" id="ver-local">{{ version }}</span>
+        </div>
+        <div class="info-chip" id="chip-remote">
+          <span class="ic-label">Version distante</span>
+          <span class="ic-val" id="ver-remote">—</span>
+        </div>
+        <div class="info-chip">
+          <span class="ic-label">Dépôt</span>
+          <span class="ic-val" style="font-size:.75rem;">Yomix90/JIBAYAT</span>
+        </div>
+        <div class="info-chip">
+          <span class="ic-label">Branche</span>
+          <span class="ic-val">main</span>
+        </div>
+      </div>
+
+      <div id="update-status" class="feedback" style="margin-bottom:16px;"></div>
+
+      <div class="df gap-2" style="flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="checkUpdate()">🔍 Vérifier les mises à jour</button>
+        <a href="https://github.com/Yomix90/JIBAYAT" target="_blank" class="btn btn-outline">
+          🌐 Voir sur GitHub
+        </a>
+      </div>
+
+      <div style="margin-top:24px;padding:14px;background:var(--bg);border-radius:10px;font-size:.8rem;color:var(--muted);">
+        💡 <strong>Comment mettre à jour :</strong> Cliquez "Vérifier", puis si une mise à jour est disponible, utilisez le script <code>git_pull.bat</code> ou copiez la nouvelle version depuis GitHub.
+      </div>
+      
+      <hr>
+      <div class="sys-section-title">🔑 Accès Dépôt Privé</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">Si votre dépôt GitHub est privé, vous devez configurer un <strong>Token d'accès personnel (PAT)</strong> pour pouvoir vérifier les mises à jour.</p>
+      
+      <form id="form-github-config" onsubmit="event.preventDefault(); saveSection('github-config');">
+        <div class="form-group">
+          <label>Token GitHub (Classic ou Fine-grained)</label>
+          <input type="password" name="github_token" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxx" value="{{ cfg.github_token }}">
+        </div>
+        <button type="submit" class="btn btn-success">💾 Sauvegarder Token</button>
+        <div id="fb-github-config" class="feedback" style="margin-top:10px;display:none;"></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+{# ──────────────────────────────────────────── ONGLET BASE DE DONNÉES ── #}
+<div id="panel-base-donnees" class="sys-panel">
+  <div class="card">
+    <div class="card-header"><h3>🗄️ État de la Base de Données</h3></div>
+    <div class="card-body">
+      <div class="info-chips">
+        <div class="info-chip {{ 'ok' if db_exists else 'warn' }}">
+          <span class="ic-label">Statut</span>
+          <span class="ic-val">{{ '✅ Présente' if db_exists else '⚠️ Absente' }}</span>
+        </div>
+        {% if db_exists %}
+        <div class="info-chip">
+          <span class="ic-label">Taille</span>
+          <span class="ic-val">{{ db_size }} Mo</span>
+        </div>
+        {% endif %}
+        <div class="info-chip">
+          <span class="ic-label">Fichier</span>
+          <span class="ic-val" style="font-size:.75rem;">fiscalite.db</span>
+        </div>
+      </div>
+
+      <div class="sys-section-title">🔧 Initialisation / Mise à Jour Structure</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;">
+        Cette opération crée ou met à jour la structure de la base de données (tables, index, données initiales).
+        <strong>Elle ne supprime aucune donnée existante.</strong>
+      </p>
+      <button class="btn btn-warn" onclick="initDb()">🔧 Initialiser / Mettre à jour la DB</button>
+      <div class="feedback" id="fb-initdb"></div>
+    </div>
+  </div>
+</div>
+
+
+{# ──────────────────────────────────────────── ONGLET À PROPOS ── #}
+<div id="panel-apropos" class="sys-panel">
+  <div class="card">
+    <div class="card-header"><h3>ℹ️ À propos de JIBAYAT</h3></div>
+    <div class="card-body">
+      <table class="table" style="margin-bottom:0;">
+        <tbody>
+          <tr><td class="fw-bold" style="width:180px;color:var(--muted);">🏛️ Application</td>
+              <td>JIBAYAT — Gestion Fiscale Communale</td></tr>
+          <tr><td class="fw-bold" style="color:var(--muted);">📦 Version</td>
+              <td><span class="badge b-primary">v{{ version }}</span></td></tr>
+          <tr><td class="fw-bold" style="color:var(--muted);">📧 Support</td>
+              <td><a href="mailto:yomix90@gmail.com">yomix90@gmail.com</a></td></tr>
+          <tr><td class="fw-bold" style="color:var(--muted);">📄 Licence</td>
+              <td>Usage dédié aux communes marocaines</td></tr>
+          <tr><td class="fw-bold" style="color:var(--muted);">🔗 Dépôt</td>
+              <td><a href="https://github.com/Yomix90/JIBAYAT" target="_blank">github.com/Yomix90/JIBAYAT</a></td></tr>
+        </tbody>
+      </table>
+      <hr>
+      <a href="{{ url_for('index') }}" class="btn btn-primary">🏠 Retour au tableau de bord</a>
+    </div>
+  </div>
+</div>
+
+{# ──────────────────────────────────────────── ONGLET FEEDBACK ── #}
+<div id="panel-feedback" class="sys-panel">
+  <div class="card">
+    <div class="card-header"><h3>✉️ Support & Avis (Bugs / Suggestions)</h3></div>
+    <div class="card-body">
+      
+      <div class="sys-section-title">⚙️ Configuration Admin</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">Configurez le Webhook Google Apps Script pour recevoir les avis sur <strong>Google Sheets</strong>.</p>
+      
+      <form id="form-feedback-config" onsubmit="event.preventDefault(); saveSection('feedback-config');">
+        <div class="form-group">
+          <label>URL Webhook Apps Script (Google Sheets)</label>
+          <input type="text" name="feedback_webhook" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" value="{{ cfg.feedback_webhook }}">
+        </div>
+        <button type="submit" class="btn btn-success">💾 Sauvegarder Webhook</button>
+        <div id="fb-feedback-config" class="feedback" style="margin-top:10px;display:none;"></div>
+      </form>
+
+      <hr>
+
+      <div class="sys-section-title">📝 Envoyer un Avis / Bug</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">Votre retour sera enregistré et analysé par l'administrateur.</p>
+      
+      <form id="form-send-feedback" onsubmit="event.preventDefault(); sendFeedback();">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Type de retour *</label>
+            <select name="type" class="form-input" required>
+              <option value="Suggestion">💡 Suggestion ou Amélioration</option>
+              <option value="Bug">🐛 Signaler un bug / Erreur</option>
+              <option value="Autre">📌 Autre demande</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Module ou Page concernée</label>
+            <input type="text" name="page" class="form-input" placeholder="Ex: Débits de boissons, Quittance, etc.">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Explications / Détails du problème *</label>
+          <textarea name="message" class="form-input" rows="4" required placeholder="Décrivez le plus précisément possible votre idée ou le problème rencontré..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">✉️ Envoyer mon message</button>
+        <div id="fb-send-feedback" class="feedback" style="margin-top:10px;display:none;"></div>
+      </form>
+      
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Navigation entre panels ──────────────────────────────────
+function showSysPanel(id, btn) {
+  document.querySelectorAll('.sys-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sys-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Feedback helper ──────────────────────────────────────────
+function showFeedback(id, msg, type) {
+  const el = document.getElementById('fb-' + id);
+  el.textContent = msg;
+  el.className = 'feedback ' + type;
+  el.style.display = 'block';
+  if (type === 'ok') setTimeout(() => el.style.display = 'none', 4000);
+}
+
+// ── Generic POST ────────────────────────────────────────────
+async function apiPost(url, formData) {
+  const r = await fetch(url, { method: 'POST', body: formData });
+  return r.json();
+}
+
+// ── Sauvegarder sections (modules + backup + github + feedback) ─────────
+async function saveSection(section) {
+  const sectionMap = {
+    'modules':        { form: 'form-modules',        url: '/api/systeme/modules' },
+    'backup-config':  { form: 'form-backup-config',  url: '/api/systeme/backup-config' },
+    'github-config':  { form: 'form-github-config',  url: '/api/systeme/github-config' },
+    'feedback-config':{ form: 'form-feedback-config',url: '/api/systeme/feedback-config' }
+  };
+  const cfg = sectionMap[section];
+  showFeedback(section, '⏳ Sauvegarde en cours...', 'loading');
+  try {
+    const form = document.getElementById(cfg.form);
+    const fd = new FormData(form);
+    // Pour les checkboxes non cochées dans les modules ou options boolean
+    if (section === 'backup-config') {
+      if (!document.getElementById('cb-auto-backup').checked) {
+        fd.set('auto_backup', '0');
+      }
+    }
+    const res = await apiPost(cfg.url, fd);
+    if (res.ok) showFeedback(section, '✅ ' + res.msg, 'ok');
+    else showFeedback(section, '❌ ' + res.error, 'err');
+  } catch(e) {
+    showFeedback(section, '❌ Erreur réseau : ' + e, 'err');
+  }
+}
+
+// ── Envoyer un feedback (Utilisateur) ───────────────────────
+async function sendFeedback() {
+  const form = document.getElementById('form-send-feedback');
+  showFeedback('send-feedback', '⏳ Envoi du message...', 'loading');
+  try {
+    const fd = new FormData(form);
+    const res = await apiPost('/api/systeme/feedback', fd);
+    if (res.ok) {
+      showFeedback('send-feedback', '✅ ' + res.msg, 'ok');
+      form.reset();
+    } else {
+      showFeedback('send-feedback', '❌ ' + res.error, 'err');
+    }
+  } catch(e) {
+    showFeedback('send-feedback', '❌ Erreur : ' + e, 'err');
+  }
+}
+
+// ── Toggle Modules ───────────────────────────────────────────
+function toggleMod(code) {
+  const lbl = document.getElementById('modlbl-' + code);
+  const cb  = document.getElementById('modcb-' + code);
+  const chk = lbl.querySelector('.mod-check');
+  cb.checked = !cb.checked;
+  if (cb.checked) { lbl.classList.add('checked'); chk.textContent = '✓'; }
+  else { lbl.classList.remove('checked'); chk.textContent = ''; }
+}
+function toggleAllMods(state) {
+  document.querySelectorAll('#modules-grid .mod-item').forEach(lbl => {
+    const cb  = lbl.querySelector('input[type=checkbox]');
+    const chk = lbl.querySelector('.mod-check');
+    cb.checked = state;
+    if (state) { lbl.classList.add('checked'); chk.textContent = '✓'; }
+    else { lbl.classList.remove('checked'); chk.textContent = ''; }
+  });
+}
+
+// ── Test Google Drive ────────────────────────────────────────
+async function testGDrive() {
+  const webhook  = document.getElementById('inp-gdrive-webhook').value.trim();
+  const folder   = document.getElementById('inp-gdrive-folder').value.trim();
+  showFeedback('backup-config', '⏳ Test de connexion en cours...', 'loading');
+  const fd = new FormData();
+  fd.append('webhook', webhook);
+  fd.append('folder_id', folder);
+  try {
+    const res = await apiPost('/api/systeme/test-gdrive', fd);
+    if (res.ok) showFeedback('backup-config', res.msg, 'ok');
+    else showFeedback('backup-config', '❌ ' + res.error, 'err');
+  } catch(e) {
+    showFeedback('backup-config', '❌ Erreur réseau', 'err');
+  }
+}
+
+// ── Sauvegarde immédiate ─────────────────────────────────────
+async function backupNow() {
+  showFeedback('backup-now', '⏳ Sauvegarde en cours...', 'loading');
+  try {
+    const res = await apiPost('/api/systeme/backup-now', new FormData());
+    if (res.ok) {
+      showFeedback('backup-now', '✅ ' + res.msg.replace(/\n/g, ' | '), 'ok');
+      if (res.logs) updateLogTable(res.logs);
+    } else showFeedback('backup-now', '❌ ' + res.error, 'err');
+  } catch(e) {
+    showFeedback('backup-now', '❌ Erreur : ' + e, 'err');
+  }
+}
+
+function updateLogTable(logs) {
+  const tbody = document.getElementById('backup-log-body');
+  if (!tbody) return;
+  tbody.innerHTML = logs.map(l => `
+    <tr>
+      <td>${l.date||'—'}</td>
+      <td>${l.type||'—'}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.dest||'—'}</td>
+      <td>${l.status||'—'}</td>
+    </tr>`).join('');
+}
+
+// ── Import DB ────────────────────────────────────────────────
+let selectedFile = null;
+function handleFileSelect(input) {
+  selectedFile = input.files[0];
+  if (selectedFile) {
+    document.getElementById('dz-text').innerHTML =
+      `<strong>📄 ${selectedFile.name}</strong> (${(selectedFile.size/1024/1024).toFixed(2)} Mo) — Cliquez sur "Restaurer"`;
+    document.getElementById('dz').classList.add('drag-over');
+  }
+}
+async function importDb() {
+  if (!selectedFile) { showFeedback('import', '⚠️ Veuillez d\'abord sélectionner un fichier .db', 'err'); return; }
+  if (!confirm('⚠️ ATTENTION : Cette opération remplace complètement la base actuelle.\nÊtes-vous certain de vouloir continuer ?')) return;
+  showFeedback('import', '⏳ Restauration en cours...', 'loading');
+  const fd = new FormData();
+  fd.append('db_file', selectedFile);
+  try {
+    const res = await apiPost('/api/systeme/import-db', fd);
+    if (res.ok) showFeedback('import', '✅ ' + res.msg, 'ok');
+    else showFeedback('import', '❌ ' + res.error, 'err');
+  } catch(e) {
+    showFeedback('import', '❌ Erreur : ' + e, 'err');
+  }
+}
+
+// Drag & drop support
+const dz = document.getElementById('dz');
+if (dz) {
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.db')) {
+      selectedFile = f;
+      document.getElementById('dz-text').innerHTML =
+        `<strong>📄 ${f.name}</strong> (${(f.size/1024/1024).toFixed(2)} Mo)`;
+    }
+  });
+}
+
+// ── Vérifier mises à jour ────────────────────────────────────
+async function checkUpdate() {
+  const status = document.getElementById('update-status');
+  status.textContent = '⏳ Vérification en cours...';
+  status.className = 'feedback loading';
+  status.style.display = 'block';
+  try {
+    const r = await fetch('/api/systeme/check-update');
+    const res = await r.json();
+    if (res.ok) {
+      document.getElementById('ver-remote').textContent = res.remote;
+      if (res.has_update) {
+        status.textContent = `🆕 Nouvelle version ${res.remote} disponible ! (actuelle: ${res.local})`;
+        status.className = 'feedback err';
+      } else {
+        status.textContent = `✅ Vous utilisez la dernière version (${res.local}).`;
+        status.className = 'feedback ok';
+        setTimeout(() => status.style.display = 'none', 5000);
+      }
+    } else {
+      status.textContent = '❌ ' + res.error;
+      status.className = 'feedback err';
+    }
+  } catch(e) {
+    status.textContent = '❌ Connexion impossible';
+    status.className = 'feedback err';
+  }
+}
+
+// ── Init DB ─────────────────────────────────────────────────
+async function initDb() {
+  if (!confirm('Initialiser / mettre à jour la structure de la base de données ?')) return;
+  showFeedback('initdb', '⏳ En cours...', 'loading');
+  try {
+    const res = await apiPost('/api/systeme/init-db', new FormData());
+    if (res.ok) showFeedback('initdb', '✅ ' + res.msg, 'ok');
+    else showFeedback('initdb', '❌ ' + res.error, 'err');
+  } catch(e) {
+    showFeedback('initdb', '❌ Erreur : ' + e, 'err');
+  }
+}
+
+// Ouvrir automatiquement l'onglet si mentionné dans le hash (#mises-a-jour, etc)
+window.addEventListener('DOMContentLoaded', () => {
+    if (window.location.hash) {
+        const hash = window.location.hash.substring(1); // Enleve le '#'
+        // Trouver le bouton avec onclick contenant "showSysPanel('hash'"
+        const tabBtns = document.querySelectorAll('.sys-tab');
+        for (let btn of tabBtns) {
+            if (btn.getAttribute('onclick').includes("showSysPanel('" + hash + "'")) {
+                btn.click();
+                break;
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

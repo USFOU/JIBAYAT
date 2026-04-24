@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>إعذار بعدم الأداء — {{ contrib.nom }} {{ contrib.prenom or contrib.raison_sociale or '' }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 portrait; margin: 15mm 18mm 20mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Cairo', sans-serif; font-size: 11pt; color: #111; direction: rtl; line-height: 1.85; background: #fff; }
+
+  .no-print { text-align: center; margin-bottom: 18px; display: flex; gap: 10px; justify-content: center; }
+  .btn-print { background: linear-gradient(135deg, #1e3a5f, #2a5298); color: #fff; border: none; border-radius: 8px; padding: 10px 28px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-back { background: #6c757d; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; }
+  @media print { .no-print { display: none; } }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 2px solid #1e3a5f; }
+  .box-kingdom { width: 35%; font-size: 10.5pt; font-weight: 700; color: #1e3a5f; line-height: 1.9; text-align: right; }
+  .box-kingdom .commune { font-size: 12pt; font-weight: 900; color: #c8a84b; margin-top: 4px; }
+  .box-logo { width: 10%; text-align: center; }
+  .box-logo .seal { width: 70px; height: 70px; border: 3px double #1e3a5f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22pt; margin: 0 auto; }
+  .box-ref { width: 38%; font-size: 10pt; border: 1.5px solid #1e3a5f; border-radius: 6px; padding: 8px 12px; background: #f8f9fc; text-align: right; line-height: 2; }
+  .box-ref .ref-lbl { color: #666; font-size: 9.5pt; }
+  .box-ref .ref-val { font-weight: 800; color: #1e3a5f; border-bottom: 1px dotted #aaa; display: inline-block; min-width: 80px; }
+
+  .dest { text-align: center; margin: 18px 0; font-size: 12pt; font-weight: 700; }
+  .dest .name { font-size: 14pt; font-weight: 900; color: #1e3a5f; border-bottom: 2px solid #c8a84b; display: inline-block; padding: 2px 30px; }
+  .dest .cin-addr { font-size: 10pt; color: #333; margin-top: 6px; font-weight: 600; }
+
+  .objet { background: #f0f4ff; border-right: 4px solid #1e3a5f; padding: 10px 16px; margin: 14px 0; font-size: 12pt; font-weight: 800; }
+  .objet span { color: #1e3a5f; }
+
+  .corps { text-align: justify; font-size: 10.5pt; line-height: 2; color: #111; }
+  .corps p { margin-bottom: 12px; }
+  .corps .highlight { font-weight: 800; color: #1e3a5f; }
+  .montant-total-box { text-align: center; background: #fee2e2; border: 2px solid #dc2626; border-radius: 8px; padding: 10px; margin: 14px 0; }
+  .montant-total-box .mt-val { font-size: 16pt; font-weight: 900; color: #dc2626; }
+  .montant-total-box .mt-lbl { font-size: 10pt; color: #666; }
+
+  /* Module section */
+  .module-section { margin: 12px 0; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; }
+  .module-header { background: #1e3a5f; color: #fff; padding: 7px 14px; display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 10.5pt; }
+  .module-header .mod-total { color: #ffc107; font-size: 12pt; }
+  .detail-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  .detail-table th { background: #eef2ff; color: #1e3a5f; padding: 6px 10px; text-align: center; font-weight: 700; border: 1px solid #d1d5db; }
+  .detail-table td { border: 1px solid #d1d5db; padding: 6px 10px; text-align: center; }
+  .detail-table tr:nth-child(even) td { background: #f8f9fc; }
+
+  .grand-total { background: #fee2e2; border: 2px solid #dc2626; padding: 10px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin: 16px 0; font-weight: 900; font-size: 13pt; }
+  .grand-total .gt-lbl { color: #333; }
+  .grand-total .gt-val { color: #dc2626; font-size: 15pt; }
+
+  .footer-sign { margin-top: 28px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .footer-date { font-size: 10pt; color: #555; }
+  .footer-president { text-align: center; }
+  .footer-president .title { font-size: 11pt; font-weight: 900; color: #1e3a5f; }
+  .footer-president .sig-area { border-top: 1px dashed #aaa; margin-top: 55px; padding-top: 6px; font-size: 9.5pt; color: #888; }
+
+  .footnote { position: fixed; bottom: 4mm; left: 18mm; right: 18mm; border-top: 1px solid #ccc; padding-top: 4px; font-size: 8.5pt; color: #666; display: flex; justify-content: space-between; direction: rtl; }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button class="btn-back" onclick="window.history.back()">← رجوع</button>
+  <button class="btn-print" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+</div>
+
+<!-- EN-TÊTE -->
+<div class="header">
+  <div class="box-kingdom">
+    <div>المملكة المغربية</div>
+    <div>وزارة الداخلية</div>
+    <div>إقليم {{ province or '....................' }}</div>
+    <div>جماعة <span class="commune">{{ commune }}</span></div>
+    <div style="font-size:9.5pt">مديرية المصالح</div>
+    <div style="font-size:9.5pt">مكتب الوعاء الضريبي</div>
+  </div>
+  <div class="box-logo">
+    <div class="seal">🏛️</div>
+  </div>
+  <div class="box-ref">
+    <div class="ref-lbl">عـدد</div>
+    <div class="ref-val">{{ avis_num }}</div>
+    <div class="ref-lbl" style="margin-top:4px">التاريـخ</div>
+    <div class="ref-val">{{ today }}</div>
+    <div class="ref-lbl" style="margin-top:4px">رقم المكلف</div>
+    <div class="ref-val">{{ contrib.numero }}</div>
+    <div class="ref-lbl" style="margin-top:4px">ب. التعريف</div>
+    <div class="ref-val">{{ contrib.cin or contrib.ice or '—' }}</div>
+  </div>
+</div>
+
+<!-- DESTINATAIRE -->
+<div class="dest">
+  <div style="color:#555;font-size:11pt;font-weight:400">رئيس المجلس الجماعي لـ <strong>{{ commune }}</strong></div>
+  <div style="margin:6px 0;font-size:11pt;color:#555">إلـــــى</div>
+  <div>السيد(ة) : <span class="name">{{ contrib.prenom or '' }} {{ contrib.nom or contrib.raison_sociale or '' }}</span></div>
+  <div class="cin-addr">
+    {% if contrib.cin %}الحامل لبطاقة التعريف الوطنية رقم : <strong>{{ contrib.cin }}</strong>{% endif %}
+    {% if contrib.adresse %}<br>الساكن(ة) بـ : {{ contrib.adresse }}{% endif %}
+  </div>
+</div>
+
+<!-- OBJET -->
+<div class="objet">
+  الموضوع : <span>إعذار بعدم أداء واجبات الرسوم والإتاوات المستحقة للجماعة</span>
+</div>
+
+<!-- CORPS -->
+<div class="corps">
+  <p style="text-align:center">ـــ سلام تام بوجود مولانا الإمام ـــ</p>
+  <p style="text-align:center">وبعـد،</p>
+  <p>
+    يُعلمكم رئيس المجلس الجماعي لـ<span class="highlight"> {{ commune }}</span>،
+    بأن سجلات إدارة الجماعة تُثبت استحقاق الواجبات والرسوم التالية في ذمتكم
+    بصفتكم <span class="highlight">ملزماً جبائياً</span>،
+    وذلك بموجب القوانين الجبائية المعمول بها :
+  </p>
+
+  <!-- Total global -->
+  <div class="montant-total-box">
+    <div class="mt-lbl">إجمالي المبالغ المستحقة</div>
+    <div class="mt-val">{{ "%.2f"|format(total_montant) }} درهم</div>
+  </div>
+
+  <p>وتتوزع هذه المبالغ على المصادر الجبائية الآتية:</p>
+
+  <!-- Sections par module -->
+  {% for code, data in lignes_g.items() %}
+  <div class="module-section" style="page-break-inside:avoid">
+    <div class="module-header">
+      <span>{{ data.label }}</span>
+      <span class="mod-total">{{ "%.2f"|format(data.total) }} درهم</span>
+    </div>
+    <table class="detail-table">
+      <thead>
+        <tr>
+          <th>السنة</th>
+          <th>المبلغ الأصلي (درهم)</th>
+          <th>الغرامات والزيادات (درهم)</th>
+          <th>المجموع (درهم)</th>
+          <th>تاريخ الاستحقاق</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in data.lignes %}
+        <tr>
+          <td><strong>{{ l.annee }}{% if l.trimestre %} (ر{{ l.trimestre }}){% endif %}</strong></td>
+          <td>{{ "%.2f"|format(l.principal) }}</td>
+          <td style="color:#dc2626">{{ "%.2f"|format(l.penalite + l.majoration + l.amende) }}</td>
+          <td><strong>{{ "%.2f"|format(l.total) }}</strong></td>
+          <td style="font-size:9pt">{{ l.echeance or '—' }}</td>
+        </tr>
+        {% endfor %}
+        <tr style="background:#f0f4ff;font-weight:900">
+          <td colspan="3" style="text-align:right">مجموع {{ data.label }}</td>
+          <td style="color:#1e3a5f">{{ "%.2f"|format(data.total) }}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  <!-- Grand total -->
+  <div class="grand-total">
+    <span class="gt-lbl">المجموع الإجمالي الواجب أداؤه</span>
+    <span class="gt-val">{{ "%.2f"|format(total_montant) }} درهم</span>
+  </div>
+
+  <p>
+    لذا، <span class="highlight">نُعذركم رسمياً</span> ونُطالبكم بأداء المبالغ المذكورة أعلاه
+    في أجل أقصاه <strong>{{ date_limite }}</strong>،
+    وذلك بمكتب الخزينة الجماعية أو عبر القنوات الرسمية المعتمدة،
+    تفادياً للمتابعات القانونية وفق المقتضيات الجاري بها العمل،
+    لا سيما المادة <strong>134</strong> من القانون رقم <strong>47.06</strong> المتعلق بجبايات الجماعات الترابية.
+  </p>
+
+  <p>تقبلوا خالص التقدير والاحترام.</p>
+  <p style="text-align:center">والسلام</p>
+</div>
+
+<!-- SIGNATURE -->
+<div class="footer-sign">
+  <div class="footer-date">
+    {{ commune or '' }} في {{ today }}
+  </div>
+  <div class="footer-president">
+    <div class="title">رئيس المجلس الجماعي</div>
+    <div class="sig-area">التوقيع والختم</div>
+  </div>
+</div>
+
+<!-- PIED DE PAGE -->
+<div class="footnote">
+  <span>المرجع : القانون رقم 47.06 — المواد 128 إلى 147</span>
+  <span>{{ commune }} — مديرية المصالح المالية</span>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,522 @@
+{% extends 'base.html' %}
+{% block title %}Gestion des Droits par Module{% endblock %}
+{% block page_title %}🛡️ Droits d'accès par Module{% endblock %}
+
+{% block extra_head %}
+<style>
+:root {
+  --clr-voir:     #2563eb;
+  --clr-ajouter:  #16a34a;
+  --clr-modifier: #d97706;
+  --clr-suppr:    #dc2626;
+}
+
+/* ── Page layout ── */
+.rbac-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e293b 100%);
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.rbac-header h2 { font-size: 1.25rem; font-weight: 900; margin-bottom: 4px; }
+.rbac-header p  { font-size: .82rem; color: rgba(255,255,255,.6); }
+
+.legend-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: .72rem; font-weight: 700;
+}
+.legend-voir     { background: rgba(37,99,235,.15);  color: var(--clr-voir);     border: 1px solid rgba(37,99,235,.3);   }
+.legend-ajouter  { background: rgba(22,163,74,.15);  color: var(--clr-ajouter);  border: 1px solid rgba(22,163,74,.3);   }
+.legend-modifier { background: rgba(217,119,6,.15);  color: var(--clr-modifier); border: 1px solid rgba(217,119,6,.3);   }
+.legend-suppr    { background: rgba(220,38,38,.15);  color: var(--clr-suppr);    border: 1px solid rgba(220,38,38,.3);   }
+
+/* ── Role tabs ── */
+.role-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.role-tab {
+  padding: 9px 18px; border-radius: 10px; border: 2px solid var(--border);
+  background: var(--card); cursor: pointer; font-size: .82rem; font-weight: 700;
+  color: var(--text); transition: all .2s;
+}
+.role-tab:hover, .role-tab.active {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(30,58,95,.25);
+}
+.role-tab.active { box-shadow: 0 4px 16px rgba(30,58,95,.35); }
+
+/* ── Permission panel ── */
+.role-panel { display: none; }
+.role-panel.active { display: block; }
+
+.role-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 18px;
+  padding: 14px 18px;
+  background: var(--card); border-radius: 12px; box-shadow: var(--shadow);
+  border-left: 5px solid var(--primary);
+}
+.role-panel-header h3 { font-size: 1rem; font-weight: 900; color: var(--primary); }
+.role-panel-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ── Module permission rows ── */
+.mod-perm-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.mod-perm-row {
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  transition: border-color .2s, box-shadow .2s;
+}
+.mod-perm-row:hover { border-color: var(--primary); box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+.mod-perm-row.has-access { border-left: 4px solid var(--ok); }
+.mod-perm-row.no-access  { border-left: 4px solid var(--border); opacity: .75; }
+
+.mod-perm-row-header {
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.mod-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; background: var(--primary); color: #fff;
+  flex-shrink: 0;
+}
+.mod-name { font-weight: 800; font-size: .88rem; }
+.mod-code { font-size: .68rem; color: var(--muted); font-family: monospace; }
+
+.perm-checks {
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.perm-check-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px;
+  border: 1.5px solid var(--border);
+  cursor: pointer; transition: all .15s;
+  background: var(--bg);
+}
+.perm-check-item:hover { border-color: currentColor; }
+.perm-check-item input[type=checkbox] {
+  width: 17px; height: 17px; cursor: pointer;
+  border-radius: 4px; flex-shrink: 0;
+}
+.perm-check-item .perm-label { font-size: .78rem; font-weight: 700; }
+
+.perm-voir     { --c: var(--clr-voir);    }
+.perm-ajouter  { --c: var(--clr-ajouter); }
+.perm-modifier { --c: var(--clr-modifier);}
+.perm-suppr    { --c: var(--clr-suppr);   }
+.perm-check-item.perm-voir     { color: var(--clr-voir);     }
+.perm-check-item.perm-ajouter  { color: var(--clr-ajouter);  }
+.perm-check-item.perm-modifier { color: var(--clr-modifier); }
+.perm-check-item.perm-suppr    { color: var(--clr-suppr);    }
+
+.perm-check-item input[type=checkbox]:checked {
+  accent-color: var(--c, var(--primary));
+}
+.perm-check-item:has(input:checked) {
+  border-color: var(--c, var(--border));
+  background: color-mix(in srgb, var(--c, var(--border)) 8%, white);
+}
+
+/* ── Quick action buttons ── */
+.quick-btn {
+  padding: 4px 10px; border-radius: 6px; border: 1.5px solid;
+  font-size: .72rem; font-weight: 700; cursor: pointer;
+  transition: all .15s; background: transparent;
+}
+.quick-tout-ouvrir  { color: var(--ok);    border-color: var(--ok);    }
+.quick-tout-fermer  { color: var(--danger);border-color: var(--danger); }
+.quick-lecture-seule{ color: var(--info);  border-color: var(--info);  }
+.quick-btn:hover    { color: #fff; background: currentColor; }
+
+/* ── Save banner ── */
+.save-bar {
+  position: sticky; bottom: 0; z-index: 20;
+  background: rgba(15,23,42,.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255,255,255,.12);
+  padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border-radius: 12px 12px 0 0;
+  margin-top: 20px;
+  transform: translateY(0);
+  animation: slideUp .3s ease;
+}
+@keyframes slideUp { from { transform: translateY(40px); opacity:0; } }
+.save-bar-info { color: rgba(255,255,255,.7); font-size: .82rem; }
+.save-bar-info strong { color: #eab308; }
+
+/* Admin lock badge */
+.lock-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 6px;
+  background: rgba(220,38,38,.15); color: #ef4444;
+  font-size: .65rem; font-weight: 700; border: 1px solid rgba(220,38,38,.25);
+}
+
+/* ── User permissions card ── */
+.user-perm-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;
+}
+.user-perm-card {
+  background: var(--card); border-radius: 10px; padding: 12px 14px;
+  box-shadow: var(--shadow); border-left: 3px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.user-perm-card.active { border-left-color: var(--ok); }
+.user-perm-card.inactive { border-left-color: var(--border); opacity: .6; }
+.user-perm-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.chip {
+  display: inline-block; padding: 1px 6px; border-radius: 4px;
+  font-size: .6rem; font-weight: 700;
+}
+.chip-voir     { background: rgba(37,99,235,.12);  color: var(--clr-voir);    }
+.chip-ajouter  { background: rgba(22,163,74,.12);  color: var(--clr-ajouter); }
+.chip-modifier { background: rgba(217,119,6,.12);  color: var(--clr-modifier);}
+.chip-suppr    { background: rgba(220,38,38,.12);  color: var(--clr-suppr);   }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── En-tête ── #}
+<div class="rbac-header">
+  <div>
+    <h2>🛡️ Contrôle d'Accès par Module (RBAC)</h2>
+    <p>Définissez précisément quels modules chaque rôle peut consulter, créer, modifier ou supprimer.</p>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <span class="legend-pill legend-voir">👁️ Voir</span>
+    <span class="legend-pill legend-ajouter">➕ Ajouter</span>
+    <span class="legend-pill legend-modifier">✏️ Modifier</span>
+    <span class="legend-pill legend-suppr">🗑️ Supprimer</span>
+  </div>
+</div>
+
+{# ── Navigation des rôles ── #}
+<div class="role-tabs" id="role-tabs-nav">
+  {% for role in roles %}
+  {% set role_colors = {'super_admin':'#dc2626','admin':'#2563eb','agent_assiette':'#d97706','regisseur':'#16a34a','consultant':'#6b7280'} %}
+  <button class="role-tab {% if loop.first %}active{% endif %}"
+    onclick="activateRole('{{ role.id }}')"
+    id="tab-btn-{{ role.id }}"
+    style="{% if loop.first %}background:var(--primary);color:#fff;border-color:var(--primary);{% endif %}">
+    <span>{{ role_colors.get(role.nom, '⚙️') and '' }}{{ role.nom }}</span>
+    {% if role.nom in ('super_admin', 'admin') %}
+    <span class="lock-badge">🔒 Admin</span>
+    {% endif %}
+  </button>
+  {% endfor %}
+</div>
+
+{# ── Panneaux par rôle ── #}
+{% for role in roles %}
+<div class="role-panel {% if loop.first %}active{% endif %}" id="panel-{{ role.id }}" data-role-id="{{ role.id }}">
+
+  {# Header du panneau #}
+  <div class="role-panel-header">
+    <div>
+      <h3>🎭 Rôle : {{ role.nom }}</h3>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:2px;">
+        {% if role.nom in ('super_admin', 'admin') %}
+          <span class="lock-badge">🔒 Accès total automatique — non modifiable</span>
+        {% else %}
+          Configurez les droits d'accès aux modules pour ce rôle
+        {% endif %}
+      </div>
+    </div>
+    {% if role.nom not in ('super_admin', 'admin') %}
+    <div class="role-panel-tools">
+      <button class="quick-btn quick-tout-ouvrir" onclick="setAll('{{ role.id }}', true)">✅ Tout ouvrir</button>
+      <button class="quick-btn quick-lecture-seule" onclick="setAllView('{{ role.id }}')">👁️ Lecture seule</button>
+      <button class="quick-btn quick-tout-fermer" onclick="setAll('{{ role.id }}', false)">🚫 Tout fermer</button>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if role.nom in ('super_admin', 'admin') %}
+    {# Affichage read-only pour admin #}
+    <div class="alert alert-info" style="margin-bottom:16px;">
+      ℹ️ Les rôles <strong>super_admin</strong> et <strong>admin</strong> ont automatiquement accès à <strong>tous les modules</strong> avec tous les droits. Cette configuration ne peut pas être modifiée.
+    </div>
+    <div class="mod-perm-grid">
+      {% for mod in modules %}
+      <div class="mod-perm-row has-access">
+        <div class="mod-perm-row-header" style="cursor:default;">
+          <div class="mod-icon">{{ mod.icone }}</div>
+          <div style="flex:1;">
+            <div class="mod-name">{{ mod.libelle }}</div>
+            <div class="mod-code">{{ mod.code }}</div>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <span class="chip chip-voir">👁️ Voir</span>
+            <span class="chip chip-ajouter">➕ Ajouter</span>
+            <span class="chip chip-modifier">✏️ Modifier</span>
+            <span class="chip chip-suppr">🗑️ Supprimer</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    {# Formulaire éditable #}
+    <form method="post" action="{{ url_for('sauvegarder_permissions_role', role_id=role.id) }}"
+          id="form-role-{{ role.id }}">
+      <div class="mod-perm-grid" id="grid-{{ role.id }}">
+        {% for mod in modules %}
+        {% set p = perms.get(role.id, {}).get(mod.code, {}) %}
+        {% set has_view = p.get('peut_voir', 0) %}
+        <div class="mod-perm-row {{ 'has-access' if has_view else 'no-access' }}"
+             id="row-{{ role.id }}-{{ mod.code }}">
+          <div class="mod-perm-row-header" onclick="toggleModRow('{{ role.id }}', '{{ mod.code }}')">
+            <div class="mod-icon">{{ mod.icone }}</div>
+            <div style="flex:1;">
+              <div class="mod-name">{{ mod.libelle }}</div>
+              <div class="mod-code">{{ mod.code }}</div>
+            </div>
+            <div id="chips-{{ role.id }}-{{ mod.code }}" style="display:flex;gap:4px;flex-wrap:wrap;">
+              {% if p.get('peut_voir',0) %}
+                <span class="chip chip-voir">👁️ Voir</span>
+              {% endif %}
+              {% if p.get('peut_ajouter',0) %}
+                <span class="chip chip-ajouter">➕</span>
+              {% endif %}
+              {% if p.get('peut_modifier',0) %}
+                <span class="chip chip-modifier">✏️</span>
+              {% endif %}
+              {% if p.get('peut_supprimer',0) %}
+                <span class="chip chip-suppr">🗑️</span>
+              {% endif %}
+            </div>
+            <span style="font-size:.75rem;color:var(--muted);margin-left:8px;">▼</span>
+          </div>
+
+          <div class="perm-checks" id="checks-{{ role.id }}-{{ mod.code }}">
+            <label class="perm-check-item perm-voir"
+                   id="lbl-voir-{{ role.id }}-{{ mod.code }}">
+              <input type="checkbox"
+                     name="{{ mod.code }}_voir"
+                     id="cb-voir-{{ role.id }}-{{ mod.code }}"
+                     {% if p.get('peut_voir',0) %}checked{% endif %}
+                     onchange="onPermChange('{{ role.id }}', '{{ mod.code }}', 'voir', this.checked)">
+              <span class="perm-label">👁️ Voir</span>
+            </label>
+            <label class="perm-check-item perm-ajouter">
+              <input type="checkbox"
+                     name="{{ mod.code }}_ajouter"
+                     id="cb-ajouter-{{ role.id }}-{{ mod.code }}"
+                     {% if p.get('peut_ajouter',0) %}checked{% endif %}
+                     onchange="updateChips('{{ role.id }}', '{{ mod.code }}')">
+              <span class="perm-label">➕ Ajouter</span>
+            </label>
+            <label class="perm-check-item perm-modifier">
+              <input type="checkbox"
+                     name="{{ mod.code }}_modifier"
+                     id="cb-modifier-{{ role.id }}-{{ mod.code }}"
+                     {% if p.get('peut_modifier',0) %}checked{% endif %}
+                     onchange="updateChips('{{ role.id }}', '{{ mod.code }}')">
+              <span class="perm-label">✏️ Modifier</span>
+            </label>
+            <label class="perm-check-item perm-suppr">
+              <input type="checkbox"
+                     name="{{ mod.code }}_supprimer"
+                     id="cb-suppr-{{ role.id }}-{{ mod.code }}"
+                     {% if p.get('peut_supprimer',0) %}checked{% endif %}
+                     onchange="updateChips('{{ role.id }}', '{{ mod.code }}')">
+              <span class="perm-label">🗑️ Supprimer</span>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# ── Barre d'enregistrement ── #}
+      <div class="save-bar">
+        <div class="save-bar-info">
+          Rôle : <strong>{{ role.nom }}</strong> —
+          <span id="modified-count-{{ role.id }}" style="color:rgba(255,255,255,.5)">Aucune modification</span>
+        </div>
+        <button type="submit" class="btn btn-accent" style="padding:10px 24px;font-size:.88rem;">
+          💾 Enregistrer les permissions
+        </button>
+      </div>
+    </form>
+  {% endif %}
+
+</div><!-- /role-panel -->
+{% endfor %}
+
+{# ── Section utilisateurs ── #}
+<div class="card" style="margin-top:28px;">
+  <div class="card-header">
+    <h3>👥 Consulter les droits par utilisateur</h3>
+  </div>
+  <div class="card-body">
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
+      Cliquez sur un utilisateur pour voir ses permissions effectives héritées de son rôle.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">
+      {% set role_colors = {'super_admin':'#dc2626','admin':'#2563eb','agent_assiette':'#d97706','regisseur':'#16a34a','consultant':'#6b7280'} %}
+      {% for role in roles %}
+        {% for u in [] %}{# placeholder — filled via AJAX or link #}{% endfor %}
+      {% endfor %}
+    </div>
+    {# Lien vers la liste utilisateurs avec bouton droits #}
+    <a href="{{ url_for('utilisateurs') }}" class="btn btn-outline" style="margin-top:8px;">
+      👥 Voir tous les utilisateurs
+    </a>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const MODULES = {{ modules | map(attribute='code') | list | tojson }};
+
+// ── Active un panneau de rôle ────────────────────────────────
+function activateRole(roleId) {
+  document.querySelectorAll('.role-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.role-tab').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = '';
+    b.style.color = '';
+    b.style.borderColor = '';
+  });
+  document.getElementById(`panel-${roleId}`).classList.add('active');
+  const btn = document.getElementById(`tab-btn-${roleId}`);
+  btn.classList.add('active');
+  btn.style.background = 'var(--primary)';
+  btn.style.color = '#fff';
+  btn.style.borderColor = 'var(--primary)';
+}
+
+// ── Toggle affichage d'une ligne module ──────────────────────
+function toggleModRow(roleId, modCode) {
+  const checks = document.getElementById(`checks-${roleId}-${modCode}`);
+  const voire = document.getElementById(`cb-voir-${roleId}-${modCode}`);
+  if (!voire) return;
+  // Si pas "voir" -> cocher voir automatiquement
+  if (!voire.checked) {
+    voire.checked = true;
+    onPermChange(roleId, modCode, 'voir', true);
+  }
+}
+
+// ── Quand la permission "voir" change ───────────────────────
+function onPermChange(roleId, modCode, perm, checked) {
+  const row = document.getElementById(`row-${roleId}-${modCode}`);
+  const vb  = document.getElementById(`cb-voir-${roleId}-${modCode}`);
+  // Si on décoche "voir", on décoche aussi tout
+  if (perm === 'voir' && !checked) {
+    ['ajouter','modifier','suppr'].forEach(p => {
+      const cb = document.getElementById(`cb-${p}-${roleId}-${modCode}`);
+      if (cb) cb.checked = false;
+    });
+    row.classList.remove('has-access');
+    row.classList.add('no-access');
+  } else if (perm === 'voir' && checked) {
+    row.classList.add('has-access');
+    row.classList.remove('no-access');
+  }
+  // Si on coche ajouter/modifier/suppr -> forcer voir
+  if (['ajouter','modifier','suppr'].includes(perm) && checked && vb) {
+    vb.checked = true;
+    row.classList.add('has-access');
+    row.classList.remove('no-access');
+  }
+  updateChips(roleId, modCode);
+  updateModifiedCount(roleId);
+}
+
+// ── Mettre à jour les chips visuelles ───────────────────────
+function updateChips(roleId, modCode) {
+  const chips = document.getElementById(`chips-${roleId}-${modCode}`);
+  if (!chips) return;
+  const voir  = document.getElementById(`cb-voir-${roleId}-${modCode}`)?.checked;
+  const aj    = document.getElementById(`cb-ajouter-${roleId}-${modCode}`)?.checked;
+  const mod   = document.getElementById(`cb-modifier-${roleId}-${modCode}`)?.checked;
+  const sup   = document.getElementById(`cb-suppr-${roleId}-${modCode}`)?.checked;
+  chips.innerHTML = '';
+  if (voir) chips.innerHTML += '<span class="chip chip-voir">👁️ Voir</span>';
+  if (aj)   chips.innerHTML += '<span class="chip chip-ajouter">➕</span>';
+  if (mod)  chips.innerHTML += '<span class="chip chip-modifier">✏️</span>';
+  if (sup)  chips.innerHTML += '<span class="chip chip-suppr">🗑️</span>';
+  // row border
+  const row = document.getElementById(`row-${roleId}-${modCode}`);
+  if (voir) { row.classList.add('has-access'); row.classList.remove('no-access'); }
+  else      { row.classList.remove('has-access'); row.classList.add('no-access'); }
+  updateModifiedCount(roleId);
+}
+
+// ── Compter les modules actifs ───────────────────────────────
+function updateModifiedCount(roleId) {
+  const form = document.getElementById(`form-role-${roleId}`);
+  if (!form) return;
+  const total = MODULES.length;
+  const active = MODULES.filter(code => {
+    const cb = document.getElementById(`cb-voir-${roleId}-${code}`);
+    return cb && cb.checked;
+  }).length;
+  const info = document.getElementById(`modified-count-${roleId}`);
+  if (info) {
+    info.textContent = `${active}/${total} module(s) activé(s)`;
+    info.style.color = active > 0 ? '#eab308' : 'rgba(255,255,255,.4)';
+  }
+}
+
+// ── Actions rapides ──────────────────────────────────────────
+function setAll(roleId, enabled) {
+  MODULES.forEach(code => {
+    ['voir','ajouter','modifier','suppr'].forEach(p => {
+      const cb = document.getElementById(`cb-${p}-${roleId}-${code}`);
+      if (cb) cb.checked = enabled;
+    });
+    updateChips(roleId, code);
+  });
+}
+
+function setAllView(roleId) {
+  MODULES.forEach(code => {
+    const voir = document.getElementById(`cb-voir-${roleId}-${code}`);
+    if (voir) voir.checked = true;
+    ['ajouter','modifier','suppr'].forEach(p => {
+      const cb = document.getElementById(`cb-${p}-${roleId}-${code}`);
+      if (cb) cb.checked = false;
+    });
+    updateChips(roleId, code);
+  });
+}
+
+// ── Init : comptes ───────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  {% for role in roles %}
+  {% if role.nom not in ('super_admin', 'admin') %}
+  updateModifiedCount('{{ role.id }}');
+  {% endif %}
+  {% endfor %}
+});
+</script>
+{% endblock %}

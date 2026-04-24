@@ -7,30 +7,38 @@ from datetime import datetime, date
 DB = 'fiscalite.db'
 
 def get_db():
-    conn = sqlite3.connect(DB)
+    conn = sqlite3.connect(DB, timeout=30, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    # WAL mode: permet lectures concurrentes pendant une ecriture
+    try:
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+    except Exception:
+        pass
     return conn
 
 def init_db():
     conn = get_db(); c = conn.cursor()
     c.executescript('''
-    CREATE TABLE IF NOT EXISTS roles (
+CREATE TABLE IF NOT EXISTS roles (
         id INTEGER PRIMARY KEY, nom TEXT UNIQUE,
         peut_ajouter INTEGER DEFAULT 0, peut_modifier INTEGER DEFAULT 0,
         peut_supprimer INTEGER DEFAULT 0, peut_voir INTEGER DEFAULT 1,
         peut_valider_paiement INTEGER DEFAULT 0, peut_config INTEGER DEFAULT 0,
         peut_creer_bulletin INTEGER DEFAULT 0
     );
-    CREATE TABLE IF NOT EXISTS utilisateurs (
+CREATE TABLE IF NOT EXISTS utilisateurs (
         id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT,
         email TEXT UNIQUE, mot_de_passe TEXT, role_id INTEGER,
         actif INTEGER DEFAULT 1, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS communes (
+CREATE TABLE IF NOT EXISTS communes (
         id INTEGER PRIMARY KEY, nom TEXT, nom_ar TEXT,
-        region TEXT, province TEXT, code TEXT UNIQUE, actif INTEGER DEFAULT 1
+        president_fr TEXT, president_ar TEXT,
+        region TEXT, region_ar TEXT, province TEXT, province_ar TEXT, logo TEXT,
+        code TEXT, actif INTEGER DEFAULT 1
     );
-    CREATE TABLE IF NOT EXISTS contribuables (
+CREATE TABLE IF NOT EXISTS contribuables (
         id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
         type_personne TEXT DEFAULT "physique",
         nom TEXT, prenom TEXT, nom_ar TEXT, prenom_ar TEXT,
@@ -40,11 +48,115 @@ def init_db():
         telephone TEXT, email TEXT, commune_id INTEGER, actif INTEGER DEFAULT 1,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS rubriques (
-        id INTEGER PRIMARY KEY, code TEXT UNIQUE, libelle TEXT, libelle_ar TEXT,
-        module TEXT UNIQUE, actif INTEGER DEFAULT 1, description TEXT
+CREATE TABLE IF NOT EXISTS rubriques (
+        id INTEGER PRIMARY KEY, code TEXT, libelle TEXT, libelle_ar TEXT,
+        module TEXT UNIQUE, commune_id INTEGER, actif INTEGER DEFAULT 1, description TEXT
     );
-    CREATE TABLE IF NOT EXISTS arretes_fiscaux (
+CREATE TABLE IF NOT EXISTS parametres_calcul (
+        id INTEGER PRIMARY KEY, module TEXT, code TEXT,
+        libelle TEXT, valeur TEXT, unite TEXT, description TEXT, commune_id INTEGER,
+        UNIQUE(module, code)
+    );
+CREATE TABLE IF NOT EXISTS terrains (
+        id INTEGER PRIMARY KEY, numero_terrain TEXT UNIQUE,
+        contribuable_id INTEGER, commune_id INTEGER,
+        adresse TEXT, adresse_ar TEXT, quartier TEXT, arrondissement TEXT,
+        superficie REAL, zone TEXT DEFAULT "B",
+        titre_foncier TEXT, num_parcelle TEXT,
+        statut TEXT DEFAULT "non_bati", date_acquisition TEXT,
+        actif INTEGER DEFAULT 1, date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+CREATE TABLE IF NOT EXISTS permis (
+        id INTEGER PRIMARY KEY, terrain_id INTEGER,
+        type_permis TEXT, numero_permis TEXT,
+        date_depot TEXT, date_delivrance TEXT, statut TEXT DEFAULT "en_cours",
+        description TEXT, date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+CREATE TABLE IF NOT EXISTS transferts_terrain (
+        id INTEGER PRIMARY KEY, terrain_id INTEGER,
+        ancien_contribuable_id INTEGER, nouveau_contribuable_id INTEGER,
+        date_transfert TEXT, motif TEXT, acte_notarie TEXT, agent_id INTEGER
+    );
+CREATE TABLE IF NOT EXISTS etablissements_boissons (
+        id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
+        contribuable_id INTEGER, commune_id INTEGER,
+        nom_etablissement TEXT, type_etablissement TEXT,
+        adresse TEXT, superficie REAL,
+        numero_autorisation TEXT, date_autorisation TEXT,
+        statut TEXT DEFAULT "actif", actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+CREATE TABLE IF NOT EXISTS vehicules (
+        id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
+        contribuable_id INTEGER, commune_id INTEGER,
+        immatriculation TEXT, type_vehicule TEXT,
+        num_autorisation TEXT, date_autorisation TEXT,
+        nombre_sieges INTEGER DEFAULT 0,
+        statut TEXT DEFAULT "actif", actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+CREATE TABLE IF NOT EXISTS occupations (
+        id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
+        contribuable_id INTEGER, commune_id INTEGER,
+        type_occupation TEXT, localisation TEXT, superficie REAL,
+        num_autorisation TEXT, date_debut TEXT, date_fin TEXT,
+        statut TEXT DEFAULT "actif", actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+CREATE TABLE IF NOT EXISTS dossiers_fourriere (
+        id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
+        contribuable_id INTEGER, commune_id INTEGER,
+        immatriculation TEXT, type_vehicule TEXT,
+        date_mise_fourriere TEXT, motif TEXT, nb_jours INTEGER DEFAULT 0,
+        frais_remorquage REAL DEFAULT 0,
+        statut TEXT DEFAULT "en_fourriere", date_restitution TEXT,
+        actif INTEGER DEFAULT 1, date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    , num_depot TEXT, numero_immat TEXT, deposant TEXT, nom_proprietaire TEXT, cin_proprietaire TEXT, telephone_prop TEXT, tarif_journalier REAL DEFAULT 0, numero_bulletin TEXT, date_paiement TEXT, agent_paiement_id INTEGER, date_sortie_validee TEXT, notes TEXT);
+CREATE TABLE IF NOT EXISTS baux (
+        id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
+        contribuable_id INTEGER, commune_id INTEGER,
+        ref_local TEXT, adresse TEXT, superficie REAL,
+        loyer_mensuel REAL, date_debut TEXT, date_fin TEXT,
+        statut TEXT DEFAULT "actif", actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    , secteur_id INTEGER REFERENCES loc_secteurs(id), boutique_id INTEGER REFERENCES loc_boutiques(id), tarif_id INTEGER REFERENCES loc_tarifs(id));
+CREATE TABLE IF NOT EXISTS affermages (
+        id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
+        contribuable_id INTEGER, commune_id INTEGER,
+        nom_souk TEXT, num_emplacement TEXT, type_activite TEXT,
+        redevance_annuelle REAL, date_debut TEXT,
+        statut TEXT DEFAULT "actif", actif INTEGER DEFAULT 1,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    , date_fin TEXT, duree_contrat INTEGER DEFAULT 1, taux_augmentation REAL DEFAULT 5.0, redevance_mensuelle REAL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS declarations (
+        id INTEGER PRIMARY KEY, numero TEXT UNIQUE,
+        module TEXT, reference_id INTEGER,
+        contribuable_id INTEGER, commune_id INTEGER,
+        annee INTEGER, trimestre INTEGER DEFAULT 0,
+        base_calcul REAL DEFAULT 0, taux REAL DEFAULT 0,
+        montant_principal REAL DEFAULT 0,
+        penalite_retard REAL DEFAULT 0, majoration REAL DEFAULT 0,
+        amende_non_declaration REAL DEFAULT 0, montant_total REAL DEFAULT 0,
+        statut TEXT DEFAULT "emis",
+        date_declaration TEXT, date_echeance TEXT, date_paiement TEXT,
+        agent_id INTEGER, notes TEXT,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+CREATE TABLE IF NOT EXISTS bulletins (
+        id INTEGER PRIMARY KEY, numero_bulletin TEXT UNIQUE,
+        declaration_id INTEGER, contribuable_id INTEGER, commune_id INTEGER,
+        montant REAL, mode_paiement TEXT DEFAULT "especes",
+        date_paiement TEXT, statut TEXT DEFAULT "en_attente",
+        agent_id INTEGER, regisseur_id INTEGER, notes TEXT,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    , numero_quittance TEXT, date_quittance TEXT, motif_rejet TEXT, numero_versement TEXT, date_encaissement TEXT);
+CREATE TABLE IF NOT EXISTS avis_non_paiement (
+        id INTEGER PRIMARY KEY, numero_avis TEXT UNIQUE,
+        declaration_id INTEGER, contribuable_id INTEGER, commune_id INTEGER,
+        montant_du REAL, date_emission TEXT, delai_jours INTEGER DEFAULT 30,
+        lot_id TEXT, statut TEXT DEFAULT "emis"
+    , lettre_id INTEGER);
+CREATE TABLE IF NOT EXISTS arretes_fiscaux (
         id INTEGER PRIMARY KEY,
         numero TEXT UNIQUE,
         titre TEXT,
@@ -55,7 +167,7 @@ def init_db():
         agent_id INTEGER,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS tarifs (
+CREATE TABLE IF NOT EXISTS tarifs (
         id INTEGER PRIMARY KEY,
         rubrique_id INTEGER NOT NULL,
         arrete_id INTEGER,
@@ -67,25 +179,39 @@ def init_db():
         date_fin TEXT,
         actif INTEGER DEFAULT 1
     );
-    CREATE TABLE IF NOT EXISTS parametres_calcul (
-        id INTEGER PRIMARY KEY, module TEXT, code TEXT,
-        libelle TEXT, valeur TEXT, unite TEXT, description TEXT, commune_id INTEGER,
-        UNIQUE(module, code)
-    );
-    CREATE TABLE IF NOT EXISTS tnb_terrains (
+CREATE TABLE IF NOT EXISTS declarations_annuelles_tdb (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero TEXT UNIQUE,
+    etablissement_id INTEGER,
+    contribuable_id INTEGER,
+    commune_id INTEGER DEFAULT 1,
+    annee INTEGER,
+    base_t1 REAL DEFAULT 0,
+    base_t2 REAL DEFAULT 0,
+    base_t3 REAL DEFAULT 0,
+    base_t4 REAL DEFAULT 0,
+    total_base REAL DEFAULT 0,
+    taux REAL DEFAULT 10,
+    montant_du REAL DEFAULT 0,
+    date_declaration TEXT,
+    agent_id INTEGER,
+    statut TEXT DEFAULT 'soumise',
+    date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS tnb_terrains (
         id INTEGER PRIMARY KEY, numero_fiscal TEXT UNIQUE NOT NULL,
         contribuable_id INTEGER, commune_id INTEGER,
         superficie REAL, zone TEXT, adresse TEXT, statut TEXT DEFAULT 'non_bati',
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS tnb_declarations (
+CREATE TABLE IF NOT EXISTS tnb_declarations (
         id INTEGER PRIMARY KEY, terrain_id INTEGER, annee INTEGER,
         superficie_declaree REAL, zone TEXT, tarif REAL,
         montant_calcule REAL, montant_paye REAL DEFAULT 0,
         statut TEXT DEFAULT 'emis', date_emission TEXT, date_paiement TEXT,
         agent_id INTEGER, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS tdb_etablissements (
+CREATE TABLE IF NOT EXISTS tdb_etablissements (
         id INTEGER PRIMARY KEY, numero_licence TEXT UNIQUE,
         contribuable_id INTEGER, commune_id INTEGER,
         nom_etablissement TEXT, nom_etablissement_ar TEXT,
@@ -93,39 +219,39 @@ def init_db():
         adresse TEXT, date_ouverture TEXT, statut TEXT DEFAULT 'actif',
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS tdb_declarations (
+CREATE TABLE IF NOT EXISTS tdb_declarations (
         id INTEGER PRIMARY KEY, etablissement_id INTEGER, annee INTEGER,
         chiffre_affaires REAL, taux REAL, montant_calcule REAL,
         montant_paye REAL DEFAULT 0, statut TEXT DEFAULT 'emis',
         date_emission TEXT, date_paiement TEXT, agent_id INTEGER, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS sta_vehicules (
+CREATE TABLE IF NOT EXISTS sta_vehicules (
         id INTEGER PRIMARY KEY, numero_immatriculation TEXT UNIQUE,
         contribuable_id INTEGER, commune_id INTEGER,
         type_vehicule TEXT, categorie TEXT,
         marque TEXT, capacite INTEGER, statut TEXT DEFAULT 'actif',
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS sta_declarations (
+CREATE TABLE IF NOT EXISTS sta_declarations (
         id INTEGER PRIMARY KEY, vehicule_id INTEGER, annee INTEGER,
         tarif REAL, montant_calcule REAL, montant_paye REAL DEFAULT 0,
         statut TEXT DEFAULT 'emis', date_emission TEXT, date_paiement TEXT,
         agent_id INTEGER, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS odp_occupations (
+CREATE TABLE IF NOT EXISTS odp_occupations (
         id INTEGER PRIMARY KEY, numero_autorisation TEXT UNIQUE,
         contribuable_id INTEGER, commune_id INTEGER,
         type_occupation TEXT, superficie REAL, emplacement TEXT,
         date_debut TEXT, date_fin TEXT, tarif REAL, statut TEXT DEFAULT 'actif',
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS odp_declarations (
+CREATE TABLE IF NOT EXISTS odp_declarations (
         id INTEGER PRIMARY KEY, occupation_id INTEGER, annee INTEGER,
         superficie REAL, tarif REAL, montant_calcule REAL,
         montant_paye REAL DEFAULT 0, statut TEXT DEFAULT 'emis',
         date_emission TEXT, date_paiement TEXT, agent_id INTEGER, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS fou_dossiers (
+CREATE TABLE IF NOT EXISTS fou_dossiers (
         id INTEGER PRIMARY KEY, numero_pv TEXT UNIQUE,
         contribuable_id INTEGER, commune_id INTEGER,
         vehicule_immat TEXT, type_vehicule TEXT,
@@ -133,40 +259,40 @@ def init_db():
         nb_jours INTEGER, statut TEXT DEFAULT 'en_fourriere',
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS fou_declarations (
+CREATE TABLE IF NOT EXISTS fou_declarations (
         id INTEGER PRIMARY KEY, dossier_id INTEGER,
         tarif_journalier REAL, frais_remorquage REAL DEFAULT 0,
         montant_calcule REAL, montant_paye REAL DEFAULT 0,
         statut TEXT DEFAULT 'emis', date_emission TEXT, date_paiement TEXT,
         agent_id INTEGER, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS loc_locaux (
+CREATE TABLE IF NOT EXISTS loc_locaux (
         id INTEGER PRIMARY KEY, numero_contrat TEXT UNIQUE,
         contribuable_id INTEGER, commune_id INTEGER,
         designation TEXT, adresse TEXT, superficie REAL,
         loyer_mensuel REAL, date_debut TEXT, date_fin TEXT, statut TEXT DEFAULT 'actif',
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS loc_paiements (
+CREATE TABLE IF NOT EXISTS loc_paiements (
         id INTEGER PRIMARY KEY, local_id INTEGER, mois TEXT,
         montant REAL, montant_paye REAL DEFAULT 0,
         statut TEXT DEFAULT 'en_attente', date_paiement TEXT,
         agent_id INTEGER, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS sou_contrats (
+CREATE TABLE IF NOT EXISTS sou_contrats (
         id INTEGER PRIMARY KEY, numero_contrat TEXT UNIQUE,
         contribuable_id INTEGER, commune_id INTEGER,
         nom_souk TEXT, emplacement TEXT, superficie REAL,
         redevance_annuelle REAL, date_debut TEXT, date_fin TEXT, statut TEXT DEFAULT 'actif',
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS sou_paiements (
+CREATE TABLE IF NOT EXISTS sou_paiements (
         id INTEGER PRIMARY KEY, contrat_id INTEGER, annee INTEGER,
         montant REAL, montant_paye REAL DEFAULT 0,
         statut TEXT DEFAULT 'en_attente', date_paiement TEXT,
         agent_id INTEGER, commune_id INTEGER
     );
-    CREATE TABLE IF NOT EXISTS paiements_bulletins (
+CREATE TABLE IF NOT EXISTS paiements_bulletins (
         id INTEGER PRIMARY KEY, module TEXT, reference_id INTEGER,
         commune_id INTEGER, contribuable_id INTEGER,
         montant REAL, date_paiement TEXT, mode_paiement TEXT DEFAULT 'espece',
@@ -174,13 +300,226 @@ def init_db():
         agent_id INTEGER, valideur_id INTEGER, date_validation TEXT,
         date_creation TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS avis_imposition (
+CREATE TABLE IF NOT EXISTS avis_imposition (
         id INTEGER PRIMARY KEY, module TEXT, reference_id INTEGER,
         contribuable_id INTEGER, commune_id INTEGER,
         annee INTEGER, montant REAL, statut TEXT DEFAULT 'emis',
         date_emission TEXT, date_echeance TEXT, date_reglement TEXT,
         agent_id INTEGER
     );
+CREATE TABLE IF NOT EXISTS affermage_docs (id INTEGER PRIMARY KEY, affermage_id INTEGER, nom_fichier TEXT, chemin TEXT, type_doc TEXT, date_upload TEXT DEFAULT CURRENT_TIMESTAMP, agent_id INTEGER);
+CREATE TABLE IF NOT EXISTS ctb_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contribuable_id INTEGER NOT NULL,
+    type_doc TEXT NOT NULL DEFAULT 'autre',
+    nom_fichier TEXT,
+    chemin TEXT,
+    taille INTEGER,
+    date_upload TEXT,
+    agent_id INTEGER,
+    notes TEXT,
+    FOREIGN KEY(contribuable_id) REFERENCES contribuables(id)
+);
+CREATE TABLE IF NOT EXISTS fou_parametres (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    categorie  TEXT NOT NULL,   -- 'deposant' | 'etat_vehicule' | 'motif'
+    code       TEXT NOT NULL,
+    libelle    TEXT NOT NULL,
+    ordre      INTEGER DEFAULT 0,
+    actif      INTEGER DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS fou_types_vehicule (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    code             TEXT UNIQUE NOT NULL,
+    libelle          TEXT NOT NULL,
+    tarif_journalier REAL DEFAULT 0,
+    actif            INTEGER DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS fou_groupes_enchere (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero          TEXT UNIQUE NOT NULL,
+    libelle         TEXT NOT NULL,
+    date_creation   TEXT,
+    date_enchere    TEXT,
+    lieu            TEXT,
+    prix_ouverture  REAL DEFAULT 0,
+    type_vehicule   TEXT,   -- filtre par type
+    statut          TEXT DEFAULT 'ouvert',  -- ouvert | vendu | annule
+    notes           TEXT,
+    agent_id        INTEGER
+);
+CREATE TABLE IF NOT EXISTS fou_vehicules_enchere (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    groupe_id       INTEGER NOT NULL REFERENCES fou_groupes_enchere(id),
+    dossier_id      INTEGER NOT NULL REFERENCES dossiers_fourriere(id),
+    etat_vehicule   TEXT DEFAULT 'moyen',  -- bien | moyen | mauvais
+    ordre           INTEGER DEFAULT 0,
+    notes           TEXT
+);
+CREATE TABLE IF NOT EXISTS fou_ventes (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    groupe_id         INTEGER REFERENCES fou_groupes_enchere(id),
+    dossier_id        INTEGER REFERENCES dossiers_fourriere(id),
+    nom_acheteur      TEXT,
+    cin_acheteur      TEXT,
+    telephone_acheteur TEXT,
+    prix_adjudication REAL DEFAULT 0,
+    numero_quittance  TEXT,
+    date_vente        TEXT,
+    pv_chemin         TEXT,  -- upload PV de vente
+    pv_nom            TEXT,
+    agent_id          INTEGER,
+    notes             TEXT
+);
+CREATE TABLE IF NOT EXISTS loc_secteurs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    libelle TEXT NOT NULL,
+    description TEXT,
+    type_tarif TEXT NOT NULL DEFAULT 'fixe',  -- 'fixe' = DH/mois, 'm2' = DH/m²/mois
+    tarif_mensuel REAL NOT NULL DEFAULT 0,
+    unite TEXT NOT NULL DEFAULT 'DH/mois',
+    actif INTEGER NOT NULL DEFAULT 1,
+    date_creation TEXT DEFAULT (datetime('now')),
+    ordre INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS loc_tarifs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    secteur_id INTEGER NOT NULL REFERENCES loc_secteurs(id),
+    libelle TEXT NOT NULL,
+    type_tarif TEXT NOT NULL DEFAULT 'fixe',
+    valeur REAL NOT NULL DEFAULT 0,
+    unite TEXT NOT NULL DEFAULT 'DH/mois',
+    actif INTEGER NOT NULL DEFAULT 1,
+    date_creation TEXT DEFAULT (datetime('now'))
+, tarif_fiscal_id INTEGER REFERENCES tarifs(id));
+CREATE TABLE IF NOT EXISTS loc_boutiques (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tarif_id INTEGER NOT NULL REFERENCES loc_tarifs(id),
+    numero TEXT NOT NULL,
+    libelle TEXT,
+    superficie REAL DEFAULT 0,
+    statut TEXT NOT NULL DEFAULT 'disponible',
+    notes TEXT,
+    date_creation TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS lettres_notification (
+    id INTEGER PRIMARY KEY,
+    numero_lettre TEXT UNIQUE,
+    lot_id TEXT,
+    module TEXT,
+    type_lettre TEXT DEFAULT "relance",
+    statut TEXT DEFAULT "brouillon",
+    date_generation TEXT,
+    date_envoi TEXT,
+    agent_id INTEGER,
+    nb_redevables INTEGER DEFAULT 0,
+    montant_total REAL DEFAULT 0,
+    notes TEXT,
+    date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS lettres_details (
+    id INTEGER PRIMARY KEY,
+    lettre_id INTEGER,
+    avis_id INTEGER,
+    declaration_id INTEGER,
+    contribuable_id INTEGER,
+    montant_du REAL,
+    statut_envoi TEXT DEFAULT "inclus"
+);
+
+CREATE TABLE IF NOT EXISTS regie_valeurs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type_valeur TEXT DEFAULT 'timbre',
+    designation TEXT NOT NULL,
+    valeur_unitaire REAL NOT NULL,
+    nb_unites_carnet INTEGER NOT NULL,
+    actif INTEGER DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS regie_services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT NOT NULL,
+    actif INTEGER DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS regie_employes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    matricule TEXT,
+    nom TEXT NOT NULL,
+    prenom TEXT,
+    service_id INTEGER REFERENCES regie_services(id),
+    actif INTEGER DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS regie_paquets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    valeur_id INTEGER REFERENCES regie_valeurs(id),
+    numero_paquet TEXT UNIQUE,
+    num_premier TEXT,
+    num_dernier TEXT,
+    quantite_vignettes INTEGER,
+    date_reception TEXT,
+    statut TEXT DEFAULT 'recu',
+    agent_id INTEGER,
+    date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS regie_bordereaux (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero TEXT UNIQUE,
+    date_versement TEXT,
+    montant_total REAL DEFAULT 0,
+    agent_id INTEGER,
+    date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS regie_carnets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paquet_id INTEGER REFERENCES regie_paquets(id),
+    valeur_id INTEGER REFERENCES regie_valeurs(id),
+    numero_carnet TEXT UNIQUE,
+    num_premier INTEGER,
+    num_dernier INTEGER,
+    statut TEXT DEFAULT 'en_stock',
+    service_id INTEGER REFERENCES regie_services(id),
+    employe_id INTEGER REFERENCES regie_employes(id),
+    date_affectation TEXT,
+    date_versement_employe TEXT,
+    date_versement_percepteur TEXT,
+    bordereau_id INTEGER REFERENCES regie_bordereaux(id),
+    montant_verse REAL DEFAULT 0,
+    ecart REAL DEFAULT 0,
+    observation TEXT
+);
+CREATE TABLE IF NOT EXISTS bordereaux_versement (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mois INTEGER NOT NULL,
+    annee INTEGER NOT NULL,
+    fichier_source TEXT,
+    date_import DATETIME DEFAULT CURRENT_TIMESTAMP,
+    total_general REAL,
+    UNIQUE(mois, annee)
+);
+
+CREATE TABLE IF NOT EXISTS lignes_recettes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bordereau_id INTEGER REFERENCES bordereaux_versement(id) ON DELETE CASCADE,
+    code_budgetaire TEXT,
+    nature_recette TEXT,
+    montant REAL,
+    feuille_emission TEXT
+);
+
+CREATE TABLE IF NOT EXISTS bordereaux_emission (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bordereau_id INTEGER REFERENCES bordereaux_versement(id) ON DELETE CASCADE,
+    numero_bordereau INTEGER,
+    rubrique TEXT,
+    intitule TEXT,
+    montant_present REAL,
+    report_anterieurs REAL,
+    total REAL,
+    chemin_pdf TEXT,
+    chemin_xlsx TEXT,
+    date_generation DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
     ''')
     conn.commit()
 
@@ -189,6 +528,22 @@ def init_db():
     for _col, _typ in [('numero_quittance','TEXT'), ('date_quittance','TEXT'), ('motif_rejet','TEXT')]:
         try:
             c.execute(f'ALTER TABLE bulletins ADD COLUMN {_col} {_typ}')
+            conn.commit()
+        except Exception:
+            pass
+
+    # -- Migrations tarifs TNB surface
+    for _col, _typ in [('surface_min', 'REAL DEFAULT 0'), ('surface_max', 'REAL')]:
+        try:
+            c.execute(f'ALTER TABLE tarifs ADD COLUMN {_col} {_typ}')
+            conn.commit()
+        except Exception:
+            pass
+
+    # -- Migrations communes config
+    for _col, _typ in [('president_fr', 'TEXT'), ('president_ar', 'TEXT'), ('region_ar', 'TEXT'), ('province_ar', 'TEXT'), ('logo', 'TEXT')]:
+        try:
+            c.execute(f'ALTER TABLE communes ADD COLUMN {_col} {_typ}')
             conn.commit()
         except Exception:
             pass
@@ -282,6 +637,16 @@ def init_db():
     for p in params:
         c.execute('INSERT OR IGNORE INTO parametres_calcul (module,code,libelle,valeur,unite,description) VALUES (?,?,?,?,?,?)', p)
     conn.commit()
+    # ---- Regie modules setup ----
+    if c.execute('SELECT COUNT(*) FROM regie_valeurs').fetchone()[0] == 0:
+        c.execute("INSERT INTO regie_valeurs (type_valeur, designation, valeur_unitaire, nb_unites_carnet) VALUES ('timbre', 'Timbre État Civil', 2, 500)")
+        c.execute("INSERT INTO regie_valeurs (type_valeur, designation, valeur_unitaire, nb_unites_carnet) VALUES ('timbre', 'Timbre Légalisation', 50, 200)")
+        conn.commit()
+    if c.execute('SELECT COUNT(*) FROM regie_services').fetchone()[0] == 0:
+        c.execute("INSERT INTO regie_services (nom) VALUES ('Légalisation des documents')")
+        c.execute("INSERT INTO regie_services (nom) VALUES ('État Civil')")
+        conn.commit()
+
     conn.close()
 
 

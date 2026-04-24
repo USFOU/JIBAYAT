@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Bordereau N° {{ bordereau.numero }} — Versement Percepteur</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box }
+body { font-family:'Segoe UI',Arial,sans-serif; font-size:10pt; color:#000; background:#fff; padding:20px }
+.header { display:flex; justify-content:space-between; align-items:center; padding-bottom:14px; border-bottom:2px solid #000; margin-bottom:18px }
+.logo img { width:80px; height:80px; object-fit:contain }
+.org-info { text-align:center; flex:1 }
+.org-info h2 { font-size:12pt; font-weight:700; margin-bottom:4px }
+.org-info p { font-size:9pt; color:#555 }
+.doc-title { background:#1e3a8a; color:#fff; text-align:center; padding:10px; font-size:13pt; font-weight:700; border-radius:6px; margin-bottom:16px }
+.meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px }
+.meta-box { border:1px solid #ccc; border-radius:6px; padding:10px }
+.meta-box label { font-size:8pt; color:#666; display:block; margin-bottom:2px }
+.meta-box .val { font-size:11pt; font-weight:700 }
+table { width:100%; border-collapse:collapse; margin-bottom:16px }
+th { background:#1e3a8a; color:#fff; padding:8px 6px; text-align:left; font-size:9pt }
+td { padding:7px 6px; border-bottom:1px solid #e5e7eb; font-size:9pt }
+tr:nth-child(even) td { background:#f8fafc }
+.total-row td { background:#1e3a8a; color:#fff; font-weight:700; font-size:10pt }
+.ecart-pos { color:#16a34a }
+.ecart-neg { color:#dc2626 }
+.signatures { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-top:30px; padding-top:20px; border-top:1px solid #ccc }
+.sig-box { text-align:center }
+.sig-box .sig-label { font-size:9pt; font-weight:700; margin-bottom:40px }
+.sig-box .sig-line { border-top:1px solid #000; margin-top:8px; font-size:8pt; color:#666 }
+@media print { body { padding:10px } .noprint { display:none } }
+</style>
+</head>
+<body>
+
+<div class="noprint" style="text-align:right;margin-bottom:10px">
+  <button onclick="window.print()" style="padding:8px 16px;background:#1e3a8a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨️ Imprimer</button>
+</div>
+
+<div class="header">
+  <div class="logo">
+    {% if commune.get('logo') %}
+    <img src="/static/{{ commune.logo }}" alt="Logo">
+    {% else %}
+    <div style="width:80px;height:80px;background:#e5e7eb;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem">🏛️</div>
+    {% endif %}
+  </div>
+  <div class="org-info">
+    <h2>{{ commune.get('nom','COMMUNE') }}</h2>
+    <p>Régie des Recettes — Timbres & Tickets</p>
+    <p style="margin-top:4px;font-size:8pt;color:#888">{{ commune.get('region','') }}{% if commune.get('province') %} — {{ commune.province }}{% endif %}</p>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:8pt;color:#666">Date d'impression</div>
+    <div style="font-size:10pt;font-weight:700">{{ today }}</div>
+  </div>
+</div>
+
+<div class="doc-title">BORDEREAU DE VERSEMENT AU PERCEPTEUR</div>
+
+<div class="meta-grid">
+  <div class="meta-box">
+    <label>N° Bordereau</label>
+    <div class="val">{{ bordereau.numero }}</div>
+  </div>
+  <div class="meta-box">
+    <label>Date de versement</label>
+    <div class="val">{{ bordereau.date_versement or today }}</div>
+  </div>
+  <div class="meta-box">
+    <label>Nombre de carnets</label>
+    <div class="val">{{ carnets|length }}</div>
+  </div>
+  <div class="meta-box">
+    <label>Montant total versé</label>
+    <div class="val" style="color:#1e3a8a">{{ "%.2f"|format(bordereau.montant_total or 0) }} DH</div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>N° Carnet</th>
+      <th>Type</th>
+      <th>Employé</th>
+      <th>Service</th>
+      <th>Plage</th>
+      <th>Valeur théorique</th>
+      <th>Montant versé</th>
+      <th>Écart</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in carnets %}
+    {% set th = c.valeur_unitaire * c.nb_unites_carnet %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td><strong>{{ c.numero_carnet }}</strong></td>
+      <td>{{ c.designation }}</td>
+      <td>{{ c.emp_nom }} {{ c.emp_prenom or '' }}</td>
+      <td>{{ c.service_nom or '—' }}</td>
+      <td style="font-family:monospace;font-size:8pt">{{ c.num_premier }} → {{ c.num_dernier }}</td>
+      <td>{{ th|int }} DH</td>
+      <td><strong>{{ "%.2f"|format(c.montant_verse or 0) }} DH</strong></td>
+      <td class="{{ 'ecart-pos' if (c.ecart or 0) >= 0 else 'ecart-neg' }}">
+        {{ "%+.2f"|format(c.ecart or 0) }} DH
+      </td>
+    </tr>
+    {% endfor %}
+    <tr class="total-row">
+      <td colspan="7">TOTAL</td>
+      <td>{{ "%.2f"|format(bordereau.montant_total or 0) }} DH</td>
+      <td>{% set total_ecart = carnets|sum(attribute='ecart') %}
+          {{ "%+.2f"|format(total_ecart) }} DH</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="signatures">
+  <div class="sig-box">
+    <div class="sig-label">Le Régisseur des recettes</div>
+    <div class="sig-line">Nom, Prénom et Signature</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-label">Le Percepteur</div>
+    <div class="sig-line">Cachet et Signature</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-label">Le Président de la Commune</div>
+    <div class="sig-line">Cachet et Signature</div>
+  </div>
+</div>
+
+</body>
+</html>

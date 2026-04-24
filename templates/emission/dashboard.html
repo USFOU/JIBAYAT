@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Bordereaux d'Émission - Dashboard{% endblock %}
+{% block page_title %}📊 Dashboard — Bordereaux d'Émission{% endblock %}
+
+{% block extra_head %}
+<style>
+.mod-header{
+  background: color-mix(in srgb, #3498db 10%, transparent);
+  border: 1px solid color-mix(in srgb, #3498db 25%, transparent);
+  border-left: 5px solid #3498db;
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.mod-header-left { display: flex; align-items: center; gap: 14px; }
+.mod-header-icon {
+  width: 54px; height: 54px; border-radius: 14px;
+  background: color-mix(in srgb, #3498db 15%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+  border: 1px solid color-mix(in srgb, #3498db 30%, transparent);
+}
+.mod-header-title { font-size: 1.35rem; font-weight: 900; color: var(--primary); }
+.mod-header-sub { font-size: .8rem; color: var(--muted); margin-top: 2px; display:flex; align-items:center; gap:8px; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.kpi-card {
+  background: var(--card);
+  border-radius: 13px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  border-top: 4px solid var(--kpi-color, var(--primary));
+  transition: transform .2s, box-shadow .2s;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: -20px; right: -20px;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--kpi-color, var(--primary));
+  opacity: .05;
+}
+.kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.kpi-icon { font-size: 1.5rem; margin-bottom: 8px; display: block; }
+.kpi-val { font-size: 1.9rem; font-weight: 900; color: var(--kpi-color, var(--primary)); line-height: 1; }
+.kpi-label { font-size: .7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
+
+.months-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-bottom: 22px; }
+.month-card {
+  background: var(--card); border-radius: 13px; padding: 18px; box-shadow: var(--shadow);
+  border-left: 4px solid var(--border); transition: transform .2s;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.month-card.importe { border-left-color: #27ae60; }
+.month-card.vide { border-left-color: #95a5a6; }
+.month-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.month-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.month-title { font-size: 1.1rem; font-weight: 800; color: var(--primary); }
+.month-amount { font-size: 1.3rem; font-weight: 900; color: #27ae60; margin-bottom: 4px; }
+.month-sub { font-size: .75rem; color: var(--muted); }
+.month-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% set total_annee = 0 %}
+{% set nb_mois_importes = 0 %}
+{% set total_rubriques = 0 %}
+{% for m in mois_data %}
+  {% if m.statut == 'importe' %}
+    {% set total_annee = total_annee + m.total %}
+    {% set nb_mois_importes = nb_mois_importes + 1 %}
+    {% set total_rubriques = total_rubriques + m.nb_rubriques %}
+  {% endif %}
+{% endfor %}
+
+<div class="mod-header">
+  <div class="mod-header-left">
+    <div class="mod-header-icon">📄</div>
+    <div>
+      <div class="mod-header-title">Bordereaux d'Émission</div>
+      <div class="mod-header-sub">
+        Aperçu et gestion des bordereaux
+        <form method="get" action="{{ url_for('emission.dashboard') }}" style="display:inline-block; margin-left: 10px;">
+            <select name="annee" class="form-select form-select-sm" style="width: auto; display: inline-block; padding: 2px 24px 2px 8px; font-size: 0.75rem;" onchange="this.form.submit()">
+                {% for a in annees %}
+                <option value="{{ a }}" {% if a == annee %}selected{% endif %}>Année {{ a }}</option>
+                {% endfor %}
+            </select>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="df gap-2" style="flex-wrap:wrap;">
+    <a href="{{ url_for('emission.upload') }}" class="btn btn-primary btn-sm">
+      📥 Nouvel Import
+    </a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card" style="--kpi-color:#27ae60">
+    <span class="kpi-icon">💰</span>
+    <div class="kpi-val">{{ "%.2f"|format(total_annee) }}</div>
+    <div class="kpi-label">Total Général {{ annee }} (DH)</div>
+  </div>
+  
+  <div class="kpi-card" style="--kpi-color:#3498db">
+    <span class="kpi-icon">📅</span>
+    <div class="kpi-val">{{ nb_mois_importes }} / 12</div>
+    <div class="kpi-label">Mois Importés</div>
+  </div>
+
+  <div class="kpi-card" style="--kpi-color:#8e44ad">
+    <span class="kpi-icon">📋</span>
+    <div class="kpi-val">{{ total_rubriques }}</div>
+    <div class="kpi-label">Bordereaux Générés</div>
+  </div>
+</div>
+
+<h4 style="margin-bottom: 16px; font-weight: 800; color: var(--primary);">Vue Mensuelle — {{ annee }}</h4>
+
+<div class="months-grid">
+    {% for m in mois_data %}
+    <div class="month-card {{ m.statut }}">
+        <div>
+            <div class="month-header">
+                <div class="month-title">{{ m.nom }}</div>
+                {% if m.statut == 'importe' %}
+                    <span class="badge b-ok">✅ Importé</span>
+                {% else %}
+                    <span class="badge b-sec">⬜ Vide</span>
+                {% endif %}
+            </div>
+            
+            {% if m.statut == 'importe' %}
+                <div class="month-amount">{{ "%.2f"|format(m.total) }} DH</div>
+                <div class="month-sub"><strong>{{ m.nb_rubriques }}</strong> rubriques générées</div>
+            {% else %}
+                <div class="month-amount" style="color:var(--muted)">0.00 DH</div>
+                <div class="month-sub">Aucune donnée</div>
+            {% endif %}
+        </div>
+        
+        <div class="month-actions">
+            {% if m.statut == 'importe' %}
+            <a href="{{ url_for('emission.view', annee=annee, mois=m.mois) }}" class="btn btn-outline btn-sm" title="Voir les détails">
+                👁️ Détails
+            </a>
+            <a href="{{ url_for('emission.download_pdf', annee=annee, mois=m.mois) }}" class="btn btn-outline btn-sm" style="color:#e74c3c; border-color:#f5b7b1;" title="Télécharger tous les PDF">
+                📥 PDF
+            </a>
+            <button class="btn btn-outline btn-sm" style="color:#e74c3c; border-color:transparent;" onclick="deleteBv({{ annee }}, {{ m.mois }})" title="Supprimer ce mois">
+                🗑️
+            </button>
+            {% else %}
+            <a href="{{ url_for('emission.upload', mois=m.mois, annee=annee) }}" class="btn btn-primary btn-sm" style="width:100%; justify-content:center;">
+                Importer
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteBv(annee, mois) {
+    if (confirm("Êtes-vous sûr de vouloir supprimer les bordereaux de ce mois ? Tous les enregistrements associés seront effacés.")) {
+        fetch(`{{ url_for('emission.dashboard') }}${annee}/${mois}`, {
+            method: 'DELETE',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert("Erreur lors de la suppression.");
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

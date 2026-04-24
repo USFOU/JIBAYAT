@@ -23,8 +23,8 @@
 <div class="card mb-3">
   <div class="card-header" style="align-items:flex-start;flex-direction:column;gap:6px">
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
-      <h3 style="margin:0">📋 {{ terrain.numero_terrain }} — TF: {{ terrain.titre_foncier or 'N/A' }}
-        <small style="font-weight:400;color:var(--muted)">| Zone: {{ terrain.zone or '—' }} | {{ "%.0f"|format(terrain.superficie or 0) }} m²</small>
+      <h3 style="margin:0">📋 Dossier N°{{ terrain.numero_dossier }}
+        <small style="font-weight:400;color:var(--muted)"> — TF: {{ terrain.titre_foncier or 'N/A' }} | Zone: {{ terrain.zone or '—' }} | {{ "%.0f"|format(terrain.superficie or 0) }} m²</small>
       </h3>
       <span style="font-size:.9rem"><strong>👤 {{ terrain.nom }} {{ terrain.prenom or terrain.raison_sociale or '' }}</strong></span>
     </div>
@@ -42,7 +42,7 @@
         <a href="{{ url_for('tnb.tnb_paiement', id=t.id) }}"
            style="display:block;text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--bg);transition:box-shadow .15s"
            onmouseover="this.style.boxShadow='0 4px 16px rgba(37,99,235,.12)'" onmouseout="this.style.boxShadow=''">
-          <div style="font-weight:700;color:var(--primary)">{{ t.numero_terrain }}</div>
+          <div style="font-weight:700;color:var(--primary)">Dossier N°{{ t.numero_dossier }}</div>
           <div style="font-size:.76rem;color:var(--muted)">TF: {{ t.titre_foncier or 'N/A' }} | Zone: {{ t.zone or '—' }} | {{ "%.0f"|format(t.superficie or 0) }} m²</div>
           {% if t.adresse %}<div style="font-size:.74rem;color:var(--muted);margin-top:2px">📍 {{ t.adresse }}</div>{% endif %}
           <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
@@ -63,25 +63,21 @@
   </div>
 </div>
 
-{% if params %}
-<div class="card">
-  <div class="card-header"><h3>⚙️ Règles de Calcul — TNB</h3></div>
-  <div class="card-body">
-    {% for p in params %}
-    <div class="param-chip">{{ p.libelle }}: <span class="val">{{ p.valeur }} {{ p.unite }}</span></div>
-    {% endfor %}
-    <div class="param-chip">Date Limite (Déclaration / Paiement): <span class="val">28 Février</span></div>
-    <div class="param-chip">Amende Non-Déclaration: <span class="val" style="color:var(--danger)">15% (Min 500 DH)</span></div>
-  </div>
-</div>
-{% endif %}
-
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
   
   <!-- Régularisation en masse -->
   <div class="card">
     <div class="card-header"><h3>⏱️ Régularisation — Années Non Payées</h3></div>
     <div class="card-body">
+      {% if annees_exonerees %}
+      <div style="background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.83rem">
+        <strong>✅ Années exonérées (Permis de Construction — 3 ans) :</strong>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          {% for y in annees_exonerees %}<span class="badge b-ok">{{ y }}</span>{% endfor %}
+        </div>
+        <small style="color:#065f46">Ces années ne sont pas comptabilisées dans le calcul TNB.</small>
+      </div>
+      {% endif %}
       {% if annees_manquantes %}
       <div class="alert alert-warn mb-3">
         Sélectionnez les années à déclarer et payer :

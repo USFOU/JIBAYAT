@@ -3,10 +3,13 @@
 {% block page_title %}🏪 Redevance Occupation Domaine Public{% endblock %}
 {% block content %}
 <div class="alert alert-info">📋 Redevance d'occupation temporaire du domaine public communal par des biens liés à l'exercice d'un commerce, d'une industrie ou d'une profession.
-  <div class="ms-auto"><a href="{{ url_for('export_excel', module='OCCUPATION_DOMAINE') }}" class="btn btn-success btn-sm">📊 Excel</a></div>
+  <div class="ms-auto" style="display:flex;gap:8px;">
+      <a href="{{ url_for('export_excel', module='OCCUPATION_DOMAINE') }}" class="btn btn-success btn-sm">📊 Excel</a>
+      <button onclick="window.print()" class="btn btn-outline btn-sm">🖨️ PDF</button>
+  </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>Autorisations ({{ items|length }})</h3><button onclick="openModal('addOdp')" class="btn btn-primary btn-sm">➕ Nouvelle Autorisation</button></div>
+  <div class="card-header"><h3>Autorisations ({{ items|length }})</h3><button onclick="openModal('addOdp')" class="btn btn-primary btn-sm no-print">➕ Nouvelle Autorisation</button></div>
   <div class="table-responsive">
     <table>
       <thead><tr><th>N°</th><th>Type</th><th>Contribuable</th><th>Localisation</th><th>Superficie</th><th>Date début</th><th>Statut</th><th>Actions</th></tr></thead>
@@ -15,7 +18,12 @@
         <tr>
           <td><strong style="color:var(--primary)">{{ item.numero }}</strong></td>
           <td><span class="badge b-info">{{ item.type_occupation or '—' }}</span></td>
-          <td>{{ item.nom }} {{ item.prenom or item.raison_sociale or '' }}<br><small class="text-muted">{{ item.ctb_num }}</small></td>
+          <td>
+            <a onclick="showCtbInfo({{ item.contribuable_id }})" style="cursor:pointer;color:var(--primary);font-weight:600;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+              {{ item.nom }} {{ item.prenom or item.raison_sociale or '' }}
+            </a>
+            <br><small class="text-muted">{{ item.ctb_num }}</small>
+          </td>
           <td>{{ item.localisation or '—' }}</td>
           <td>{{ item.superficie or '—' }} {% if item.superficie %}m²{% endif %}</td>
           <td style="font-size:.78rem">{{ item.date_debut or '—' }}</td>

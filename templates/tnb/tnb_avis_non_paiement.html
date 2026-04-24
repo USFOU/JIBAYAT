@@ -86,14 +86,14 @@
   <div class="box-kingdom">
     <div>المملكة المغربية</div>
     <div>وزارة الداخلية</div>
-    <div>إقليم {{ province or '....................' }}</div>
-    <div>جماعة <span class="commune">{{ commune }}</span></div>
+    <div>إقليم {{ province_ar or '....................' }}</div>
+    <div>جماعة <span class="commune">{{ commune_ar }}</span></div>
     <div style="font-size:9.5pt">مديرية المصالح</div>
     <div style="font-size:9.5pt">مكتب الوعاء الضريبي</div>
   </div>
-  <div class="box-logo">
-    <div class="seal">🏛️</div>
-  </div>
+  <div class="logo-icon">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Commune" style="width: 120px; height: 120px;">
+    </div>
   <div class="box-ref">
     <div class="ref-lbl">عدد</div>
     <div class="ref-val">{{ avis_num }}</div>
@@ -106,7 +106,7 @@
 
 <!-- ── DESTINATAIRE ── -->
 <div class="dest">
-  <div class="title-to">رئيس المجلس الجماعي لـ <strong>{{ commune }}</strong></div>
+  <div class="title-to">رئيس المجلس الجماعي لـ <strong>{{ commune_ar }}</strong></div>
   <div style="margin: 6px 0; font-size: 11pt; color: #555;">إلـــــى</div>
   <div>السيد(ة) : <span class="name">{{ terrain.prenom or '' }} {{ terrain.nom or terrain.raison_sociale or '' }}</span></div>
   <div class="cin-addr">
@@ -182,19 +182,19 @@
 
 <!-- ── SIGNATURE ── -->
 <div class="footer-sign">
-  <div class="footer-date">
-    {{ commune or '' }} في {{ today }}
+  <div class="footer-sign">
+    {{ commune_ar or '' }} في {{ today }}<br>
+    <div style="margin-top:10px; font-weight:700;">رئيس المجلس الجماعي</div>
+    <div style="font-size:8.5pt; color:#666; margin-top:4px;">التوقيع والختم</div>
   </div>
-  <div class="footer-president">
-    <div class="title">رئيس المجلس الجماعي</div>
-    <div class="sig-area">التوقيع والختم</div>
-  </div>
+
+</div>
 </div>
 
-<!-- ── PIED DE PAGE ── -->
-<div class="footnote">
-  <span>المرجع القانوني: المادة 39-46 من القانون 47.06</span>
-  <span>{{ commune }} — مديرية المصالح المالية</span>
+<!-- ── BAS DE PAGE PRO: RIB / IBAN ── -->
+<div class="bottom-bar">
+  <span>{{ commune_ar }} — مديرية المصالح المالية</span>
+  <span>الضريبة على الأراضي الحضرية غير المبنية</span>
 </div>
 
 </body>

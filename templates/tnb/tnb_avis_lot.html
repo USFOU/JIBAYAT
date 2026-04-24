@@ -69,9 +69,10 @@
       <div class="box-kingdom">
         <div>المملكة المغربية</div>
         <div>وزارة الداخلية</div>
-        <div>إقليم {{ province or '....................' }}</div>
-        <div>جماعة <strong style="color:#c8a84b">{{ commune }}</strong></div>
-        <div style="font-size:9pt">مكتب الوعاء الضريبي</div>
+        <div>إقليم {{ province_ar or '....................' }}</div>
+        <div>جماعة <strong style="color:#c8a84b">{{ commune_ar }}</strong></div>
+        <div style="font-size:9.5pt">مديرية المصالح المالية</div>
+        <div style="font-size:9.5pt">مكتب الوعاء الضريبي</div>
       </div>
       <div class="box-logo"><div class="seal">🏛️</div></div>
       <div class="box-ref">
@@ -85,7 +86,7 @@
     </div>
 
     <div class="dest">
-      <div style="font-size:10.5pt;color:#555">رئيس المجلس الجماعي لـ <strong>{{ commune }}</strong> — إلـى</div>
+      <div style="font-size:10.5pt;color:#555">رئيس المجلس الجماعي لـ <strong>{{ commune_ar }}</strong> — إلـى</div>
       <div>السيد(ة) : <span class="name">{{ av.terrain.prenom or '' }} {{ av.terrain.nom or av.terrain.raison_sociale or '' }}</span></div>
       <div class="cin-addr">
         {% if av.terrain.cin %}الحامل لبطاقة التعريف رقم : <strong>{{ av.terrain.cin }}</strong>{% endif %}
@@ -133,7 +134,7 @@
     </div>
 
     <div class="footer-sign">
-      <div style="font-size:9.5pt;color:#555">{{ commune }} في {{ today }}</div>
+      <div style="font-size:9.5pt;color:#555">{{ commune_ar }} في {{ today }}</div>
       <div class="footer-president">
         <div class="title">رئيس المجلس الجماعي</div>
         <div class="sig-area">التوقيع والختم</div>

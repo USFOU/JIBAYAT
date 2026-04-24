@@ -2,10 +2,14 @@
 {% block title %}Véhicule {{ vehicule.immatriculation }}{% endblock %}
 {% block page_title %}🚗 Véhicule — {{ vehicule.immatriculation }}{% endblock %}
 {% block content %}
-<div class="df gap-2 mb-3">
+<div class="df gap-2 mb-3" style="flex-wrap:wrap;align-items:center">
   <a href="{{ url_for('sta.sta_liste') }}" class="btn btn-outline btn-sm">← Liste</a>
   <a href="{{ url_for('sta.sta_paiement', id=vehicule.id) }}" class="btn btn-accent">💳 Paiement Annuel</a>
   <button onclick="openModal('editVeh')" class="btn btn-primary btn-sm">✏️ Modifier</button>
+  <form method="post" action="{{ url_for('sta.sta_supprimer', id=vehicule.id) }}" style="margin-left:auto"
+        onsubmit="return confirmForm(this, {title:'Supprimer le véhicule',msg:'Archiver le véhicule <strong>{{ vehicule.immatriculation }}</strong> ? Les paiements enregistrés ne seront pas supprimés.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+    <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5">🗑️ Supprimer</button>
+  </form>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
   <div class="card">
@@ -41,23 +45,25 @@
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>📄 Historique Paiements Annuels</h3><a href="{{ url_for('sta.sta_paiement', id=vehicule.id) }}" class="btn btn-accent btn-sm">+ Paiement</a></div>
+  <div class="card-header"><h3>📄 Historique Paiements</h3><a href="{{ url_for('sta.sta_paiement', id=vehicule.id) }}" class="btn btn-accent btn-sm">+ Paiement</a></div>
   <div class="table-responsive">
     <table>
-      <thead><tr><th>N° Décl.</th><th>Année</th><th>Montant</th><th>Pénalité</th><th>Total</th><th>Bulletin</th><th>Statut</th></tr></thead>
+      <thead><tr><th>N° Décl.</th><th>Année</th><th>Trim.</th><th>TPV</th><th>STA</th><th>Pén. TPV</th><th>Total</th><th>Bulletin</th><th>Statut</th></tr></thead>
       <tbody>
         {% for d in declarations %}
         <tr>
           <td><small style="color:var(--primary)">{{ d.numero }}</small></td>
           <td><strong>{{ d.annee }}</strong></td>
-          <td>{{ "%.2f"|format(d.montant_principal) }} DH</td>
+          <td><span class="badge b-info" style="font-size:.65rem">T{{ d.trimestre }}</span></td>
+          <td style="color:var(--primary);font-weight:700">{{ "%.2f"|format(d.base_calcul or 0) }}</td>
+          <td style="color:#166534;font-weight:700">{{ "%.2f"|format(d.taux or 0) }}</td>
           <td>{% if d.penalite_retard>0 %}<span class="text-danger">{{ "%.2f"|format(d.penalite_retard) }}</span>{% else %}—{% endif %}</td>
           <td><strong>{{ "%.2f"|format(d.montant_total) }} DH</strong></td>
           <td><small>{{ d.numero_bulletin or '—' }}</small></td>
           <td><span class="badge {% if d.statut=='paye' %}b-ok{% elif d.statut=='emis' %}b-warn{% else %}b-sec{% endif %}">{{ d.statut }}</span></td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="empty-state">Aucun paiement enregistré</td></tr>
+        <tr><td colspan="9" class="empty-state">Aucun paiement enregistré</td></tr>
         {% endfor %}
       </tbody>
     </table>

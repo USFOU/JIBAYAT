@@ -19,16 +19,28 @@
   </div>
   <div class="table-responsive">
     <table>
-      <thead><tr><th>N°</th><th>Immatriculation</th><th>Propriétaire</th><th>Type</th><th>Sièges</th><th>N° Autorisation</th><th>Statut</th><th>Actions</th></tr></thead>
+      <thead><tr><th>N°</th><th>Immatriculation</th><th>Propriétaire</th><th>Type</th><th>Sièges</th><th>N° Autorisation</th><th>Arr.</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
         {% for v in items %}
         <tr>
           <td><strong style="color:var(--primary)">{{ v.numero }}</strong></td>
           <td><strong>{{ v.immatriculation }}</strong></td>
-          <td>{{ v.nom }} {{ v.prenom or v.raison_sociale or '' }}<br><small class="text-muted">{{ v.ctb_num }}</small></td>
+          <td>
+            <a onclick="showCtbInfo({{ v.contribuable_id }})" style="cursor:pointer;color:var(--primary);font-weight:600;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+              {{ v.nom }} {{ v.prenom or v.raison_sociale or '' }}
+            </a>
+            <br><small class="text-muted">{{ v.ctb_num }}</small>
+          </td>
           <td><span class="badge b-info">{{ v.type_vehicule }}</span></td>
           <td>{{ v.nombre_sieges or '—' }}</td>
           <td style="font-size:.78rem">{{ v.num_autorisation or '—' }}</td>
+          <td>
+            {% if v.nb_non_paye > 0 %}
+            <span class="badge b-danger" title="{{ v.annees_non_payees|join(', ') }}">⚠️ {{ v.nb_non_paye }} an(s)</span>
+            {% else %}
+            <span class="badge b-ok">✅</span>
+            {% endif %}
+          </td>
           <td><span class="badge {{ 'b-ok' if v.statut=='actif' else 'b-danger' }}">{{ v.statut }}</span></td>
           <td>
             <div class="df gap-2">

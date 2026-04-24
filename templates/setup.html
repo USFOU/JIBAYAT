@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏛️ Installation — JIBAYAT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#1e3a5f;--primary-l:#2a5298;--accent:#e8a020;
+  --ok:#22c55e;--danger:#ef4444;--warn:#f59e0b;
+  --bg:#0b1628;--card:rgba(255,255,255,0.05);--border:rgba(255,255,255,0.1);
+  --text:#e2e8f0;--muted:rgba(255,255,255,0.5);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(42,82,152,0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(232,160,32,0.15) 0%, transparent 50%);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+
+.page-wrapper{width:100%;max-width:860px;}
+
+/* ── Header ── */
+.page-header{text-align:center;margin-bottom:40px;}
+.step-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(232,160,32,0.15);border:1px solid rgba(232,160,32,0.3);
+  color:var(--accent);border-radius:30px;padding:6px 18px;
+  font-size:.78rem;font-weight:600;letter-spacing:.5px;
+  text-transform:uppercase;margin-bottom:16px;
+}
+h1{
+  font-size:2.4rem;font-weight:900;
+  background:linear-gradient(135deg,#fff 0%,#e8a020 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:8px;
+}
+.subtitle{color:var(--muted);font-size:1rem;font-weight:400;}
+
+/* ── Steps ── */
+.steps-nav{
+  display:flex;align-items:center;justify-content:center;
+  gap:0;margin-bottom:40px;
+}
+.step-item{
+  display:flex;align-items:center;gap:0;
+}
+.step-dot{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:.85rem;
+  background:rgba(255,255,255,0.08);
+  border:2px solid rgba(255,255,255,0.15);
+  color:var(--muted);transition:all .3s;
+}
+.step-dot.active{
+  background:var(--accent);border-color:var(--accent);
+  color:#fff;box-shadow:0 0 20px rgba(232,160,32,0.4);
+}
+.step-dot.done{
+  background:var(--ok);border-color:var(--ok);color:#fff;
+}
+.step-label{
+  font-size:.72rem;font-weight:600;color:var(--muted);
+  margin-left:8px;margin-right:8px;white-space:nowrap;
+}
+.step-label.active{color:var(--accent);}
+.step-line{width:50px;height:2px;background:rgba(255,255,255,0.1);}
+
+/* ── Card ── */
+.card{
+  background:rgba(255,255,255,0.05);
+  backdrop-filter:blur(20px);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:32px;
+  margin-bottom:20px;
+}
+.card-title{
+  font-size:1rem;font-weight:700;
+  color:#fff;margin-bottom:4px;
+  display:flex;align-items:center;gap:10px;
+}
+.card-subtitle{font-size:.82rem;color:var(--muted);margin-bottom:24px;}
+
+/* ── Form ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group.full{grid-column:1/-1;}
+label{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+input[type=text]{
+  background:rgba(255,255,255,0.07);
+  border:1.5px solid rgba(255,255,255,0.12);
+  border-radius:10px;padding:11px 14px;
+  font-size:.9rem;color:#fff;font-family:inherit;
+  transition:border-color .2s,box-shadow .2s;
+}
+input[type=text]:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(232,160,32,0.15);
+  background:rgba(255,255,255,0.1);
+}
+input[type=text]::placeholder{color:rgba(255,255,255,0.25);}
+
+input[dir=rtl]{text-align:right;font-family:'Cairo',system-ui,sans-serif;}
+
+/* ── Modules grid ── */
+.modules-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:10px;
+}
+.module-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;
+  background:rgba(255,255,255,0.05);
+  border:1.5px solid rgba(255,255,255,0.1);
+  border-radius:12px;cursor:pointer;
+  transition:all .2s;
+}
+.module-item:hover{
+  background:rgba(232,160,32,0.1);
+  border-color:rgba(232,160,32,0.3);
+}
+.module-item input[type=checkbox]{display:none;}
+.module-item.checked{
+  background:rgba(232,160,32,0.12);
+  border-color:rgba(232,160,32,0.4);
+}
+.module-check{
+  width:20px;height:20px;border-radius:6px;
+  background:rgba(255,255,255,0.08);
+  border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:.7rem;transition:all .2s;
+}
+.module-item.checked .module-check{
+  background:var(--accent);border-color:var(--accent);color:#fff;
+}
+.module-text{font-size:.83rem;font-weight:500;color:var(--text);}
+
+/* ── Alert ── */
+.alert-danger{
+  background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);
+  border-radius:12px;padding:12px 16px;color:#fca5a5;
+  font-size:.85rem;margin-bottom:20px;
+  display:flex;align-items:center;gap:10px;
+}
+
+/* ── Submit button ── */
+.btn-submit{
+  width:100%;padding:16px;
+  background:linear-gradient(135deg,var(--accent),#c87d0e);
+  border:none;border-radius:14px;
+  font-size:1rem;font-weight:700;color:#fff;
+  cursor:pointer;font-family:inherit;
+  transition:all .2s;
+  box-shadow:0 8px 24px rgba(232,160,32,0.3);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin-top:24px;
+}
+.btn-submit:hover{
+  transform:translateY(-2px);
+  box-shadow:0 12px 32px rgba(232,160,32,0.4);
+}
+.btn-submit:active{transform:translateY(0);}
+
+/* ── Divider ── */
+hr.section-divider{
+  border:none;border-top:1px solid var(--border);margin:28px 0;
+}
+
+/* ── Modules select-all ── */
+.modules-ctrl{
+  display:flex;gap:10px;margin-bottom:14px;
+}
+.btn-sm-ctrl{
+  padding:5px 14px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.15);
+  background:rgba(255,255,255,0.06);color:var(--muted);
+  font-size:.75rem;font-weight:600;cursor:pointer;font-family:inherit;
+  transition:all .15s;
+}
+.btn-sm-ctrl:hover{background:rgba(255,255,255,0.12);color:#fff;}
+
+/* ── Footer ── */
+.page-footer{text-align:center;color:var(--muted);font-size:.75rem;margin-top:24px;}
+.page-footer a{color:var(--accent);text-decoration:none;}
+
+/* ── Responsive ── */
+@media(max-width:600px){
+  .form-grid{grid-template-columns:1fr;}
+  h1{font-size:1.8rem;}
+  .steps-nav{gap:4px;}
+  .step-label{display:none;}
+  .step-line{width:20px;}
+}
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="step-badge">🏛️ Première Installation</div>
+    <h1>Bienvenue dans JIBAYAT</h1>
+    <p class="subtitle">Gestion Fiscale Communale — Configuration initiale</p>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps-nav">
+    <div class="step-item">
+      <div class="step-dot active" id="dot1">1</div>
+      <span class="step-label active">Commune</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item">
+      <div class="step-dot" id="dot2">2</div>
+      <span class="step-label">Modules</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item">
+      <div class="step-dot" id="dot3">3</div>
+      <span class="step-label">Finaliser</span>
+    </div>
+  </div>
+
+  <!-- Error alert -->
+  {% if error %}
+  <div class="alert-danger">⚠️ {{ error }}</div>
+  {% endif %}
+
+  <!-- Form -->
+  <form method="POST" id="setup-form">
+
+    <!-- ── SECTION 1: Informations Commune ── -->
+    <div class="card" id="section-commune">
+      <div class="card-title">🏛️ Informations de la Commune</div>
+      <div class="card-subtitle">Ces informations apparaîtront sur tous les documents fiscaux générés par JIBAYAT.</div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nom de la commune (Français) *</label>
+          <input type="text" name="nom" required
+                 placeholder="Ex: Commune de Marrakech"
+                 value="{{ request.form.get('nom', '') }}">
+        </div>
+        <div class="form-group">
+          <label>اسم الجماعة (بالعربية)</label>
+          <input type="text" name="nom_ar" dir="rtl"
+                 placeholder="مثال: جماعة مراكش"
+                 value="{{ request.form.get('nom_ar', '') }}">
+        </div>
+        <div class="form-group">
+          <label>Région</label>
+          <input type="text" name="region"
+                 placeholder="Ex: Marrakech-Safi"
+                 value="{{ request.form.get('region', '') }}">
+        </div>
+        <div class="form-group">
+          <label>Province</label>
+          <input type="text" name="province"
+                 placeholder="Ex: Marrakech"
+                 value="{{ request.form.get('province', '') }}">
+        </div>
+        <div class="form-group">
+          <label>Code commune</label>
+          <input type="text" name="code"
+                 placeholder="Ex: 44000"
+                 value="{{ request.form.get('code', '') }}">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECTION 2: Modules ── -->
+    <div class="card" id="section-modules">
+      <div class="card-title">🧩 Modules Fiscaux à Activer</div>
+      <div class="card-subtitle">Sélectionnez les modules correspondant aux activités fiscales de votre commune.</div>
+
+      <div class="modules-ctrl">
+        <button type="button" class="btn-sm-ctrl" onclick="toggleAllModules(true)">✅ Tout activer</button>
+        <button type="button" class="btn-sm-ctrl" onclick="toggleAllModules(false)">❌ Tout désactiver</button>
+      </div>
+
+      <div class="modules-grid" id="modules-container">
+        {% for code, label in all_modules.items() %}
+        <label class="module-item checked" id="lbl-{{ code }}" onclick="toggleModule('{{ code }}')">
+          <input type="checkbox" name="modules" value="{{ code }}" checked id="cb-{{ code }}">
+          <span class="module-check">✓</span>
+          <span class="module-text">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ── SUBMIT ── -->
+    <button type="submit" class="btn-submit">
+      <span>🚀</span>
+      <span>Terminer l'installation et démarrer JIBAYAT</span>
+    </button>
+
+  </form>
+
+  <div class="page-footer">
+    JIBAYAT v{{ version }} &nbsp;•&nbsp; Développé pour les communes marocaines
+    {% if config.get('commune') %}
+      &nbsp;•&nbsp; <a href="{{ url_for('login') }}">Se connecter</a>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+function toggleModule(code) {
+  const lbl = document.getElementById('lbl-' + code);
+  const cb  = document.getElementById('cb-' + code);
+  const chk = lbl.querySelector('.module-check');
+
+  cb.checked = !cb.checked;
+  if (cb.checked) {
+    lbl.classList.add('checked');
+    chk.textContent = '✓';
+  } else {
+    lbl.classList.remove('checked');
+    chk.textContent = '';
+  }
+}
+
+function toggleAllModules(state) {
+  document.querySelectorAll('#modules-container .module-item').forEach(lbl => {
+    const cb  = lbl.querySelector('input[type=checkbox]');
+    const chk = lbl.querySelector('.module-check');
+    cb.checked = state;
+    if (state) {
+      lbl.classList.add('checked');
+      chk.textContent = '✓';
+    } else {
+      lbl.classList.remove('checked');
+      chk.textContent = '';
+    }
+  });
+}
+
+// Progressive steps indicator
+document.getElementById('setup-form').addEventListener('input', function() {
+  const nomOk = document.querySelector('input[name=nom]').value.trim().length > 0;
+  if (nomOk) {
+    document.getElementById('dot1').classList.add('done');
+    document.getElementById('dot1').textContent = '✓';
+    document.getElementById('dot2').classList.add('active');
+  }
+});
+
+// Prevent double-click submit
+document.getElementById('setup-form').addEventListener('submit', function(e) {
+  const btn = this.querySelector('.btn-submit');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span><span>Installation en cours...</span>';
+  document.getElementById('dot2').classList.add('done');
+  document.getElementById('dot2').textContent = '✓';
+  document.getElementById('dot3').classList.add('active');
+});
+</script>
+</body>
+</html>

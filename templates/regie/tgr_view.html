@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% block title %}Régie — Relevés GIR{% endblock %}
+{% block page_title %}📊 Relevés GIR (Trésorerie){% endblock %}
+
+{% block extra_head %}
+<style>
+.tgr-header {
+  background: var(--card); padding: 16px 20px; border-radius: 12px;
+  box-shadow: var(--shadow); margin-bottom: 20px; display: flex;
+  justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.tgr-header h3 { margin: 0; font-size: 1.1rem; color: var(--primary); }
+.tgr-stats {
+  display: flex; gap: 16px; font-size: .85rem; color: var(--muted);
+}
+.tgr-stats strong { color: var(--text); }
+.filter-bar {
+  display: flex; gap: 12px; margin-bottom: 16px; background: var(--card);
+  padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); align-items: flex-end;
+}
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: .75rem; font-weight: 700; color: var(--muted); }
+.filter-group input, .filter-group select {
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: .85rem;
+}
+.table-responsive { max-height: 500px; overflow-y: auto; }
+.totals-bar {
+  background: #1e3a5f; color: #fff; padding: 12px 20px; border-radius: 8px;
+  display: flex; justify-content: space-around; font-weight: 700; margin-top: 16px;
+  font-size: 1rem;
+}
+.totals-bar span { color: #cbd5e1; font-weight: 400; font-size: .85rem; margin-right: 4px; }
+tr.selected { background: rgba(37,99,235,0.1) !important; }
+
+/* Loading Overlay */
+#loadingOverlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(5px);
+  z-index: 9999;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.spinner {
+  width: 60px; height: 60px;
+  border: 6px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.loading-text {
+  font-size: 1.3rem; font-weight: 700; color: var(--primary);
+}
+.loading-subtext {
+  font-size: 0.95rem; color: var(--muted); margin-top: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="tgr-header">
+  <div>
+    <h3>📥 Import de Relevé Détaillé GIR</h3>
+    <p style="font-size:.8rem;color:var(--muted);margin-top:4px;">Chargez le fichier .xls ou .xlsx généré par la GIR.</p>
+  </div>
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Traitement du fichier Excel en cours...</div>
+    <div class="loading-subtext">Veuillez patienter, l'extraction des données peut prendre quelques instants.</div>
+  </div>
+
+  <form method="post" action="{{ url_for('regie.tgr_upload') }}" enctype="multipart/form-data" style="display:flex; gap:10px;" onsubmit="document.getElementById('loadingOverlay').style.display='flex';">
+    <input type="file" name="fichier" accept=".xls,.xlsx,.xlsm" required
+           style="padding:6px; border:1px solid var(--border); border-radius:6px; background:var(--bg);">
+    <button type="submit" class="btn btn-primary">Charger le fichier</button>
+  </form>
+</div>
+
+{% if meta %}
+<div class="card mb-4" style="border-left:4px solid var(--primary);">
+  <div class="card-body" style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <h4 style="margin-bottom:8px;">{{ meta.regie }}</h4>
+      <div class="tgr-stats">
+        <div><span>Période :</span> <strong>Du {{ meta.periode_debut.strftime('%d/%m/%Y') if meta.periode_debut else '---' }} au {{ meta.periode_fin.strftime('%d/%m/%Y') if meta.periode_fin else '---' }}</strong></div>
+        <div><span>Lignes :</span> <strong><span id="rowCount">{{ operations|length }}</span> opérations</strong></div>
+      </div>
+    </div>
+    <div>
+      <a href="{{ url_for('regie.tgr_pdf') }}" target="_blank" class="btn btn-outline" style="margin-right:8px;">
+        <span class="ic">🖨️</span> Imprimer / PDF
+      </a>
+      <a href="{{ url_for('regie.tgr_export') }}" class="btn btn-accent">
+        <span class="ic">📥</span> Exporter Activité Mensuelle (.xlsx)
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-group" style="flex:1;">
+    <label>Période (Du)</label>
+    <input type="date" id="dateDebut" onchange="applyFilters()">
+  </div>
+  <div class="filter-group" style="flex:1;">
+    <label>Période (Au)</label>
+    <input type="date" id="dateFin" onchange="applyFilters()">
+  </div>
+  <div class="filter-group" style="flex:1.5;">
+    <label>Recherche libre</label>
+    <input type="text" id="searchTxt" placeholder="Partie versante, rubrique, Réf..." onkeyup="applyFilters()">
+  </div>
+  <div class="filter-group" style="flex:1.5;">
+    <label>Rubrique</label>
+    <select id="filterRubrique" onchange="applyFilters()">
+      <option value="">— Toutes les rubriques —</option>
+      {% set rubs = [] %}
+      {% for op in operations %}
+        {% if op.libelle_rubrique not in rubs %}
+          {% set _ = rubs.append(op.libelle_rubrique) %}
+        {% endif %}
+      {% endfor %}
+      {% for r in rubs|sort %}
+        <option value="{{ r }}">{{ r }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn btn-outline" onclick="resetFilters()">Réinitialiser</button>
+</div>
+
+<div class="table-responsive">
+  <table class="table" id="opsTable">
+    <thead>
+      <tr>
+        <th width="50">N°</th>
+        <th>Réf. paiement</th>
+        <th>Date</th>
+        <th>Partie versante</th>
+        <th>Mode paiement</th>
+        <th>Libellé rubrique</th>
+        <th style="text-align:right">Principal</th>
+        <th style="text-align:right">Majoration</th>
+        <th style="text-align:right">Pénalités</th>
+        <th style="text-align:right">Total</th>
+      </tr>
+    </thead>
+    <tbody id="opsTableBody">
+      <!-- Rendu par JavaScript pour la performance -->
+    </tbody>
+  </table>
+</div>
+<div id="paginationInfo" style="font-size: 0.8rem; color: var(--muted); margin-top: 5px; text-align: center;"></div>
+
+<div class="totals-bar">
+  <div><span>Principal:</span> <span id="totP">0.00</span> DH</div>
+  <div><span>Majoration:</span> <span id="totM">0.00</span> DH</div>
+  <div><span>Pénalités:</span> <span id="totPe">0.00</span> DH</div>
+  <div><span>TOTAL:</span> <span id="totG" style="color:#fff;font-size:1.1rem;">0.00</span> DH</div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if meta %}
+<script>
+// Load operations as JSON to avoid freezing the DOM with 20000 elements
+const allOperations = [
+  {% for op in operations %}
+  {
+    "num": {{ op.num|tojson }},
+    "ref_paiement": {{ op.ref_paiement|tojson }},
+    "date": {{ op.date.isoformat()|tojson if op.date else "null" }},
+    "partie_versante": {{ op.partie_versante|tojson }},
+    "mode_paiement": {{ op.mode_paiement|tojson }},
+    "libelle_rubrique": {{ op.libelle_rubrique|tojson }},
+    "principal": {{ op.principal|tojson }},
+    "majoration": {{ op.majoration|tojson }},
+    "penalites": {{ op.penalites|tojson }},
+    "total": {{ op.total|tojson }}
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+const MAX_ROWS = 500; // Limit display for performance
+
+function formatNumber(num) {
+  return parseFloat(num || 0).toFixed(2);
+}
+
+function applyFilters() {
+  const search = document.getElementById('searchTxt').value.toLowerCase();
+  const rub = document.getElementById('filterRubrique').value;
+  const dDebut = document.getElementById('dateDebut').value;
+  const dFin = document.getElementById('dateFin').value;
+  
+  let p=0, m=0, pe=0, t=0, c=0;
+  let filteredOps = [];
+  
+  for (let i = 0; i < allOperations.length; i++) {
+    const op = allOperations[i];
+    let match = true;
+    
+    if (rub && op.libelle_rubrique !== rub) match = false;
+    if (search) {
+      const searchStr = `${op.partie_versante} ${op.libelle_rubrique} ${op.ref_paiement}`.toLowerCase();
+      if (!searchStr.includes(search)) match = false;
+    }
+    if (op.date) {
+      if (dDebut && op.date < dDebut) match = false;
+      if (dFin && op.date > dFin) match = false;
+    }
+    
+    if (match) {
+      p += op.principal || 0;
+      m += op.majoration || 0;
+      pe += op.penalites || 0;
+      t += op.total || 0;
+      c++;
+      if (filteredOps.length < MAX_ROWS) {
+        filteredOps.push(op);
+      }
+    }
+  }
+  
+  // Render table
+  const tbody = document.getElementById('opsTableBody');
+  tbody.innerHTML = '';
+  
+  filteredOps.forEach(op => {
+    const tr = document.createElement('tr');
+    tr.className = 'op-row';
+    tr.onclick = () => tr.classList.toggle('selected');
+    
+    tr.innerHTML = `
+      <td>${op.num}</td>
+      <td style="font-family:monospace">${op.ref_paiement}</td>
+      <td>${op.date || ''}</td>
+      <td style="font-weight:600">${op.partie_versante || ''}</td>
+      <td><span class="badge" style="background:#e2e8f0;color:#334155">${op.mode_paiement || ''}</span></td>
+      <td style="font-size:.8rem; max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${op.libelle_rubrique || ''}">
+        ${op.libelle_rubrique || ''}
+      </td>
+      <td style="text-align:right;color:#16a34a">${formatNumber(op.principal)}</td>
+      <td style="text-align:right;color:#ea580c">${formatNumber(op.majoration)}</td>
+      <td style="text-align:right;color:#dc2626">${formatNumber(op.penalites)}</td>
+      <td style="text-align:right;font-weight:800;color:var(--primary)">${formatNumber(op.total)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  
+  const pageInfo = document.getElementById('paginationInfo');
+  if (c > MAX_ROWS) {
+    pageInfo.innerHTML = `Affichage limité aux <strong>${MAX_ROWS}</strong> premières lignes sur un total de <strong>${c}</strong> opérations trouvées. Les totaux ci-dessous reflètent la totalité des opérations filtrées.`;
+  } else {
+    pageInfo.innerHTML = '';
+  }
+  
+  document.getElementById('totP').textContent = p.toFixed(2);
+  document.getElementById('totM').textContent = m.toFixed(2);
+  document.getElementById('totPe').textContent = pe.toFixed(2);
+  document.getElementById('totG').textContent = t.toFixed(2);
+  document.getElementById('rowCount').textContent = c;
+  
+  const pdfBtn = document.querySelector('a[href*="tgr_pdf"]');
+  const excelBtn = document.querySelector('a[href*="tgr_export"]');
+  let query = '';
+  if (dDebut) query += (query ? '&' : '?') + 'debut=' + dDebut;
+  if (dFin) query += (query ? '&' : '?') + 'fin=' + dFin;
+  if (rub) query += (query ? '&' : '?') + 'rubrique=' + encodeURIComponent(rub);
+  if (search) query += (query ? '&' : '?') + 'search=' + encodeURIComponent(search);
+  
+  if (pdfBtn) pdfBtn.href = "{{ url_for('regie.tgr_pdf') }}" + query;
+  if (excelBtn) excelBtn.href = "{{ url_for('regie.tgr_export') }}" + query;
+}
+
+function resetFilters() {
+  document.getElementById('searchTxt').value = '';
+  document.getElementById('filterRubrique').value = '';
+  document.getElementById('dateDebut').value = '';
+  document.getElementById('dateFin').value = '';
+  applyFilters();
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', applyFilters);
+</script>
+{% endif %}
+{% endblock %}

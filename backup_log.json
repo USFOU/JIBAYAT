@@ -1,0 +1,20 @@
+[
+  {
+    "date": "2026-04-11_13-41-52",
+    "type": "Manuel Cloud",
+    "dest": "Google Drive",
+    "status": "❌ Exception: Élément introuvable avec ce numéro. Il se peut que vous ne l'ayez pas modifié ou que vous ne soyez pas autorisé à y accéder."
+  },
+  {
+    "date": "2026-04-11_12-09-21",
+    "type": "Manuel Cloud",
+    "dest": "Google Drive",
+    "status": "✅ Succès"
+  },
+  {
+    "date": "2026-04-11_11-37-47",
+    "type": "Manuel Cloud",
+    "dest": "Google Drive",
+    "status": "✅ Succès"
+  }
+]

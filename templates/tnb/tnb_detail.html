@@ -1,76 +1,291 @@
 {% extends 'base.html' %}
-{% block title %}Terrain {{ terrain.numero_terrain }}{% endblock %}
-{% block page_title %}🏗️ Terrain — {{ terrain.numero_terrain }}{% endblock %}
+{% block title %}Dossier N°{{ terrain.numero_dossier }}{% endblock %}
+{% block page_title %}🏗️ Dossier TNB — N°{{ terrain.numero_dossier }}{% endblock %}
+{% block extra_head %}
+<style>
+.status-chips { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px; }
+.doc-card {
+  border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;
+  display:flex;align-items:center;gap:12px;background:var(--card);
+  transition:.2s;
+}
+.doc-card:hover { border-color:var(--primary);box-shadow:0 2px 12px rgba(37,99,235,.1); }
+.doc-icon { font-size:1.8rem;min-width:36px;text-align:center; }
+.doc-info { flex:1;min-width:0; }
+.doc-info strong { display:block;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.doc-info small { color:var(--muted);font-size:.75rem; }
+.doc-actions { display:flex;gap:6px; }
+.upload-zone {
+  border:2px dashed var(--border);border-radius:12px;padding:24px;
+  text-align:center;cursor:pointer;transition:.2s;
+  background:var(--bg);
+}
+.upload-zone:hover { border-color:var(--primary);background:rgba(37,99,235,.03); }
+.upload-zone input[type=file] { display:none; }
+.groupe-card {
+  background:linear-gradient(135deg,#f0f9ff,#e0f2fe);
+  border:1.5px solid #7dd3fc;border-radius:10px;padding:10px 14px;
+  margin-bottom:8px;
+}
+.exo-alert {
+  background:linear-gradient(135deg,#fef3c7,#fde68a);
+  border:2px solid #f59e0b;border-radius:10px;padding:14px 18px;
+  margin-bottom:16px;
+}
+.stat-flow {
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0;
+}
+.stat-step {
+  padding:6px 14px;border-radius:20px;font-size:.82rem;font-weight:700;
+  border:2px solid transparent;
+}
+.stat-step.active { border-color:var(--primary);background:var(--primary);color:#fff; }
+.stat-step.done   { background:#d1fae5;color:#065f46;border-color:#6ee7b7; }
+.stat-step.todo   { background:var(--bg);color:var(--muted);border-color:var(--border); }
+.stat-arrow { color:var(--muted);font-size:1rem; }
+</style>
+{% endblock %}
 {% block content %}
-<div style="display:flex;gap:10px;margin-bottom:16px">
+
+<!-- Alertes exonération -->
+{% if alert_exo %}
+<div class="exo-alert">
+  <strong>⚠️ ALERTE EXONÉRATION TNB</strong>
+  <p style="margin:4px 0 0;font-size:.88rem">
+    Ce terrain bénéficiait d'une exonération jusqu'au <strong>31/12/{{ alert_exo.annee_fin }}</strong>
+    (<strong>{{ alert_exo.jours }} jours restants</strong>).
+    Le propriétaire doit obtenir un <strong>Permis d'Habiter</strong> ou se préparer à payer
+    les 3 années exonérées dès que la période expire.
+  </p>
+</div>
+{% endif %}
+
+<!-- Boutons action en-tête -->
+<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
   <a href="{{ url_for('tnb.tnb_liste') }}" class="btn btn-outline btn-sm">← Liste TNB</a>
-  <a href="{{ url_for('tnb.tnb_paiement', id=terrain.id) }}" class="btn btn-accent">💳 Paiement & Déclarations</a>
+  <a href="{{ url_for('tnb.tnb_paiement', id=terrain.id) }}" class="btn btn-accent">💳 Paiement &amp; Déclarations</a>
   <button onclick="openModal('editTerrain')" class="btn btn-primary btn-sm">✏️ Modifier</button>
   <button onclick="openModal('addPermis')" class="btn btn-info btn-sm">📄 Permis</button>
   <button onclick="openModal('addTransfert')" class="btn btn-outline btn-sm">🔄 Transfert</button>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <!-- Archiver -->
+    <form method="post" action="{{ url_for('tnb.tnb_archiver', id=terrain.id) }}"
+          onsubmit="return confirmForm(this,{title:'Archiver le dossier',msg:'Le dossier sera archivé et retiré de la liste active.',type:'warning',confirmText:'📦 Archiver',icon:'📦'})">
+      <button type="submit" class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b">
+        📦 Archiver
+      </button>
+    </form>
+    <!-- Supprimer -->
+    <form method="post" action="{{ url_for('tnb.tnb_supprimer', id=terrain.id) }}"
+          onsubmit="return confirmForm(this,{title:'Supprimer le terrain',msg:'Supprimer <strong>Dossier N°{{ terrain.numero_dossier }}</strong> ?',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+      <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5">
+        🗑️ Supprimer
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Flux de statut -->
+<div class="stat-flow">
+  <span class="stat-step {{ 'active' if terrain.statut=='non_bati' else 'done' if terrain.statut in ('en_construction','construit') else 'todo' }}">🏗️ Non bâti</span>
+  <span class="stat-arrow">→</span>
+  <span class="stat-step {{ 'active' if terrain.statut=='en_construction' else 'done' if terrain.statut=='construit' else 'todo' }}">🚧 En construction</span>
+  <span class="stat-arrow">→</span>
+  <span class="stat-step {{ 'active' if terrain.statut=='construit' else 'todo' }}">🏠 Bâti</span>
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
   <!-- Infos terrain -->
   <div class="card">
-    <div class="card-header"><h3>📋 Informations Terrain</h3></div>
+    <div class="card-header"><h3>📋 Informations Dossier</h3></div>
     <div class="card-body" style="font-size:.84rem">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
-        <div><span style="color:var(--muted);font-size:.7rem">N° Terrain</span><div><strong style="color:var(--primary)">{{ terrain.numero_terrain }}</strong></div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Titre Foncier</span><div><strong>{{ terrain.titre_foncier or '—' }}</strong></div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Superficie</span><div><strong>{{ terrain.superficie }} m²</strong></div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Zone</span><div>
-          {% for t in tarifs %}{% if t.code_tarif == 'TNB-Z'+terrain.zone %}
-          <span class="badge b-primary">Zone {{ terrain.zone }} — {{ t.valeur }} {{ t.unite }}</span>
-          {% endif %}{% endfor %}
-        </div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Statut</span><div>
-          {% if terrain.statut=='non_bati' %}<span class="badge b-warn">Non bâti</span>
-          {% elif terrain.statut=='en_construction' %}<span class="badge b-info">En construction</span>
-          {% elif terrain.statut=='construit' %}<span class="badge b-ok">Construit</span>{% endif %}
-        </div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">N° Parcelle</span><div>{{ terrain.num_parcelle or '—' }}</div></div>
-        <div style="grid-column:1/-1"><span style="color:var(--muted);font-size:.7rem">Adresse</span><div>{{ terrain.adresse }}</div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">N° Dossier</span>
+          <div><strong style="color:var(--primary);font-size:1.2rem">{{ terrain.numero_dossier }}</strong></div>
+        </div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">Titre Foncier</span>
+          <div><strong>{{ terrain.titre_foncier or '—' }}</strong></div>
+        </div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">N° Parcelle</span>
+          <div><strong>{{ terrain.num_parcelle or '—' }}</strong></div>
+        </div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">Superficie</span>
+          <div><strong>{{ terrain.superficie }} m²</strong></div>
+        </div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">Zone</span>
+          <div>
+            <span class="badge b-primary">Zone {{ terrain.zone }}</span>
+            {% for t in tarifs %}{% if terrain.zone and t.code_tarif and t.code_tarif.endswith(terrain.zone) %}
+            <small style="color:var(--muted)">— {{ t.valeur }} {{ t.unite }}</small>
+            {% endif %}{% endfor %}
+          </div>
+        </div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">Statut</span>
+          <div>
+            {% if terrain.statut=='non_bati' %}<span class="badge b-warn">Non bâti</span>
+            {% elif terrain.statut=='en_construction' %}<span class="badge b-info">En construction</span>
+            {% elif terrain.statut=='construit' %}<span class="badge b-ok">Construit</span>{% endif %}
+          </div>
+        </div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">Lotissement</span>
+          <div><strong>{{ terrain.lotissement or '—' }}</strong></div>
+        </div>
+        <div>
+          <span style="color:var(--muted);font-size:.7rem">Acquisition</span>
+          <div>{{ terrain.date_acquisition or '—' }}</div>
+        </div>
+        <div style="grid-column:1/-1">
+          <span style="color:var(--muted);font-size:.7rem">Adresse</span>
+          <div>{{ terrain.adresse }}</div>
           {% if terrain.adresse_ar %}<div dir="rtl" style="color:var(--muted)">{{ terrain.adresse_ar }}</div>{% endif %}
         </div>
-        <div><span style="color:var(--muted);font-size:.7rem">Quartier</span><div>{{ terrain.quartier or '—' }}</div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Acquisition</span><div>{{ terrain.date_acquisition or '—' }}</div></div>
       </div>
     </div>
   </div>
+
   <!-- Infos propriétaire -->
   <div class="card">
     <div class="card-header"><h3>👤 Propriétaire</h3></div>
     <div class="card-body" style="font-size:.84rem">
       <div style="display:grid;gap:8px">
-        <div><span style="color:var(--muted);font-size:.7rem">N° Contribuable</span><div><strong style="color:var(--primary)">{{ terrain.ctb_num }}</strong></div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Nom</span><div><strong>{{ terrain.nom }} {{ terrain.prenom or terrain.raison_sociale or '' }}</strong></div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">CIN</span><div>{{ terrain.cin or '—' }}</div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Téléphone</span><div>{{ terrain.telephone or '—' }}</div></div>
-        <div><span style="color:var(--muted);font-size:.7rem">Adresse</span><div>{{ terrain.ctb_adresse or '—' }}</div></div>
+        <div><span style="color:var(--muted);font-size:.7rem">N° Contribuable</span>
+          <div><strong style="color:var(--primary)">{{ terrain.ctb_num }}</strong></div>
+        </div>
+        <div><span style="color:var(--muted);font-size:.7rem">Nom</span>
+          <div><strong>{{ terrain.nom }} {{ terrain.prenom or terrain.raison_sociale or '' }}</strong></div>
+        </div>
+        <div><span style="color:var(--muted);font-size:.7rem">CIN</span>
+          <div>{{ terrain.cin or '—' }}</div>
+        </div>
+        <div><span style="color:var(--muted);font-size:.7rem">Téléphone</span>
+          <div>{{ terrain.telephone or '—' }}</div>
+        </div>
+        <div><span style="color:var(--muted);font-size:.7rem">Adresse</span>
+          <div>{{ terrain.ctb_adresse or '—' }}</div>
+        </div>
       </div>
-      <!-- Années manquantes -->
+
       {% if annees_manquantes %}
       <div style="margin-top:14px;background:#fff3cd;border-radius:8px;padding:10px 12px;border-left:4px solid #ffc107">
         <div style="font-size:.72rem;font-weight:700;color:#856404;margin-bottom:6px">⚠️ Années sans déclaration:</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           {% for a in annees_manquantes %}<span class="badge b-warn">{{ a }}</span>{% endfor %}
         </div>
-        <a href="{{ url_for('tnb.tnb_paiement', id=terrain.id) }}" class="btn btn-accent btn-xs" style="margin-top:8px">Régulariser →</a>
+        <a href="{{ url_for('tnb.tnb_paiement', id=terrain.id) }}" class="btn btn-accent btn-xs" style="margin-top:8px">
+          Régulariser →
+        </a>
+      </div>
+      {% endif %}
+
+      <!-- Dossiers du même propriétaire -->
+      {% if dossiers_groupe %}
+      <div style="margin-top:14px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--primary);margin-bottom:8px">
+          🔗 Autres dossiers (même propriétaire) :
+        </div>
+        {% for d in dossiers_groupe %}
+        <div class="groupe-card">
+          <a href="{{ url_for('tnb.tnb_detail', id=d.id) }}" style="color:var(--primary);font-weight:800">
+            Dossier N°{{ d.numero_dossier }}
+          </a>
+          — {{ d.adresse }}
+          {% if d.titre_foncier %}<small class="badge b-sec" style="font-size:.65rem">TF: {{ d.titre_foncier }}</small>{% endif %}
+          <small style="color:var(--muted)"> | {{ d.superficie }} m² | Zone {{ d.zone }}</small>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
     </div>
   </div>
 </div>
 
-<!-- Déclarations -->
+<!-- ═══════════════════ Co-propriétaires ═══════════════════ -->
+<div class="card" style="border-left:4px solid #8b5cf6">
+  <div class="card-header" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)">
+    <h3 style="color:#6d28d9">👥 Co-propriétaires / Indivision</h3>
+    <button onclick="openModal('addCoproprio')" class="btn btn-sm"
+            style="background:#7c3aed;color:#fff">+ Ajouter</button>
+  </div>
+  <div class="card-body" style="padding:0">
+    {% if coproprietaires %}
+    <div class="table-responsive">
+      <table>
+        <thead><tr>
+          <th>N° Ctb</th><th>Nom / Raison sociale</th><th>CIN</th>
+          <th>Type titre</th><th>Part (%)</th><th>Date entrée</th><th>Acte</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+        {% for cp in coproprietaires %}
+        <tr>
+          <td><small style="color:var(--primary)">{{ cp.ctb_num }}</small></td>
+          <td><strong>{{ cp.nom }} {{ cp.prenom or cp.raison_sociale or '' }}</strong></td>
+          <td>{{ cp.cin or '—' }}</td>
+          <td>
+            {% if cp.type_titre == 'indivision' %}<span class="badge b-sec">Indivision</span>
+            {% elif cp.type_titre == 'nue_propriete' %}<span class="badge b-info">Nue-propriété</span>
+            {% elif cp.type_titre == 'usufruit' %}<span class="badge b-warn">Usufruit</span>
+            {% else %}<span class="badge b-sec">{{ cp.type_titre }}</span>{% endif %}
+          </td>
+          <td>
+            <strong style="color:#7c3aed">{{ '%.1f'|format(cp.part_indivision) }}%</strong>
+          </td>
+          <td><small>{{ cp.date_entree or '—' }}</small></td>
+          <td><small>{{ cp.acte_notarie or '—' }}</small></td>
+          <td>
+            <div style="display:flex;gap:4px">
+              <button onclick="openEditCoproprio({{ cp.id }}, {{ cp.part_indivision }},
+                '{{ cp.type_titre }}', '{{ cp.date_entree or '' }}',
+                '{{ cp.acte_notarie or '' }}', '{{ cp.notes or '' }}')"
+                class="btn btn-xs btn-outline">✏️</button>
+              <form method="post"
+                    action="{{ url_for('tnb.tnb_coproprio_supprimer', id=terrain.id, cp_id=cp.id) }}"
+                    onsubmit="return confirm('Retirer ce co-propriétaire ?')">
+                <button type="submit" class="btn btn-xs" style="background:#fee2e2;color:#dc2626">🗑️</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <!-- Résumé des parts -->
+    {% set total_parts = coproprietaires | sum(attribute='part_indivision') %}
+    <div style="padding:10px 16px;background:#f5f3ff;border-top:1px solid #ddd8fe;font-size:.83rem;display:flex;gap:16px;align-items:center">
+      <span>📊 Total parts co-propriétaires : <strong style="color:#6d28d9">{{ '%.1f'|format(total_parts) }}%</strong></span>
+      <span style="color:var(--muted)">+ Propriétaire principal</span>
+      {% if total_parts > 100 %}
+      <span style="color:#dc2626;font-weight:700">⚠️ Total dépasse 100% !</span>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px">
+      <span class="ei">👥</span>
+      Aucun co-propriétaire enregistré.
+      <br><small style="color:var(--muted)">Ce terrain appartient uniquement à
+        <strong>{{ terrain.nom }} {{ terrain.prenom or terrain.raison_sociale or '' }}</strong>.</small>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header"><h3>📄 Historique des Déclarations TNB</h3>
     <a href="{{ url_for('tnb.tnb_paiement', id=terrain.id) }}" class="btn btn-accent btn-sm">+ Nouvelle Déclaration</a>
   </div>
   <div class="table-responsive">
     <table>
-      <thead><tr><th>N° Décl.</th><th>Année</th><th>Base (m²)</th><th>Tarif</th><th>Principal</th><th>Pénalité</th><th>Total</th><th>Bulletin</th><th>Statut</th></tr></thead>
+      <thead><tr>
+        <th>N° Décl.</th><th>Année</th><th>Base (m²)</th><th>Tarif</th>
+        <th>Principal</th><th>Pénalité</th><th>Total</th><th>Bulletin</th><th>Statut</th><th>PDF</th>
+      </tr></thead>
       <tbody>
         {% for d in declarations %}
         <tr>
@@ -83,9 +298,13 @@
           <td><strong>{{ "%.2f"|format(d.montant_total) }} DH</strong></td>
           <td><small style="color:var(--muted)">{{ d.numero_bulletin or '—' }}</small></td>
           <td><span class="badge {% if d.statut=='paye' %}b-ok{% elif d.statut=='emis' %}b-warn{% else %}b-sec{% endif %}">{{ d.statut }}</span></td>
+          <td>
+            <a href="{{ url_for('tnb.tnb_pdf_declaration', id=terrain.id, annee=d.annee) }}"
+               target="_blank" class="btn btn-xs btn-outline" title="PDF">📄</a>
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="9" class="empty-state">Aucune déclaration</td></tr>
+        <tr><td colspan="10" class="empty-state">Aucune déclaration</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -94,15 +313,34 @@
 
 <!-- Permis -->
 <div class="card">
-  <div class="card-header"><h3>📄 Permis</h3><button onclick="openModal('addPermis')" class="btn btn-info btn-sm">+ Ajouter</button></div>
+  <div class="card-header">
+    <h3>📄 Permis</h3>
+    <button onclick="openModal('addPermis')" class="btn btn-info btn-sm">+ Ajouter</button>
+  </div>
   <div class="table-responsive">
     <table>
-      <thead><tr><th>Type</th><th>N° Permis</th><th>Date Dépôt</th><th>Date Délivrance</th><th>Statut</th><th>Notes</th></tr></thead>
+      <thead><tr>
+        <th>Type</th><th>N° Permis</th><th>Date Autorisation</th>
+        <th>Exonération TNB</th><th>Statut</th><th>Notes</th>
+      </tr></thead>
       <tbody>
         {% for p in permis %}
         <tr>
-          <td>{% if p.type_permis=='construction' %}<span class="badge b-info">🏗️ Construction</span>{% elif p.type_permis=='habiter' %}<span class="badge b-ok">🏠 Habiter</span>{% elif p.type_permis=='demolition' %}<span class="badge b-danger">💥 Démolition</span>{% else %}<span class="badge b-sec">{{ p.type_permis }}</span>{% endif %}</td>
-          <td>{{ p.numero_permis or '—' }}</td><td>{{ p.date_depot or '—' }}</td><td>{{ p.date_delivrance or '—' }}</td>
+          <td>
+            {% if p.type_permis=='construction' %}<span class="badge b-info">🏗️ Construction</span>
+            {% elif p.type_permis=='habiter' %}<span class="badge b-ok">🏠 Habiter</span>
+            {% elif p.type_permis=='demolition' %}<span class="badge b-danger">💥 Démolition</span>
+            {% else %}<span class="badge b-sec">{{ p.type_permis }}</span>{% endif %}
+          </td>
+          <td><strong>{{ p.numero_permis or '—' }}</strong></td>
+          <td>{{ p.date_autorisation or '—' }}</td>
+          <td>
+            {% if p.type_permis=='construction' and p.annee_debut_exoneration %}
+              <span class="badge b-ok" style="font-size:.72rem">
+                {{ p.annee_debut_exoneration }} → {{ p.annee_fin_exoneration }} (3 ans)
+              </span>
+            {% else %}—{% endif %}
+          </td>
           <td><span class="badge {% if p.statut=='delivre' %}b-ok{% elif p.statut=='en_cours' %}b-warn{% else %}b-sec{% endif %}">{{ p.statut }}</span></td>
           <td style="font-size:.75rem;color:var(--muted)">{{ p.description or '' }}</td>
         </tr>
@@ -111,6 +349,50 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Documents -->
+<div class="card">
+  <div class="card-header">
+    <h3>📁 Documents du Dossier</h3>
+    <button onclick="openModal('addDoc')" class="btn btn-info btn-sm">+ Ajouter Document</button>
+  </div>
+  <div class="card-body">
+    {% if documents %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      {% for doc in documents %}
+      <div class="doc-card">
+        <div class="doc-icon">
+          {% if doc.nom_fichier.endswith('.pdf') %}📄
+          {% elif doc.nom_fichier.endswith(('.png','.jpg','.jpeg')) %}🖼️
+          {% elif doc.nom_fichier.endswith(('.doc','.docx')) %}📝
+          {% elif doc.nom_fichier.endswith(('.xls','.xlsx')) %}📊
+          {% else %}📎{% endif %}
+        </div>
+        <div class="doc-info">
+          <strong title="{{ doc.nom_fichier }}">{{ doc.nom_fichier }}</strong>
+          <small>{{ doc.type_doc }} • {{ doc.date_upload[:10] if doc.date_upload else '—' }}</small>
+          {% if doc.notes %}<small style="display:block;color:var(--muted)">{{ doc.notes }}</small>{% endif %}
+          {% if doc.taille %}<small style="color:var(--muted)">{{ (doc.taille / 1024)|round(1) }} Ko</small>{% endif %}
+        </div>
+        <div class="doc-actions">
+          <a href="{{ url_for('tnb.tnb_telecharger_doc', doc_id=doc.id) }}"
+             class="btn btn-xs btn-outline" title="Télécharger">⬇️</a>
+          <form method="post" action="{{ url_for('tnb.tnb_supprimer_doc', doc_id=doc.id) }}"
+                onsubmit="return confirm('Supprimer ce document ?')" style="display:inline">
+            <button type="submit" class="btn btn-xs" style="background:#fee2e2;color:#dc2626">🗑️</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px">
+      <span class="ei">📁</span>
+      Aucun document. Cliquez sur "+ Ajouter Document" pour téléverser.
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -123,7 +405,13 @@
       <thead><tr><th>Date</th><th>Ancien Propriétaire</th><th>Nouveau Propriétaire</th><th>Motif</th><th>Acte Notarié</th></tr></thead>
       <tbody>
         {% for tr in transferts %}
-        <tr><td>{{ tr.date_transfert }}</td><td>{{ tr.ancien_nom }}</td><td><strong>{{ tr.nouveau_nom }}</strong></td><td>{{ tr.motif or '—' }}</td><td>{{ tr.acte_notarie or '—' }}</td></tr>
+        <tr>
+          <td>{{ tr.date_transfert }}</td>
+          <td>{{ tr.ancien_nom }}</td>
+          <td><strong>{{ tr.nouveau_nom }}</strong></td>
+          <td>{{ tr.motif or '—' }}</td>
+          <td>{{ tr.acte_notarie or '—' }}</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -131,15 +419,30 @@
 </div>
 {% endif %}
 
+<!-- Zone Dangereuse -->
+<div class="card" style="border:1px solid #fca5a5">
+  <div class="card-header" style="background:#fef2f2;color:#b91c1c"><h3>⚠️ Zone Dangereuse</h3></div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('tnb.tnb_supprimer', id=terrain.id) }}"
+          onsubmit="return confirmForm(this,{title:'Supprimer le terrain',msg:'Supprimer définitivement le Dossier N°{{ terrain.numero_dossier }} ?',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+      <button type="submit" class="btn btn-danger">🗑️ Supprimer définitivement ce dossier</button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
 <!-- Modal Modifier -->
+<!-- ═══════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="editTerrain">
-  <div class="modal">
-    <div class="modal-header"><h3>✏️ Modifier Terrain</h3><button class="modal-close" onclick="closeModal('editTerrain')">✕</button></div>
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header"><h3>✏️ Modifier le Dossier N°{{ terrain.numero_dossier }}</h3>
+      <button class="modal-close" onclick="closeModal('editTerrain')">✕</button></div>
     <div class="modal-body">
       <form method="post" action="{{ url_for('tnb.tnb_modifier', id=terrain.id) }}">
         <div class="form-grid" style="margin-bottom:12px">
           <div class="form-group"><label>Adresse</label><input name="adresse" value="{{ terrain.adresse or '' }}"></div>
           <div class="form-group"><label>العنوان</label><input name="adresse_ar" dir="rtl" value="{{ terrain.adresse_ar or '' }}"></div>
+          <div class="form-group"><label>Lotissement</label><input name="lotissement" value="{{ terrain.lotissement or '' }}" placeholder="Nom du lotissement"></div>
           <div class="form-group"><label>Quartier</label><input name="quartier" value="{{ terrain.quartier or '' }}"></div>
           <div class="form-group"><label>Superficie (m²)</label><input type="number" name="superficie" step="0.01" value="{{ terrain.superficie }}"></div>
           <div class="form-group"><label>Zone</label>
@@ -156,7 +459,9 @@
               <option value="construit" {{ 'selected' if terrain.statut=='construit' }}>Construit</option>
             </select>
           </div>
-          <div class="form-group"><label>Date acquisition</label><input type="date" name="date_acquisition" value="{{ terrain.date_acquisition or '' }}"></div>
+          <div class="form-group"><label>Date acquisition</label>
+            <input type="date" name="date_acquisition" value="{{ terrain.date_acquisition or '' }}">
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeModal('editTerrain')">Annuler</button>
@@ -167,29 +472,44 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════ -->
 <!-- Modal Permis -->
+<!-- ═══════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="addPermis">
-  <div class="modal">
-    <div class="modal-header"><h3>📄 Ajouter un Permis</h3><button class="modal-close" onclick="closeModal('addPermis')">✕</button></div>
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><h3>📄 Ajouter un Permis</h3>
+      <button class="modal-close" onclick="closeModal('addPermis')">✕</button></div>
     <div class="modal-body">
       <form method="post" action="{{ url_for('tnb.tnb_permis', id=terrain.id) }}">
         <div class="form-grid" style="margin-bottom:12px">
-          <div class="form-group"><label>Type de permis *</label>
-            <select name="type_permis" required>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Type de permis *</label>
+            <select name="type_permis" required id="type-permis-sel" onchange="onTypePermisChange(this.value)">
               <option value="construction">Permis de Construction</option>
               <option value="habiter">Permis d'Habiter</option>
               <option value="demolition">Permis de Démolition</option>
               <option value="autre">Autre</option>
             </select>
           </div>
-          <div class="form-group"><label>N° Permis</label><input name="numero_permis"></div>
-          <div class="form-group"><label>Date Dépôt</label><input type="date" name="date_depot"></div>
-          <div class="form-group"><label>Date Délivrance</label><input type="date" name="date_delivrance"></div>
-          <div class="form-group"><label>Statut</label>
-            <select name="statut"><option value="en_cours">En cours</option><option value="delivre">Délivré</option><option value="refuse">Refusé</option></select>
+          <div class="form-group">
+            <label>N° du Permis</label>
+            <input name="numero_permis" placeholder="Numéro officiel">
+          </div>
+          <div class="form-group">
+            <label>Date d'Autorisation</label>
+            <input type="date" name="date_autorisation" value="{{ today }}">
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:12px"><label>Notes</label><textarea name="description" rows="2"></textarea></div>
+        <!-- Info exonération -->
+        <div id="exo-info" style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.83rem">
+          <strong>ℹ️ Permis de Construction :</strong> Le terrain sera automatiquement
+          exonéré de TNB pendant <strong>3 ans</strong> à partir de l'année d'autorisation.
+          Le statut passera en <strong>En Construction</strong>.
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>Notes</label>
+          <textarea name="description" rows="2"></textarea>
+        </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeModal('addPermis')">Annuler</button>
           <button type="submit" class="btn btn-info">📄 Ajouter</button>
@@ -199,35 +519,247 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════ -->
 <!-- Modal Transfert -->
+<!-- ═══════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="addTransfert">
   <div class="modal">
-    <div class="modal-header"><h3>🔄 Transfert de Propriété</h3><button class="modal-close" onclick="closeModal('addTransfert')">✕</button></div>
+    <div class="modal-header"><h3>🔄 Transfert de Propriété</h3>
+      <button class="modal-close" onclick="closeModal('addTransfert')">✕</button></div>
     <div class="modal-body">
       <div class="alert alert-warning">⚠️ Le transfert changera le propriétaire du terrain. L'historique sera conservé.</div>
       <form method="post" action="{{ url_for('tnb.tnb_transfert', id=terrain.id) }}">
         <div class="form-grid" style="margin-bottom:12px">
-          <div class="form-group"><label>Actuel propriétaire</label>
+          <div class="form-group">
+            <label>Actuel propriétaire</label>
             <input value="{{ terrain.nom }} {{ terrain.prenom or '' }}" disabled style="background:#f0f4f8;color:var(--muted)">
           </div>
           <div class="form-group"><label>Nouveau propriétaire *</label>
             <select name="nouveau_contribuable_id" required>
               <option value="">— Sélectionner —</option>
-              {% for c in contribuables %}{% if c.id != terrain.ctb_id %}<option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</option>{% endif %}{% endfor %}
+              {% for c in contribuables %}{% if c.id != terrain.ctb_id %}
+              <option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</option>
+              {% endif %}{% endfor %}
             </select>
           </div>
-          <div class="form-group"><label>Date transfert</label><input type="date" name="date_transfert" value="{{ today }}"></div>
-          <div class="form-group"><label>Motif</label>
-            <select name="motif"><option value="vente">Vente</option><option value="heritage">Héritage</option><option value="donation">Donation</option><option value="autre">Autre</option></select>
+          <div class="form-group"><label>Date transfert</label>
+            <input type="date" name="date_transfert" value="{{ today }}">
           </div>
-          <div class="form-group"><label>N° Acte Notarié</label><input name="acte_notarie"></div>
+          <div class="form-group"><label>Motif</label>
+            <select name="motif">
+              <option value="vente">Vente</option>
+              <option value="heritage">Héritage</option>
+              <option value="donation">Donation</option>
+              <option value="autre">Autre</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>N° Acte Notarié</label>
+            <input name="acte_notarie">
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeModal('addTransfert')">Annuler</button>
-          <button type="submit" class="btn btn-danger" onclick="return confirm('Confirmer le transfert?')">🔄 Transférer</button>
+          <button type="submit" class="btn btn-danger">🔄 Transférer</button>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Modal Upload Document -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="addDoc">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h3>📁 Ajouter un Document</h3>
+      <button class="modal-close" onclick="closeModal('addDoc')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="{{ url_for('tnb.tnb_upload_doc', id=terrain.id) }}"
+            enctype="multipart/form-data">
+        <div class="form-group" style="margin-bottom:12px">
+          <label>Type de document</label>
+          <select name="type_doc">
+            <option value="titre_foncier">Titre Foncier</option>
+            <option value="cin">CIN / Pièce d'identité</option>
+            <option value="permis">Permis de construction</option>
+            <option value="acte_propriete">Acte de propriété</option>
+            <option value="plan">Plan / Cadastre</option>
+            <option value="quittance">Quittance de paiement</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>Fichier *</label>
+          <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+            <input type="file" id="file-input" name="fichier" required
+                   onchange="showFileName(this)" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx">
+            <div id="file-name-display">
+              <span style="font-size:2rem">📎</span><br>
+              <span style="color:var(--muted);font-size:.85rem">Cliquez pour choisir un fichier</span><br>
+              <small style="color:var(--muted)">PDF, Images, Word, Excel — Max 10 Mo</small>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>Notes (optionnel)</label>
+          <input name="notes" placeholder="Description du document...">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('addDoc')">Annuler</button>
+          <button type="submit" class="btn btn-info">📤 Téléverser</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Modal Ajouter Co-propriétaire -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="addCoproprio">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+      <h3 style="color:#fff">👥 Ajouter un Co-propriétaire</h3>
+      <button class="modal-close" onclick="closeModal('addCoproprio')" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <form method="post" action="{{ url_for('tnb.tnb_coproprio_ajouter', id=terrain.id) }}">
+        <div class="form-grid" style="margin-bottom:12px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Contribuable (co-propriétaire) *</label>
+            <select name="contribuable_id" required>
+              <option value="">— Sélectionner —</option>
+              {% for c in contribuables %}{% if c.id != terrain.ctb_id %}
+              <option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</option>
+              {% endif %}{% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Type de titre</label>
+            <select name="type_titre">
+              <option value="indivision">Indivision</option>
+              <option value="nue_propriete">Nue-propriété</option>
+              <option value="usufruit">Usufruit</option>
+              <option value="autre">Autre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Part d'indivision (%)</label>
+            <input type="number" name="part_indivision" min="0" max="100" step="0.01"
+                   placeholder="Ex: 50" value="50">
+          </div>
+          <div class="form-group">
+            <label>Date d'entrée</label>
+            <input type="date" name="date_entree" value="{{ today }}">
+          </div>
+          <div class="form-group">
+            <label>N° Acte Notarié</label>
+            <input name="acte_notarie" placeholder="Réf. acte">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Notes</label>
+            <input name="notes" placeholder="Remarques...">
+          </div>
+        </div>
+        <div class="alert alert-info" style="font-size:.82rem">
+          ℹ️ Le <strong>propriétaire principal fiscal</strong> (redevable TNB) reste
+          <strong>{{ terrain.nom }} {{ terrain.prenom or terrain.raison_sociale or '' }}</strong>.
+          Ce co-propriétaire est enregistré à titre informatif.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('addCoproprio')">Annuler</button>
+          <button type="submit" class="btn" style="background:#7c3aed;color:#fff">👥 Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Modal Modifier Co-propriétaire -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="editCoproprio">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+      <h3 style="color:#fff">✏️ Modifier la Part</h3>
+      <button class="modal-close" onclick="closeModal('editCoproprio')" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="editCoproprioForm" method="post" action="">
+        <div class="form-grid" style="margin-bottom:12px">
+          <div class="form-group">
+            <label>Type de titre</label>
+            <select name="type_titre" id="edit-type-titre">
+              <option value="indivision">Indivision</option>
+              <option value="nue_propriete">Nue-propriété</option>
+              <option value="usufruit">Usufruit</option>
+              <option value="autre">Autre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Part d'indivision (%)</label>
+            <input type="number" name="part_indivision" id="edit-part"
+                   min="0" max="100" step="0.01">
+          </div>
+          <div class="form-group">
+            <label>Date d'entrée</label>
+            <input type="date" name="date_entree" id="edit-date-entree">
+          </div>
+          <div class="form-group">
+            <label>N° Acte Notarié</label>
+            <input name="acte_notarie" id="edit-acte">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Notes</label>
+            <input name="notes" id="edit-notes">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('editCoproprio')">Annuler</button>
+          <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function onTypePermisChange(val) {
+  const info = document.getElementById('exo-info');
+  if (val === 'construction') {
+    info.style.display = '';
+    info.innerHTML = '<strong>Permis de Construction :</strong> Le terrain sera exonéré de TNB pendant <strong>3 ans</strong>. Statut → En Construction.';
+  } else if (val === 'habiter') {
+    info.style.display = '';
+    info.innerHTML = '<strong>Permis d\'Habiter :</strong> Le terrain passera en statut <strong>Bâti</strong>.';
+    info.style.background = '#dbeafe';
+    info.style.borderColor = '#93c5fd';
+  } else {
+    info.style.display = 'none';
+  }
+}
+function showFileName(input) {
+  const disp = document.getElementById('file-name-display');
+  if (input.files && input.files[0]) {
+    const f = input.files[0];
+    const size = (f.size / 1024).toFixed(1);
+    disp.innerHTML = '<span style="color:var(--primary);font-weight:700">✅ ' + f.name + '</span><br><small>' + size + ' Ko</small>';
+  }
+}
+function openEditCoproprio(cpId, part, type, dateEntree, acte, notes) {
+  document.getElementById('edit-part').value = part;
+  document.getElementById('edit-acte').value = acte;
+  document.getElementById('edit-notes').value = notes;
+  document.getElementById('edit-date-entree').value = dateEntree;
+  const sel = document.getElementById('edit-type-titre');
+  for (let o of sel.options) o.selected = (o.value === type);
+  document.getElementById('editCoproprioForm').action =
+    '/tnb/{{ terrain.id }}/coproprio/' + cpId + '/modifier';
+  openModal('editCoproprio');
+}
+// Init
+onTypePermisChange('construction');
+</script>
 {% endblock %}
+

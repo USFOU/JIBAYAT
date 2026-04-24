@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block title %}Droits de {{ target_user.prenom }} {{ target_user.nom }}{% endblock %}
+{% block page_title %}🔍 Droits de l'utilisateur{% endblock %}
+
+{% block extra_head %}
+<style>
+.user-profile-card {
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+  border-radius: 16px; padding: 22px 26px; color: #fff; margin-bottom: 24px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  box-shadow: 0 8px 32px rgba(0,0,0,.18);
+}
+.user-avatar-lg {
+  width: 60px; height: 60px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #c87d0e);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; font-weight: 900; color: #fff; flex-shrink: 0;
+}
+.user-profile-info h2 { font-size: 1.1rem; font-weight: 900; }
+.user-profile-info p  { font-size: .8rem; color: rgba(255,255,255,.6); }
+.role-badge-lg {
+  background: rgba(234,179,8,.2); color: #eab308;
+  border: 1px solid rgba(234,179,8,.35);
+  padding: 4px 12px; border-radius: 20px; font-size: .78rem; font-weight: 800;
+}
+
+.perm-module-card {
+  background: var(--card); border-radius: 12px; box-shadow: var(--shadow);
+  overflow: hidden; border: 1.5px solid var(--border);
+  transition: border-color .2s, box-shadow .2s;
+}
+.perm-module-card:hover { border-color: var(--primary); box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+.perm-module-card.granted { border-left: 4px solid #16a34a; }
+.perm-module-card.denied  { border-left: 4px solid var(--border); opacity: .55; }
+
+.perm-card-header {
+  padding: 12px 16px; background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.perm-mod-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; flex-shrink: 0;
+}
+.perm-card-header.granted .perm-mod-icon { background: #16a34a; color: #fff; }
+.perm-card-header.denied  .perm-mod-icon { background: var(--muted); color: #fff; }
+.perm-mod-name { font-weight: 800; font-size: .85rem; }
+.perm-mod-code { font-size: .65rem; color: var(--muted); font-family: monospace; }
+
+.perm-card-body {
+  padding: 10px 16px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.perm-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 6px;
+  font-size: .7rem; font-weight: 700;
+}
+.chip-ok    { background: rgba(22,163,74,.12);  color: #16a34a;  }
+.chip-no    { background: rgba(148,163,184,.1);  color: var(--muted); text-decoration: line-through; }
+.chip-voir     { background: rgba(37,99,235,.12);  color: #2563eb;  }
+.chip-ajouter  { background: rgba(22,163,74,.12);  color: #16a34a;  }
+.chip-modifier { background: rgba(217,119,6,.12);  color: #d97706;  }
+.chip-suppr    { background: rgba(220,38,38,.12);  color: #dc2626;  }
+
+.global-perms-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
+  margin-bottom: 20px;
+}
+.global-perm-item {
+  background: var(--card); border-radius: 10px; padding: 12px 14px;
+  box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px;
+  border-left: 3px solid var(--border);
+}
+.global-perm-item.yes { border-left-color: #16a34a; }
+.global-perm-item.no  { border-left-color: #dc2626; opacity: .6; }
+.global-perm-icon { font-size: 1.2rem; }
+.global-perm-label { font-size: .78rem; font-weight: 700; }
+.global-perm-val { font-size: .68rem; color: var(--muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Profil utilisateur ── #}
+<div class="user-profile-card">
+  <div class="user-avatar-lg">
+    {{ target_user.prenom[0]|upper if target_user.prenom else '' }}{{ target_user.nom[0]|upper }}
+  </div>
+  <div class="user-profile-info" style="flex:1;">
+    <h2>{{ target_user.prenom }} {{ target_user.nom }}</h2>
+    <p>{{ target_user.email }}</p>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <span class="role-badge-lg">🎭 {{ target_user.role_nom }}</span>
+      <a href="{{ url_for('roles_permissions') }}#tab-btn-{{ target_user.role_id }}"
+         class="btn btn-outline btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3);">
+        ✏️ Modifier le rôle
+      </a>
+      <a href="{{ url_for('utilisateurs') }}" class="btn btn-outline btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3);">
+        ← Retour utilisateurs
+      </a>
+    </div>
+  </div>
+</div>
+
+{# ── Permissions globales du rôle ── #}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header">
+    <h3>⚙️ Permissions Globales du Rôle « {{ target_user.role_nom }} »</h3>
+  </div>
+  <div class="card-body">
+    <div class="global-perms-grid">
+      {% set globals = [
+        ('👁️ Voir (global)', target_user.peut_voir),
+        ('➕ Ajouter', target_user.peut_ajouter),
+        ('✏️ Modifier', target_user.peut_modifier),
+        ('🗑️ Supprimer', target_user.peut_supprimer),
+        ('📄 Créer Bulletin', target_user.peut_creer_bulletin),
+        ('✅ Valider Paiement', target_user.peut_valider_paiement),
+        ('⚙️ Configuration', target_user.peut_config),
+      ] %}
+      {% for label, val in globals %}
+      <div class="global-perm-item {{ 'yes' if val else 'no' }}">
+        <span class="global-perm-icon">{{ '✅' if val else '❌' }}</span>
+        <div>
+          <div class="global-perm-label">{{ label }}</div>
+          <div class="global-perm-val">{{ 'Autorisé' if val else 'Refusé' }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ── Permissions par module ── #}
+<div class="card-header" style="padding:0 0 14px 0;">
+  <h3 style="font-size:1rem;font-weight:900;color:var(--primary);">
+    📦 Accès aux Modules
+    {% if target_user.role_nom in ('super_admin', 'admin') %}
+      <span class="badge b-ok" style="margin-left:8px;">Accès total</span>
+    {% endif %}
+  </h3>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">
+  {% for mod in modules %}
+  {% set p = perms.get(mod.code, {}) %}
+  {% set is_admin = target_user.role_nom in ('super_admin', 'admin') %}
+  {% set can_view = is_admin or p.get('peut_voir', 0) %}
+
+  <div class="perm-module-card {{ 'granted' if can_view else 'denied' }}">
+    <div class="perm-card-header {{ 'granted' if can_view else 'denied' }}">
+      <div class="perm-mod-icon">{{ mod.icone }}</div>
+      <div style="flex:1;">
+        <div class="perm-mod-name">{{ mod.libelle }}</div>
+        <div class="perm-mod-code">{{ mod.code }}</div>
+      </div>
+      {% if can_view %}
+        <span class="badge b-ok" style="font-size:.62rem;">✓ Accès</span>
+      {% else %}
+        <span class="badge b-danger" style="font-size:.62rem;">✗ Bloqué</span>
+      {% endif %}
+    </div>
+    <div class="perm-card-body">
+      {% if is_admin %}
+        <span class="perm-chip chip-voir">👁️ Voir</span>
+        <span class="perm-chip chip-ajouter">➕ Ajouter</span>
+        <span class="perm-chip chip-modifier">✏️ Modifier</span>
+        <span class="perm-chip chip-suppr">🗑️ Supprimer</span>
+      {% elif can_view %}
+        {% if p.get('peut_voir', 0) %}
+          <span class="perm-chip chip-voir">👁️ Voir</span>
+        {% endif %}
+        {% if p.get('peut_ajouter', 0) %}
+          <span class="perm-chip chip-ajouter">➕ Ajouter</span>
+        {% endif %}
+        {% if p.get('peut_modifier', 0) %}
+          <span class="perm-chip chip-modifier">✏️ Modifier</span>
+        {% endif %}
+        {% if p.get('peut_supprimer', 0) %}
+          <span class="perm-chip chip-suppr">🗑️ Supprimer</span>
+        {% endif %}
+      {% else %}
+        <span style="font-size:.75rem;color:var(--muted);">— Accès refusé —</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+  <a href="{{ url_for('roles_permissions') }}" class="btn btn-primary">
+    🛡️ Gérer les droits par rôle
+  </a>
+  <a href="{{ url_for('utilisateurs') }}" class="btn btn-outline">
+    ← Retour à la liste
+  </a>
+</div>
+
+{% endblock %}

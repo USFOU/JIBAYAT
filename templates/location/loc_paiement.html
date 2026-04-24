@@ -1,0 +1,527 @@
+{% extends 'base.html' %}
+{% block title %}Paiement Loyers — {{ bail.ref_local }}{% endblock %}
+{% block page_title %}💳 Paiement Loyers — {{ bail.ref_local }}{% endblock %}
+{% block extra_head %}
+<style>
+.loc-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:18px;align-items:start}
+@media(max-width:860px){.loc-grid{grid-template-columns:1fr}}
+
+.bail-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px}
+.bail-info-item{display:flex;flex-direction:column;gap:2px}
+.bail-info-item .lbl{font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.bail-info-item .val{font-size:.88rem;font-weight:700;color:var(--text)}
+
+.summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.summary-card{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);text-align:center;border-top:4px solid var(--primary);transition:transform .2s}
+.summary-card:hover{transform:translateY(-2px)}
+.summary-card.danger{border-top-color:var(--danger)}
+.summary-card.ok{border-top-color:var(--ok)}
+.summary-card .sc-val{font-size:1.6rem;font-weight:900;color:var(--primary);line-height:1}
+.summary-card.danger .sc-val{color:var(--danger)}
+.summary-card .sc-lbl{font-size:.67rem;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:4px}
+
+/* Historique tarifaire */
+.tarif-timeline{padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.tarif-period{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;border-left:4px solid var(--primary);background:var(--bg);font-size:.78rem}
+.tarif-period.actif{border-left-color:var(--ok);background:#d4edda22}
+.tarif-period.inactif{border-left-color:var(--muted);opacity:.75}
+.tarif-period .tp-val{font-size:1rem;font-weight:900;color:var(--primary);min-width:80px}
+.tarif-period.actif .tp-val{color:var(--ok)}
+.tarif-period .tp-dates{font-size:.68rem;color:var(--muted)}
+.tarif-period .tp-arrete{font-size:.65rem;font-weight:600;background:var(--card);border-radius:4px;padding:2px 6px;color:var(--primary)}
+
+/* Grille des mois */
+.mois-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;padding:12px;max-height:320px;overflow-y:auto}
+.mois-chip{position:relative;cursor:pointer}
+.mois-chip input[type=checkbox]{position:absolute;opacity:0;width:0;height:0}
+.mois-chip label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 5px;border-radius:9px;border:2px solid var(--border);background:var(--bg);cursor:pointer;transition:all .15s;font-size:.7rem;font-weight:600;text-align:center;user-select:none;min-height:58px}
+.mois-chip label .mois-annee{font-size:.6rem;color:var(--muted);font-weight:500}
+.mois-chip label .mois-tarif{font-size:.65rem;font-weight:800;color:var(--accent);margin-top:1px}
+.mois-chip input:checked+label{border-color:var(--primary);background:rgba(30,58,95,.1);color:var(--primary)}
+.mois-chip input:checked+label .mois-tarif{color:var(--primary)}
+.mois-chip label:hover{border-color:var(--primary-l);background:rgba(42,82,152,.07)}
+
+/* Barre actions sélection */
+.sel-actions{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg);align-items:center;flex-wrap:wrap}
+.sel-count{margin-left:auto;font-size:.78rem;font-weight:700;color:var(--primary)}
+
+/* Récap paiement */
+.paiement-recap{background:linear-gradient(135deg,var(--primary),var(--primary-l));color:#fff;border-radius:12px;padding:14px 18px;margin:0 12px 12px}
+.recap-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.15);font-size:.82rem}
+.recap-row:last-child{border-bottom:none}
+.recap-detail-row{display:flex;justify-content:space-between;padding:2px 8px;font-size:.72rem;opacity:.82;border-bottom:1px solid rgba(255,255,255,.08)}
+.recap-detail-row:last-child{border-bottom:none;margin-bottom:6px}
+.recap-total{font-size:1.4rem;font-weight:900;color:var(--accent)}
+
+/* Hist */
+.hist-badge-mois{display:flex;flex-wrap:wrap;gap:4px;max-width:280px}
+.hist-mois-tag{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:.6rem;color:var(--text);font-weight:600}
+
+/* Tarif badge */
+.tarif-badge{display:inline-flex;align-items:center;gap:6px;background:#1e3a5f14;border:1.5px solid var(--primary);border-radius:8px;padding:6px 12px;font-size:.78rem;font-weight:700;color:var(--primary)}
+.tarif-badge.warn{border-color:var(--warn-bd);background:#fff3cd22;color:#856404}
+.tarif-badge .val{font-size:1rem}
+
+/* Accordéon modifier bail */
+.edit-toggle-btn{background:none;border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:.73rem;font-weight:600;cursor:pointer;color:var(--muted);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.edit-toggle-btn:hover{border-color:var(--primary);color:var(--primary)}
+.edit-form-collapse{display:none;padding:12px 14px 0}
+.edit-form-collapse.open{display:block}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="df gap-2 mb-3">
+  <a href="{{ url_for('loc.loc_liste') }}" class="btn btn-outline btn-sm">← Retour Location</a>
+  <a href="{{ url_for('export_excel', module='LOCATION_LOCAUX') }}" class="btn btn-success btn-sm">📊 Excel</a>
+</div>
+
+<!-- ═══ Résumé rapide ══════════════════════════════════════════ -->
+<div class="summary-strip">
+  <div class="summary-card danger">
+    <div class="sc-val" id="sc-nb-mois">{{ nb_mois }}</div>
+    <div class="sc-lbl">Mois non payés</div>
+  </div>
+  <div class="summary-card">
+    <div class="sc-val">{{ "%.2f"|format(loyer_mensuel) }}</div>
+    <div class="sc-lbl">Loyer actuel (DH/mois)</div>
+  </div>
+  <div class="summary-card danger">
+    <div class="sc-val" id="sc-total">{{ "%.2f"|format(total_du) }}</div>
+    <div class="sc-lbl">Total dû (DH)</div>
+  </div>
+</div>
+
+<!-- ═══ Grille principale ══════════════════════════════════════ -->
+<div class="loc-grid">
+
+  <!-- ─── Colonne gauche ──────────────────────────────────────── -->
+  <div>
+
+    <!-- Infos bail -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3>🏢 Bail — {{ bail.ref_local or bail.numero }}</h3>
+        <button class="edit-toggle-btn" onclick="toggleEdit()" id="editBtn">✏️ Modifier</button>
+      </div>
+      <div class="bail-info-grid">
+        <div class="bail-info-item"><span class="lbl">Locataire</span><span class="val">{{ bail.nom }} {{ bail.prenom or bail.raison_sociale or '' }}</span></div>
+        <div class="bail-info-item"><span class="lbl">N° Bail</span><span class="val" style="color:var(--primary)">{{ bail.numero }}</span></div>
+        <div class="bail-info-item"><span class="lbl">Adresse</span><span class="val">{{ bail.adresse or '—' }}</span></div>
+        <div class="bail-info-item"><span class="lbl">Superficie</span><span class="val">{{ bail.superficie or '—' }}{% if bail.superficie %} m²{% endif %}</span></div>
+        <div class="bail-info-item"><span class="lbl">Date début</span><span class="val">{{ bail.date_debut or '—' }}</span></div>
+        <div class="bail-info-item"><span class="lbl">Date fin</span><span class="val">{{ bail.date_fin or 'En cours' }}</span></div>
+      </div>
+
+      <!-- Tarif actuel : priorité Secteur > Arrêté > Bail -->
+      <div style="padding:0 14px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        {% if secteur %}
+        <div class="tarif-badge" style="border-color:#7c3aed;background:#f5f3ff;color:#5b21b6">
+          🏢 Secteur <strong>{{ secteur.code }}</strong> :
+          <span class="val">{{ "%.2f"|format(loyer_mensuel) }} DH/mois</span>
+          <small style="font-weight:400;opacity:.75">
+            {% if secteur.type_tarif=='m2' %}({{ secteur.tarif_mensuel }} DH/m² × {{ bail.superficie }} m²)
+            {% else %}(forfait fixe){% endif %}
+          </small>
+        </div>
+        <a href="{{ url_for('loc.loc_secteurs') }}" class="btn btn-outline btn-xs">🗂️ Gérer</a>
+        {% elif tarif_arrete %}
+        <div class="tarif-badge">📜 Tarif arrêté : <span class="val">{{ "%.2f"|format(tarif_arrete.valeur) }} DH/mois</span></div>
+        {% else %}
+        <div class="tarif-badge warn">⚠️ Loyer bail : <span class="val">{{ "%.2f"|format(bail.loyer_mensuel|float(0)) }} DH/mois</span>
+          <small style="font-weight:400">(non dans arrêté fiscal)</small></div>
+        {% endif %}
+      </div>
+
+      <!-- Formulaire modification -->
+      <div class="edit-form-collapse" id="editForm">
+        <hr>
+        <form method="post" action="{{ url_for('loc.loc_modifier', id=ref_id) }}">
+          <div class="form-grid mb-3">
+            <div class="form-group" style="grid-column:span 2">
+            <label style="font-weight:800;color:var(--primary)">
+              🏢 Secteur Géographique
+              <small style="font-weight:400;color:var(--muted)"> — prioritaire sur l'arrêté fiscal</small>
+            </label>
+            <select name="secteur_id" id="secteurSelect" onchange="onSecteurChange()">
+              <option value="">— Pas de secteur (utiliser arrêté fiscal) —</option>
+              {% for s in secteurs %}
+              <option value="{{ s.id }}"
+                      data-type="{{ s.type_tarif }}"
+                      data-tarif="{{ s.tarif_mensuel }}"
+                      {{ 'selected' if bail.secteur_id and bail.secteur_id==s.id else '' }}>
+                {{ s.code }} — {{ s.libelle }} ({{ "%.2f"|format(s.tarif_mensuel) }} {{ s.unite }})
+              </option>
+              {% endfor %}
+            </select>
+            <div id="secteurPreview" style="margin-top:5px;font-size:.72rem;display:none;background:#f5f3ff;
+              border:1px solid #c4b5fd;border-radius:6px;padding:5px 10px;color:#5b21b6;font-weight:700">
+            </div>
+          </div>
+          <div class="form-group"><label>Réf. Local</label><input name="ref_local" value="{{ bail.ref_local or '' }}"></div>
+          <div class="form-group"><label>Adresse</label><input name="adresse" value="{{ bail.adresse or '' }}"></div>
+          <div class="form-group"><label>Superficie (m²)</label><input type="number" name="superficie" id="superficieInput" step="0.1" value="{{ bail.superficie or '' }}" onchange="onSecteurChange()"></div>
+          <div class="form-group"><label>Loyer mensuel (DH) <small style="color:var(--muted)">(si pas de secteur)</small></label><input type="number" name="loyer_mensuel" id="loyerInput" step="0.01" value="{{ bail.loyer_mensuel|float(0) }}"></div>
+            <div class="form-group"><label>Date début</label><input type="date" name="date_debut" value="{{ bail.date_debut or '' }}"></div>
+            <div class="form-group"><label>Date fin</label><input type="date" name="date_fin" value="{{ bail.date_fin or '' }}"></div>
+            <div class="form-group"><label>Statut</label>
+              <select name="statut">
+                <option value="actif" {{ 'selected' if bail.statut=='actif' else '' }}>Actif</option>
+                <option value="resilie" {{ 'selected' if bail.statut=='resilie' else '' }}>Résilié</option>
+                <option value="suspendu" {{ 'selected' if bail.statut=='suspendu' else '' }}>Suspendu</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions" style="padding:0 0 12px">
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleEdit()">Annuler</button>
+            <button type="submit" class="btn btn-primary btn-sm">💾 Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ══ Historique tarifaire (Arrêtés fiscaux) ══ -->
+    {% if tarifs_historiques %}
+    <div class="card mb-3">
+      <div class="card-header"><h3>📜 Historique Tarifaire (Arrêtés fiscaux)</h3></div>
+      <div class="tarif-timeline">
+        {% for t in tarifs_historiques %}
+        <div class="tarif-period {{ 'actif' if t.actif else 'inactif' }}">
+          <div>
+            <div class="tp-val">{{ "%.2f"|format(t.valeur) }} DH</div>
+            <div class="tp-dates">
+              Depuis : {{ t.date_debut }}
+              {% if t.date_fin %}→ {{ t.date_fin }}{% else %}<span style="color:var(--ok);font-weight:700"> (en vigueur)</span>{% endif %}
+            </div>
+          </div>
+          {% if t.arrete_num %}
+          <span class="tp-arrete">{{ t.arrete_num }}</span>
+          {% endif %}
+          {% if t.actif %}<span class="badge b-ok" style="margin-left:auto">Actif</span>
+          {% else %}<span class="badge b-sec" style="margin-left:auto">Archivé</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ══ Détail par période tarifaire ══ -->
+    {% if groupes_tarifs %}
+    <div class="card mb-3">
+      <div class="card-header"><h3>📊 Répartition par période</h3></div>
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Tarif DH/mois</th><th>Période</th><th>Nb mois</th><th>Sous-total</th></tr></thead>
+          <tbody>
+            {% for g in groupes_tarifs %}
+            <tr>
+              <td><strong style="color:var(--primary)">{{ "%.2f"|format(g.tarif) }} DH</strong></td>
+              <td style="font-size:.75rem">{{ g.mois_debut }} → {{ g.mois_fin }}</td>
+              <td><span class="badge b-info">{{ g.nb_mois }}</span></td>
+              <td><strong>{{ "%.2f"|format(g.montant) }} DH</strong></td>
+            </tr>
+            {% endfor %}
+            <tr style="background:var(--bg)">
+              <td colspan="2"><strong>TOTAL</strong></td>
+              <td><span class="badge b-danger">{{ nb_mois }}</span></td>
+              <td><strong style="color:var(--danger);font-size:1rem">{{ "%.2f"|format(total_du) }} DH</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Paramètres calcul -->
+    {% if params %}
+    <div class="card">
+      <div class="card-header"><h3>⚙️ Paramètres — Location Locaux</h3></div>
+      <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px">
+        {% for p in params %}
+        <div style="background:var(--bg);border-radius:6px;padding:5px 10px;font-size:.71rem;border:1px solid var(--border)">
+          {{ p.libelle }}: <strong style="color:var(--primary)">{{ p.valeur }} {{ p.unite }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ─── Colonne droite ──────────────────────────────────────── -->
+  <div>
+
+    <!-- Sélecteur mois non payés -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3>📅 Mois non payés
+          {% if nb_mois > 0 %}<span class="badge b-danger ml-1">{{ nb_mois }}</span>{% endif %}
+        </h3>
+        {% if nb_mois == 0 %}<span class="badge b-ok">✅ À jour</span>{% endif %}
+      </div>
+
+      {% if mois_non_payes %}
+      <form method="post" action="{{ url_for('loc.loc_payer', id=ref_id) }}" id="payForm">
+        <!-- Les tarifs par mois seront envoyés en JS via input hidden -->
+        <input type="hidden" name="loyer_mensuel" value="{{ loyer_mensuel }}">
+        <input type="hidden" name="total_calcule" id="totalCalculeInput" value="0">
+
+        <div class="sel-actions">
+          <button type="button" class="btn btn-outline btn-xs" onclick="selectAll()">☑ Tout</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="selectNone()">☐ Aucun</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="selectYear()">📅 {{ "now"|strftime('%Y') if false else '2026' }}</button>
+          <span class="sel-count" id="selCount">0 mois sélectionné(s)</span>
+        </div>
+
+        <!-- Grille des mois — chaque chip affiche le tarif applicable -->
+        <div class="mois-grid" id="moisGrid">
+          {% for m in mois_non_payes %}
+          <div class="mois-chip">
+            <input type="checkbox" name="mois_selectionnes" value="{{ m.mois }}"
+                   id="mois_{{ m.mois }}" data-tarif="{{ m.tarif }}" onchange="updateRecap()">
+            <label for="mois_{{ m.mois }}">
+              <span>{{ m.label.split(' ')[0] }}</span>
+              <span class="mois-annee">{{ m.label.split(' ')[1] }}</span>
+              <span class="mois-tarif">{{ "%.2f"|format(m.tarif) }} DH</span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Récapitulatif dynamique -->
+        <div class="paiement-recap" id="recapBox" style="display:none">
+          <div class="recap-row">
+            <span>Mois sélectionnés</span>
+            <strong id="recapNbMois">0</strong>
+          </div>
+          <!-- Détail par tarif (généré par JS) -->
+          <div id="recapDetailContainer"></div>
+          <div class="recap-row" style="margin-top:6px">
+            <span style="font-size:.9rem;font-weight:700">TOTAL À PAYER</span>
+            <strong class="recap-total" id="recapTotal">0.00 DH</strong>
+          </div>
+        </div>
+
+        <!-- Options paiement -->
+        <div id="payOptions" style="display:none;padding:0 14px 14px">
+          <div class="form-grid mb-3">
+            <div class="form-group">
+              <label>Mode de paiement</label>
+              <select name="mode_paiement">
+                <option value="especes">💵 Espèces</option>
+                <option value="cheque">🏦 Chèque</option>
+                <option value="virement">💳 Virement</option>
+                <option value="mandat">📮 Mandat</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Notes (optionnel)</label>
+              <input name="notes" placeholder="Ex: Chèque n°...">
+            </div>
+          </div>
+          {% if user.peut_creer_bulletin or user.peut_ajouter %}
+          <button type="submit" class="btn btn-accent"
+                  style="width:100%;justify-content:center;font-size:.9rem;padding:12px"
+                  onclick="return confirmPay()">
+            💳 Valider le paiement &amp; Créer Bulletin
+          </button>
+          {% else %}
+          <div class="alert alert-warn">⚠️ Accès non autorisé pour valider des paiements.</div>
+          {% endif %}
+        </div>
+      </form>
+
+      {% else %}
+      <div class="empty-state" style="padding:32px">
+        <span class="ei">✅</span>
+        <strong>Tous les loyers sont à jour !</strong>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:6px">Aucun mois impayé depuis le {{ bail.date_debut or '—' }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Historique des paiements -->
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 Historique des paiements</h3>
+        {% if historique %}<span style="font-size:.72rem;color:var(--muted)">{{ historique|length }} opération(s)</span>{% endif %}
+      </div>
+      {% if historique %}
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Bulletin</th><th>Mois couverts</th><th>Montant</th><th>Statut</th></tr></thead>
+          <tbody>
+            {% for h in historique %}
+            <tr>
+              <td>
+                <small style="color:var(--primary);font-weight:700">{{ h.numero_bulletin or h.numero or '—' }}</small>
+                <div style="font-size:.63rem;color:var(--muted)">{{ h.date_creation[:10] if h.date_creation else '' }}</div>
+              </td>
+              <td>
+                <div class="hist-badge-mois">
+                  {% if h.notes %}
+                    {% for p in h.notes.split('|')[0].strip().split(',') %}
+                      {% set mp = p.strip() %}
+                      {% if mp and mp|length == 7 %}
+                      <span class="hist-mois-tag">{{ mp }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  {% else %}—{% endif %}
+                </div>
+              </td>
+              <td><strong>{{ "%.2f"|format(h.montant_total) }} DH</strong></td>
+              <td><span class="badge {% if h.statut=='paye' %}b-ok{% elif h.statut=='emis' %}b-warn{% else %}b-info{% endif %}">{{ h.statut }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% set ns = namespace(enc=0) %}
+      {% for h in historique %}{% if h.statut=='paye' %}{% set ns.enc = ns.enc + h.montant_total %}{% endif %}{% endfor %}
+      <div style="padding:7px 14px;background:var(--bg);font-size:.74rem;color:var(--muted);border-top:1px solid var(--border);display:flex;justify-content:space-between">
+        <span>Total encaissé:</span>
+        <strong class="text-ok">{{ "%.2f"|format(ns.enc) }} DH</strong>
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="ei">📋</span>Aucun paiement enregistré</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+const ANNEE_COURANTE = new Date().getFullYear().toString();
+
+// Map mois => tarif (en DH) depuis les data-tarif des checkboxes
+const TARIFS_PAR_MOIS = {};
+document.querySelectorAll('#moisGrid input[type=checkbox]').forEach(cb => {
+  TARIFS_PAR_MOIS[cb.value] = parseFloat(cb.dataset.tarif) || 0;
+});
+
+function updateRecap() {
+  const checked = Array.from(document.querySelectorAll('#moisGrid input[type=checkbox]:checked'));
+  const nb = checked.length;
+
+  document.getElementById('selCount').textContent = nb + ' mois sélectionné(s)';
+
+  const recapBox = document.getElementById('recapBox');
+  const payOpts  = document.getElementById('payOptions');
+
+  if (nb === 0) {
+    recapBox.style.display = 'none';
+    payOpts.style.display  = 'none';
+    document.getElementById('totalCalculeInput').value = '0';
+    return;
+  }
+
+  // Calcul du total en sommant les tarifs individuels par mois
+  let total = 0;
+  // Grouper par tarif pour afficher le détail
+  const groupes = {};
+  checked.forEach(cb => {
+    const tarif = TARIFS_PAR_MOIS[cb.value] || 0;
+    total += tarif;
+    const key = tarif.toFixed(2);
+    if (!groupes[key]) groupes[key] = { tarif, nb: 0 };
+    groupes[key].nb++;
+  });
+  total = Math.round(total * 100) / 100;
+
+  // Mettre à jour le total hidden
+  document.getElementById('totalCalculeInput').value = total.toFixed(2);
+
+  recapBox.style.display = 'block';
+  payOpts.style.display  = 'block';
+  document.getElementById('recapNbMois').textContent = nb + ' mois';
+  document.getElementById('recapTotal').textContent  = total.toFixed(2) + ' DH';
+
+  // Détail par période tarifaire
+  const detailContainer = document.getElementById('recapDetailContainer');
+  const tarifsKeys = Object.keys(groupes).sort((a,b) => parseFloat(a)-parseFloat(b));
+  if (tarifsKeys.length > 1) {
+    detailContainer.innerHTML = tarifsKeys.map(k => {
+      const g = groupes[k];
+      return `<div class="recap-detail-row">
+        <span>${g.nb} mois × ${parseFloat(k).toFixed(2)} DH</span>
+        <span>${(g.nb * g.tarif).toFixed(2)} DH</span>
+      </div>`;
+    }).join('');
+  } else {
+    // Un seul tarif — afficher simplement
+    const [k] = tarifsKeys;
+    const g = groupes[k];
+    detailContainer.innerHTML = `<div class="recap-detail-row">
+      <span>${g.nb} mois × ${parseFloat(k).toFixed(2)} DH/mois</span>
+      <span>${(g.nb * g.tarif).toFixed(2)} DH</span>
+    </div>`;
+  }
+}
+
+function selectAll() {
+  document.querySelectorAll('#moisGrid input[type=checkbox]').forEach(cb => cb.checked = true);
+  updateRecap();
+}
+function selectNone() {
+  document.querySelectorAll('#moisGrid input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateRecap();
+}
+function selectYear() {
+  document.querySelectorAll('#moisGrid input[type=checkbox]').forEach(cb => {
+    cb.checked = cb.value.startsWith(ANNEE_COURANTE);
+  });
+  updateRecap();
+}
+
+function toggleEdit() {
+  const form = document.getElementById('editForm');
+  const btn  = document.getElementById('editBtn');
+  form.classList.toggle('open');
+  btn.textContent = form.classList.contains('open') ? '✕ Fermer' : '✏️ Modifier';
+}
+
+function confirmPay() {
+  const nb    = document.querySelectorAll('#moisGrid input[type=checkbox]:checked').length;
+  const total = document.getElementById('totalCalculeInput').value;
+  return confirm(`Confirmer le paiement de ${nb} mois pour un total de ${parseFloat(total).toFixed(2)} DH ?`);
+}
+
+// Init
+updateRecap();
+
+// ─── Secteur : prévisualisation dynamique ─────────────────────────────────
+function onSecteurChange() {
+  const sel  = document.getElementById('secteurSelect');
+  const prev = document.getElementById('secteurPreview');
+  const sup  = parseFloat(document.getElementById('superficieInput')?.value || 0);
+  if (!sel) return;
+
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) {
+    if (prev) prev.style.display = 'none';
+    return;
+  }
+
+  const id = opt.value;
+  fetch(`/api/secteur-tarif/${id}?superficie=${sup}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!prev) return;
+      const detail = d.type_tarif === 'm2'
+        ? ` (${d.tarif_mensuel_base} DH/m² × ${sup} m²)`
+        : ' (forfait fixe)';
+      prev.innerHTML = `🏢 Loyer estimé : <strong>${parseFloat(d.tarif_calcule).toFixed(2)} DH/mois</strong>${detail}`;
+      prev.style.display = '';
+      // Mettre à jour le champ loyer à titre indicatif
+      const loyerInp = document.getElementById('loyerInput');
+      if (loyerInp) loyerInp.value = parseFloat(d.tarif_calcule).toFixed(2);
+    })
+    .catch(() => { if (prev) prev.style.display = 'none'; });
+}
+
+// Déclencher au chargement si secteur déjà sélectionné
+window.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('secteurSelect');
+  if (sel && sel.value) onSecteurChange();
+});
+</script>
+{% endblock %}

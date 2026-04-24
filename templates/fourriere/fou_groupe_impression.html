@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Liste Enchères — {{ groupe.numero }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 portrait; margin: 15mm 18mm 20mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Cairo', Arial, sans-serif; font-size: 11pt; color: #111; line-height: 1.7; }
+
+  .no-print { text-align: center; margin-bottom: 18px; display: flex; gap: 10px; justify-content: center; }
+  .btn-print { background: #2d3561; color: #fff; border: none; border-radius: 6px; padding: 8px 22px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  @media print { .no-print { display: none; } }
+
+  .header { text-align: center; border-bottom: 2px solid #2d3561; padding-bottom: 12px; margin-bottom: 16px; }
+  .header .commune { font-size: 14pt; font-weight: 900; color: #2d3561; }
+  .header .titre { font-size: 12pt; font-weight: 800; margin: 6px 0; }
+  .header .sous-titre { font-size: 10pt; color: #555; }
+
+  .meta-box { display: flex; gap: 20px; margin-bottom: 14px; border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px; background: #f8f9fc; }
+  .meta-box .m-col { flex: 1; }
+  .meta-box .ml { font-size: 9pt; color: #666; }
+  .meta-box .mv { font-size: 10.5pt; font-weight: 700; color: #2d3561; }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10pt; }
+  th { background: #2d3561; color: #fff; padding: 7px 10px; text-align: center; font-weight: 700; }
+  td { border: 1px solid #ccc; padding: 6px 10px; vertical-align: middle; }
+  tr:nth-child(even) td { background: #f5f5f5; }
+  .etat-col { text-align: center; }
+  .etat-BON { color: #155724; font-weight: 700; }
+  .etat-MOYEN { color: #856404; font-weight: 700; }
+  .etat-MAUVAIS { color: #721c24; font-weight: 700; }
+
+  .prix-box { text-align: center; margin: 16px 0; padding: 12px; border: 2px solid #2d3561; border-radius: 8px; background: #f0f4ff; }
+  .prix-box .pv { font-size: 15pt; font-weight: 900; color: #2d3561; }
+  .prix-box .pl { font-size: 10pt; color: #555; }
+
+  .footer-sign { margin-top: 30px; display: flex; justify-content: space-between; }
+  .sign-box { text-align: center; }
+  .sign-box .sig-title { font-weight: 800; font-size: 10.5pt; }
+  .sign-box .sig-area { border-top: 1px dashed #999; margin-top: 50px; padding-top: 5px; font-size: 9pt; color: #888; }
+
+  .footer-page { position: fixed; bottom: 5mm; left: 18mm; right: 18mm; border-top: 1px solid #ccc;
+    display: flex; justify-content: space-between; font-size: 8.5pt; color: #666; padding-top: 3px; }
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button onclick="window.history.back()">← Retour</button>
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+</div>
+
+<!-- En-tête -->
+<div class="header">
+  <div style="font-size:10pt;color:#555">المملكة المغربية · Royaume du Maroc</div>
+  <div class="commune">Commune de {{ commune }}</div>
+  <div class="titre">Liste des véhicules mis aux enchères</div>
+  <div class="sous-titre">Service Fourrière Municipale</div>
+</div>
+
+<!-- Méta groupe -->
+<div class="meta-box">
+  <div class="m-col">
+    <div class="ml">N° Groupe</div>
+    <div class="mv">{{ groupe.numero }}</div>
+  </div>
+  <div class="m-col">
+    <div class="ml">Libellé</div>
+    <div class="mv">{{ groupe.libelle }}</div>
+  </div>
+  <div class="m-col">
+    <div class="ml">Date d'enchères</div>
+    <div class="mv">{{ groupe.date_enchere or '—' }}</div>
+  </div>
+  <div class="m-col">
+    <div class="ml">Lieu</div>
+    <div class="mv">{{ groupe.lieu or '—' }}</div>
+  </div>
+  <div class="m-col">
+    <div class="ml">Date d'impression</div>
+    <div class="mv">{{ today }}</div>
+  </div>
+</div>
+
+<!-- Prix d'ouverture -->
+{% if groupe.prix_ouverture and groupe.prix_ouverture > 0 %}
+<div class="prix-box">
+  <div class="pl">Prix d'ouverture des enchères</div>
+  <div class="pv">{{ "%.2f"|format(groupe.prix_ouverture) }} DH</div>
+</div>
+{% endif %}
+
+<!-- Tableau véhicules -->
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px">#</th>
+      <th>Immatriculation</th>
+      <th>Type de véhicule</th>
+      <th>N° Dépôt</th>
+      <th>Date mise en fourrière</th>
+      <th>État</th>
+      <th>Observations</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for v in vehicules %}
+    <tr>
+      <td style="text-align:center;font-weight:700">{{ loop.index }}</td>
+      <td><strong>{{ v.immatriculation or '—' }}</strong></td>
+      <td>{{ v.type_vehicule or '—' }}</td>
+      <td>{{ v.num_depot or '—' }}</td>
+      <td style="text-align:center">{{ v.date_mise_fourriere or '—' }}</td>
+      <td class="etat-col">
+        <span class="etat-{{ v.etat_vehicule|upper if v.etat_vehicule else 'MOYEN' }}">
+          {{ v.etat_vehicule or 'Moyen' }}
+        </span>
+      </td>
+      <td style="font-size:9pt;color:#555">{{ v.notes or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="text-align:center;padding:16px;color:#888">Aucun véhicule</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div style="font-size:9.5pt;color:#555;margin-top:8px;text-align:right">
+  <strong>Total : {{ vehicules|length }} véhicule(s)</strong>
+</div>
+
+<!-- Signatures -->
+<div class="footer-sign">
+  <div class="sign-box">
+    <div class="sig-title">Le Responsable de la Fourrière</div>
+    <div class="sig-area">Signature et cachet</div>
+  </div>
+  <div class="sign-box">
+    <div class="sig-title">Le Président du Conseil Communal</div>
+    <div class="sig-area">Signature et cachet</div>
+  </div>
+  <div class="sign-box">
+    <div class="sig-title">Le Commissaire-Priseur</div>
+    <div class="sig-area">Signature</div>
+  </div>
+</div>
+
+<div class="footer-page">
+  <span>Fourrière Municipale — {{ commune }}</span>
+  <span>Groupe {{ groupe.numero }} — {{ today }}</span>
+</div>
+</body>
+</html>

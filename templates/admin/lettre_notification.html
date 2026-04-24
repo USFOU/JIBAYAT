@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lettre {{ lettre.numero_lettre }} — {{ 'BROUILLON' if lettre.statut=='brouillon' else 'Notification' }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; background: #f0f0f0; }
+
+  /* ── Actions bar (non imprimé) ── */
+  .actions-bar {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #fff; padding: 12px 24px; position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.3);
+  }
+  .actions-bar h2 { font-size: .9rem; font-weight: 800; flex: 1; }
+  .btn-act { padding: 7px 16px; border-radius: 8px; border: 1.5px solid; font-size: .78rem;
+    font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex;
+    align-items: center; gap: 5px; }
+  .btn-print { background: #fff; color: #7c3aed; border-color: #fff; }
+  .btn-approve { background: #10b981; color: #fff; border-color: #10b981; }
+  .btn-back { background: transparent; color: rgba(255,255,255,.8); border-color: rgba(255,255,255,.4); }
+
+  /* ── Brouillon watermark ── */
+  .brouillon-mark {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-35deg);
+    font-size: 120pt; font-weight: 900; color: rgba(239,68,68,.07);
+    pointer-events: none; z-index: 0; user-select: none; white-space: nowrap;
+  }
+
+  /* ── Page lettre ── */
+  .page-lettre {
+    background: #fff; width: 210mm; min-height: 297mm;
+    margin: 20px auto; padding: 20mm 18mm 15mm 20mm;
+    box-shadow: 0 4px 30px rgba(0,0,0,.15); position: relative;
+    page-break-after: always;
+  }
+
+  /* ── En-tête ── */
+  .header-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 18px; }
+  .commune-logo { display: flex; align-items: center; gap: 10px; }
+  .commune-logo-img { width: 70px; height: 70px; object-fit: contain; }
+  .commune-logo-text h1 { font-size: 11pt; font-weight: 900; line-height: 1.3; }
+  .commune-logo-text p { font-size: 9pt; color: #555; margin-top: 2px; }
+  .header-right { text-align: right; }
+  .ref-lettre { font-size: 10pt; background: #f8f8f8; border: 1px solid #ddd;
+    border-radius: 6px; padding: 8px 12px; display: inline-block; }
+  .ref-lettre strong { display: block; font-size: 12pt; color: #7c3aed; }
+  .date-lieu { font-size: 9.5pt; color: #555; margin-top: 4px; }
+
+  /* ── Séparateur ── */
+  .separateur { border: none; border-top: 2px solid #1a1a1a; margin: 10px 0 14px; }
+  .separator-sub { border: none; border-top: 0.5px solid #bbb; margin: 8px 0; }
+
+  /* ── Objet ── */
+  .objet-bloc { background: linear-gradient(90deg,#7c3aed10,#fff); border-left: 3px solid #7c3aed;
+    padding: 8px 12px; margin: 12px 0 16px; border-radius: 0 6px 6px 0; }
+  .objet-bloc strong { font-size: 11pt; }
+
+  /* ── Corps ── */
+  .corps p { line-height: 1.7; font-size: 11pt; text-align: justify; margin-bottom: 10px; }
+  .corps .indent { text-indent: 30px; }
+
+  /* ── Tableau redevables ── */
+  .table-decls { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 9.5pt; }
+  .table-decls th { background: #1e1b4b; color: #fff; padding: 6px 8px;
+    text-align: left; font-size: 8.5pt; }
+  .table-decls td { padding: 5px 8px; border-bottom: 0.5px solid #e0e0e0; }
+  .table-decls tbody tr:nth-child(even) td { background: #f8f8f8; }
+  .table-decls .td-num { font-family: monospace; }
+  .table-decls .td-money { text-align: right; font-weight: 700; color: #dc2626; }
+  .table-decls tfoot td { font-weight: 900; border-top: 1.5px solid #1a1a1a;
+    padding: 6px 8px; background: #f0fdf4; }
+
+  /* ── Zone signature ── */
+  .signature-bloc { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+  .sig-side { text-align: center; }
+  .sig-title { font-size: 10pt; font-weight: 800; margin-bottom: 50px; }
+  .sig-line { border-top: 1px solid #333; border-bottom: 1px solid #333;
+    height: 30px; width: 80%; margin: 0 auto; }
+  .sig-name { font-size: 9pt; color: #555; margin-top: 5px; }
+
+  /* ── Pied de page ── */
+  .footer-lettre { margin-top: 20px; text-align: center; font-size: 8pt; color: #777;
+    border-top: 1px solid #ddd; padding-top: 8px; }
+
+  /* ── Badge brouillon visible ── */
+  .brouillon-badge {
+    position: absolute; top: 12mm; right: 15mm;
+    background: #fef3c7; border: 2px solid #f59e0b; border-radius: 6px;
+    padding: 4px 10px; font-size: 10pt; font-weight: 900; color: #92400e;
+    transform: rotate(3deg);
+  }
+
+  /* ── Print ── */
+  @media print {
+    .actions-bar { display: none !important; }
+    body { background: #fff; }
+    .page-lettre { margin: 0; box-shadow: none; }
+    .brouillon-mark { font-size: 140pt; }
+  }
+</style>
+</head>
+<body>
+
+{% if lettre.statut == 'brouillon' %}
+<div class="brouillon-mark">BROUILLON</div>
+{% endif %}
+
+<!-- Barre d'actions (non imprimée) -->
+<div class="actions-bar">
+  <h2>
+    📬 {{ lettre.numero_lettre }}
+    — {% if lettre.statut == 'brouillon' %}📝 BROUILLON — À approuver avant envoi{% else %}✅ Lettre envoyée{% endif %}
+  </h2>
+  <a href="{{ url_for('avis') }}#lettres" class="btn-act btn-back">← Retour</a>
+  <button onclick="window.print()" class="btn-act btn-print">🖨️ Imprimer / PDF</button>
+  {% if lettre.statut == 'brouillon' %}
+  <form method="post" action="{{ url_for('lettre_approuver', id=lettre.id) }}" style="display:inline">
+    <button type="submit" class="btn-act btn-approve"
+            onclick="return confirm('Confirmer l\'envoi de cette lettre ?')">
+      ✅ Confirmer & Marquer Envoyée
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- ══════════ LETTRE ══════════ -->
+<div class="page-lettre">
+  {% if lettre.statut == 'brouillon' %}
+  <div class="brouillon-badge">📝 BROUILLON</div>
+  {% endif %}
+
+  <!-- En-tête -->
+  <div class="header-block">
+    <div class="commune-logo">
+      <div class="commune-logo-text">
+        <h1>{{ commune.nom or 'COMMUNE' }}<br>
+          <span style="font-size:9pt;font-weight:400;color:#555">{{ commune.region or '' }}{% if commune.province %} — {{ commune.province }}{% endif %}</span>
+        </h1>
+        <p>Direction des Recettes Communales</p>
+        <p style="margin-top:2px;font-size:8.5pt;color:#888">Service du Recouvrement</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="ref-lettre">
+        <span style="font-size:8pt;color:#777">N° Lettre :</span>
+        <strong>{{ lettre.numero_lettre }}</strong>
+        <span style="font-size:8pt;color:#7c3aed">{{ '(BROUILLON)' if lettre.statut=='brouillon' else '' }}</span>
+      </div>
+      <div class="date-lieu" style="margin-top:8px">
+        Le {{ lettre.date_generation or today }}
+      </div>
+    </div>
+  </div>
+
+  <hr class="separateur">
+
+  <!-- Objet -->
+  <div class="objet-bloc">
+    <strong>OBJET : Lettre de Notification — Arrières Impayés — {{ MODULE_LABELS.get(lettre.module, lettre.module or 'Tous modules') }}</strong>
+    <br>
+    <small style="color:#555">Type : {{ lettre.type_lettre | upper }} · Lot : {{ lettre.lot_id }}</small>
+  </div>
+
+  <!-- Corps -->
+  <div class="corps">
+    <p class="indent">
+      Nous avons l'honneur de vous informer que les redevables mentionnés dans le tableau ci-dessous
+      présentent des arriérés non réglés au titre de la taxe
+      <strong>{{ MODULE_LABELS.get(lettre.module, lettre.module or 'communale') }}</strong>,
+      conformément aux dispositions réglementaires en vigueur.
+    </p>
+    <p class="indent">
+      Nous vous prions de bien vouloir prendre les mesures nécessaires pour le recouvrement
+      de ces montants dans les meilleurs délais, et au plus tard dans un délai de
+      <strong>30 jours</strong> à compter de la date de la présente lettre.
+    </p>
+  </div>
+
+  <!-- Tableau des redevables -->
+  <table class="table-decls">
+    <thead>
+      <tr>
+        <th style="width:30px">#</th>
+        <th>Redevable</th>
+        <th>CIN / ICE</th>
+        <th>N° Avis</th>
+        <th>N° Déclaration</th>
+        <th>Année</th>
+        <th style="text-align:right">Principal (DH)</th>
+        <th style="text-align:right">Pénalités (DH)</th>
+        <th style="text-align:right">Total Dû (DH)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for d in details %}
+    <tr>
+      <td style="text-align:center;color:#888">{{ loop.index }}</td>
+      <td>
+        <strong>{{ d.nom }} {{ d.prenom or '' }}</strong>
+        {% if d.raison_sociale %}<br><small>{{ d.raison_sociale }}</small>{% endif %}
+        {% if d.adresse %}<br><small style="font-size:8pt;color:#888">{{ d.adresse }}</small>{% endif %}
+      </td>
+      <td class="td-num">{{ d.cin or d.ice or '—' }}</td>
+      <td class="td-num" style="color:#7c3aed">{{ d.numero_avis or '—' }}</td>
+      <td class="td-num">{{ d.decl_numero }}</td>
+      <td style="text-align:center;font-weight:700">{{ d.annee }}</td>
+      <td class="td-money">{{ "%.2f"|format(d.montant_principal or 0) }}</td>
+      <td class="td-money" style="color:#f59e0b">{{ "%.2f"|format(d.penalite_retard or 0) }}</td>
+      <td class="td-money" style="font-size:.95em">{{ "%.2f"|format(d.montant_total or d.montant_du or 0) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right;font-size:9.5pt">TOTAL GÉNÉRAL</td>
+        <td colspan="2" style="text-align:right;color:#dc2626">—</td>
+        <td style="text-align:right;color:#dc2626;font-size:11pt">
+          <strong>{{ "%.2f"|format(lettre.montant_total or details|sum(attribute='montant_du')) }}</strong>
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <hr class="separator-sub">
+
+  <!-- Note -->
+  <div class="corps" style="margin-top:10px">
+    <p style="font-size:9.5pt">
+      À défaut de règlement dans le délai imparti, des mesures de recouvrement forcé
+      pourront être engagées conformément à la législation en vigueur, notamment les articles
+      37 et suivants de la loi n° 15-97 portant code de recouvrement des créances publiques.
+    </p>
+    {% if lettre.notes %}
+    <p style="font-size:9.5pt;background:#fffbeb;padding:6px 10px;border-radius:4px;border-left:3px solid #f59e0b">
+      📝 {{ lettre.notes }}
+    </p>
+    {% endif %}
+  </div>
+
+  <!-- Signature -->
+  <div class="signature-bloc">
+    <div class="sig-side">
+      <div class="sig-title">Le Responsable de la Recette</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">Cachet et Signature</div>
+    </div>
+    <div class="sig-side">
+      <div class="sig-title">Le Président du Conseil Communal</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">Cachet et Signature</div>
+    </div>
+  </div>
+
+  <!-- Pied de page -->
+  <div class="footer-lettre">
+    {{ commune.nom or 'Commune' }}{% if commune.adresse %} — {{ commune.adresse }}{% endif %}
+    · Lettre ref. {{ lettre.numero_lettre }} · Générée le {{ lettre.date_generation or today }}
+    {% if lettre.statut == 'brouillon' %}
+    · ⚠️ DOCUMENT NON OFFICIEL — BROUILLON EN ATTENTE D'APPROBATION
+    {% endif %}
+  </div>
+</div>
+
+</body>
+</html>

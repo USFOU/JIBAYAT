@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Paiement — {{ dossier.numero }}{% endblock %}
+{% block page_title %}💳 Paiement Fourrière{% endblock %}
+{% block content %}
+<div class="df gap-2 mb-3">
+  <a href="{{ url_for('fou.fou_detail', id=dossier.id) }}" class="btn btn-outline btn-sm">← Retour dossier</a>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+  <!-- Récap dossier -->
+  <div class="card">
+    <div class="card-header"><h3>🚗 Récapitulatif</h3></div>
+    <div style="padding:14px">
+      <table style="width:100%">
+        <tr><td style="color:var(--muted);font-size:.75rem;width:45%">N° Dossier</td>
+            <td><strong>{{ dossier.numero }}</strong></td></tr>
+        <tr><td style="color:var(--muted);font-size:.75rem">Immatriculation</td>
+            <td><strong>{{ dossier.immatriculation or '—' }}</strong></td></tr>
+        <tr><td style="color:var(--muted);font-size:.75rem">Type véhicule</td>
+            <td>{{ dossier.type_vehicule or '—' }}</td></tr>
+        <tr><td style="color:var(--muted);font-size:.75rem">Tarif journalier</td>
+            <td><strong>{{ "%.2f"|format(dossier.tarif_journalier or 0) }} DH / jour</strong></td></tr>
+        <tr><td style="color:var(--muted);font-size:.75rem">Date entrée</td>
+            <td>{{ dossier.date_mise_fourriere or '—' }}</td></tr>
+        <tr><td style="color:var(--muted);font-size:.75rem">Nombre de jours</td>
+            <td><strong style="color:var(--danger);font-size:1.1rem">{{ dossier.nb_jours }}</strong></td></tr>
+        <tr><td style="color:var(--muted);font-size:.75rem">Frais remorquage</td>
+            <td>{{ "%.2f"|format(dossier.frais_remorquage or 0) }} DH</td></tr>
+      </table>
+      <div style="background:linear-gradient(135deg,#fee2e2,#fecaca);border-radius:10px;padding:14px;margin-top:12px;text-align:center">
+        <div style="font-size:.72rem;color:var(--danger);font-weight:700">MONTANT TOTAL DÛ</div>
+        <div style="font-size:1.8rem;font-weight:900;color:var(--danger)">
+          {{ "%.2f"|format(dossier.montant_du) }} DH
+        </div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:2px">
+          ({{ dossier.nb_jours }} j × {{ "%.2f"|format(dossier.tarif_journalier or 0) }} DH + {{ "%.2f"|format(dossier.frais_remorquage or 0) }} DH remorquage)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulaire paiement -->
+  <div class="card">
+    <div class="card-header"><h3>💳 Enregistrer le paiement</h3></div>
+    <div style="padding:16px">
+      <div style="background:linear-gradient(135deg,#fff3cd,#ffeaa7);border-radius:8px;padding:10px;margin-bottom:14px;font-size:.73rem;border-left:3px solid #ffc107">
+        <strong>⚠️ Workflow :</strong> L'agent saisit le N° bulletin et le nom du propriétaire →
+        Le bulletin est créé <strong>en attente</strong> dans
+        <a href="/paiements" target="_blank">/paiements</a> pour validation par le régisseur →
+        Après encaissement, le responsable fourrière valide la sortie.
+      </div>
+
+      <form method="post" action="{{ url_for('fou.fou_payer', id=dossier.id) }}">
+        <div class="form-grid">
+          <div class="form-group" style="grid-column:span 2">
+            <label>Nom du propriétaire <span style="color:var(--danger)">*</span></label>
+            <input name="nom_proprietaire" value="{{ dossier.nom_proprietaire or '' }}"
+                   placeholder="Nom complet du propriétaire du véhicule" required>
+          </div>
+          <div class="form-group">
+            <label>CIN propriétaire</label>
+            <input name="cin_proprietaire" value="{{ dossier.cin_proprietaire or '' }}"
+                   placeholder="M123456">
+          </div>
+          <div class="form-group">
+            <label>Téléphone</label>
+            <input name="telephone_prop" value="{{ dossier.telephone_prop or '' }}"
+                   placeholder="06XX XX XX XX">
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>N° Bulletin <span style="color:var(--danger)">*</span></label>
+            <input name="numero_bulletin" id="numBulInput"
+                   placeholder="Ex: 2026/0088"
+                   style="font-weight:700;font-size:.9rem;border-color:var(--accent)"
+                   required>
+            <div style="font-size:.63rem;color:var(--muted);margin-top:2px">
+              Numéro attribué manuellement par la régie
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Mode de paiement</label>
+            <select name="mode_paiement">
+              <option value="especes">💵 Espèces</option>
+              <option value="cheque">🏦 Chèque</option>
+              <option value="virement">💳 Virement</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Montant (DH)</label>
+            <input type="number" name="montant" value="{{ "%.2f"|format(dossier.montant_du) }}"
+                   step="0.01" style="font-weight:700">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-accent"
+                style="width:100%;margin-top:14px;padding:13px;font-size:.88rem"
+                onclick="return confirm('Confirmer la création du bulletin en attente ?')">
+          🏦 Envoyer en attente → Régisseur /paiements
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

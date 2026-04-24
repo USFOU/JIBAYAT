@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}{{ occ.numero }}{% endblock %}
+{% block page_title %}🏪 Occupation Domaine Public — {{ occ.numero }}{% endblock %}
+{% block content %}
+<div class="df gap-2 mb-3 flex-wrap">
+  <a href="{{ url_for('odp.odp_liste') }}" class="btn btn-outline btn-sm">← Liste</a>
+  <a href="{{ url_for('odp.odp_paiement', id=occ.id) }}" class="btn btn-accent">💳 Paiement & Déclarations</a>
+  <button onclick="openModal('editOdp')" class="btn btn-primary btn-sm">✏️ Modifier</button>
+  <button onclick="openModal('renouvModal')" class="btn btn-info btn-sm">🔄 Renouveler</button>
+  {% if user.peut_supprimer %}
+  <button onclick="openModal('delOdp')" class="btn btn-danger btn-sm">🗑️ Supprimer</button>
+  {% endif %}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  <div class="card">
+    <div class="card-header"><h3>📋 Informations Occupation</h3></div>
+    <div class="card-body" style="font-size:.84rem">
+      <div style="display:grid;gap:8px">
+        <div><span class="text-muted" style="font-size:.7rem">N°</span><div><strong style="color:var(--primary)">{{ occ.numero }}</strong></div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Type</span><div><span class="badge b-info">{{ occ.type_occupation }}</span></div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Localisation</span><div>{{ occ.localisation or '—' }}</div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Superficie</span><div>{{ occ.superficie or '—' }} {% if occ.superficie %}m²{% endif %}</div></div>
+        <div><span class="text-muted" style="font-size:.7rem">N° Autorisation</span><div>{{ occ.num_autorisation or '—' }}</div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Date Début</span><div>{{ occ.date_debut or '—' }}</div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Date Fin</span><div><strong class="{% if today and today > occ.date_fin %}text-danger{% else %}text-ok{% endif %}">{{ occ.date_fin or '—' }}</strong></div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Statut</span><div><span class="badge {{ 'b-ok' if occ.statut=='actif' else 'b-danger' }}">{{ occ.statut }}</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>👤 Contribuable</h3></div>
+    <div class="card-body" style="font-size:.84rem">
+      <div style="display:grid;gap:8px">
+        <div><span class="text-muted" style="font-size:.7rem">N° Contribuable</span><div><strong style="color:var(--primary)">{{ occ.ctb_num }}</strong></div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Nom</span><div><strong>{{ occ.nom }} {{ occ.prenom or occ.raison_sociale or '' }}</strong></div></div>
+        <div><span class="text-muted" style="font-size:.7rem">Téléphone</span><div>{{ occ.telephone or '—' }}</div></div>
+      </div>
+      {% if annees_manquantes %}
+      <div style="margin-top:12px;background:var(--warn-bg);border-radius:8px;padding:10px;border-left:4px solid var(--warn-bd)">
+        <div style="font-size:.72rem;font-weight:700;color:#856404">⚠️ Périodes sans paiement — Années: {% for a in annees_manquantes %}<span class="badge b-warn">{{ a }}</span> {% endfor %}</div>
+        <a href="{{ url_for('odp.odp_paiement', id=occ.id) }}" class="btn btn-accent btn-xs mt-2">Régulariser →</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><h3>📄 Historique Déclarations de Paiement</h3><a href="{{ url_for('odp.odp_paiement', id=occ.id) }}" class="btn btn-accent btn-sm">+ Paiement</a></div>
+  <div class="table-responsive">
+    <table>
+      <thead><tr><th>N° Décl.</th><th>Année</th><th>Période</th><th>Total</th><th>Bulletin</th><th>Statut</th></tr></thead>
+      <tbody>
+        {% for d in declarations %}
+        <tr>
+          <td><small style="color:var(--primary)">{{ d.numero }}</small></td>
+          <td><strong>{{ d.annee }}</strong></td>
+          <td>{% if d.trimestre == 0 %}<span class="badge b-primary">Année Complète</span>{% else %}<span class="badge b-info">T{{ d.trimestre }}</span>{% endif %}</td>
+          <td><strong>{{ "%.2f"|format(d.montant_total) }} DH</strong></td>
+          <td><small>{{ d.numero_bulletin or '—' }}</small></td>
+          <td><span class="badge {% if d.statut=='paye' %}b-ok{% elif d.statut=='emis' %}b-warn{% else %}b-sec{% endif %}">{{ d.statut }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty-state">Aucune déclaration</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Renouvellement -->
+<div class="modal-overlay" id="renouvModal">
+  <div class="modal">
+    <div class="modal-header"><h3>🔄 Renouveler l'Occupation</h3><button class="modal-close" onclick="closeModal('renouvModal')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="{{ url_for('odp.odp_renouveler', id=occ.id) }}">
+        <div class="form-group mb-3"><label>A partir de la date fin: <strong>{{ occ.date_fin }}</strong></label></div>
+        <div class="form-group mb-3">
+            <label>Durée du renouvellement *</label>
+            <select name="duree" required class="form-select">
+                <option value="1_trimestre">+ 1 Trimestre (3 mois)</option>
+                <option value="2_trimestres">+ 2 Trimestres (6 mois)</option>
+                <option value="1_an" selected>+ 1 Année</option>
+            </select>
+        </div>
+        <div class="alert alert-info">La date de fin sera recalculée automatiquement.</div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('renouvModal')">Annuler</button><button type="submit" class="btn btn-primary">🔄 Confirmer le renouvellement</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Modifier -->
+<div class="modal-overlay" id="editOdp">
+  <div class="modal">
+    <div class="modal-header"><h3>✏️ Modifier l'Occupation</h3><button class="modal-close" onclick="closeModal('editOdp')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="{{ url_for('odp.odp_modifier', id=occ.id) }}">
+        <div class="form-grid mb-3">
+          <div class="form-group"><label>Type Occupation</label>
+            <select name="type_occupation">
+              {% for t in tarifs %}<option value="{{ t.code_tarif }}" {{ 'selected' if t.code_tarif==occ.type_occupation }}>{{ t.libelle }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label>Localisation</label><input name="localisation" value="{{ occ.localisation or '' }}"></div>
+          <div class="form-group"><label>Superficie (m²)</label><input type="number" step="0.1" name="superficie" value="{{ occ.superficie or '0' }}"></div>
+          <div class="form-group"><label>N° Autorisation</label><input name="num_autorisation" value="{{ occ.num_autorisation or '' }}"></div>
+          <div class="form-group"><label>Date début</label><input type="date" name="date_debut" value="{{ occ.date_debut or '' }}"></div>
+          <div class="form-group"><label>Date fin</label><input type="date" name="date_fin" value="{{ occ.date_fin or '' }}"></div>
+          <div class="form-group"><label>Statut</label>
+            <select name="statut">
+                <option value="actif" {{ 'selected' if occ.statut=='actif' }}>Actif</option>
+                <option value="suspendu" {{ 'selected' if occ.statut=='suspendu' }}>Suspendu</option>
+                <option value="expire" {{ 'selected' if occ.statut=='expire' }}>Expiré</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('editOdp')">Annuler</button>
+          <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Supprimer -->
+{% if user.peut_supprimer %}
+<div class="modal-overlay" id="delOdp">
+  <div class="modal">
+    <div class="modal-header"><h3>🗑️ Supprimer</h3><button class="modal-close" onclick="closeModal('delOdp')">✕</button></div>
+    <div class="modal-body">
+      <p>Êtes-vous sûr de vouloir supprimer cette occupation ? Cette action va l'archiver.</p>
+      <form method="post" action="{{ url_for('odp.odp_supprimer', id=occ.id) }}">
+        <div class="modal-footer mt-3">
+          <button type="button" class="btn btn-outline" onclick="closeModal('delOdp')">Annuler</button>
+          <button type="submit" class="btn btn-danger">Supprimer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

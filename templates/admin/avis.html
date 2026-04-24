@@ -1,83 +1,578 @@
 {% extends 'base.html' %}
-{% block title %}Avis de Non-Paiement{% endblock %}
-{% block page_title %}📨 Avis de Non-Paiement{% endblock %}
+{% block title %}Avis & Recouvrement{% endblock %}
+{% block page_title %}📨 Avis & Recouvrement{% endblock %}
+{% block extra_head %}
+<style>
+/* ══ Hero ══ */
+.rec-hero{background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 60%,#2563eb 100%);
+  color:#fff;border-radius:16px;padding:20px 26px;margin-bottom:18px;
+  display:flex;align-items:center;gap:16px;box-shadow:0 4px 24px rgba(124,58,237,.35)}
+.rec-hero h2{margin:0;font-size:1.05rem;font-weight:900}
+.rec-hero-sub{font-size:.72rem;opacity:.8;margin-top:3px}
+.rec-hero-actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+
+/* ══ KPIs ══ */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:18px}
+.kpi-c{background:var(--card);border-radius:12px;padding:14px;text-align:center;
+  box-shadow:var(--shadow);border-top:3px solid var(--primary);transition:transform .15s}
+.kpi-c:hover{transform:translateY(-2px)}
+.kpi-v{font-size:1.6rem;font-weight:900;color:var(--primary)}
+.kpi-l{font-size:.58rem;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:3px}
+.kpi-c.red .kpi-v{color:#dc2626} .kpi-c.red{border-top-color:#dc2626}
+.kpi-c.green .kpi-v{color:#10b981} .kpi-c.green{border-top-color:#10b981}
+.kpi-c.orange .kpi-v{color:#f59e0b} .kpi-c.orange{border-top-color:#f59e0b}
+.kpi-c.purple .kpi-v{color:#7c3aed} .kpi-c.purple{border-top-color:#7c3aed}
+
+/* ══ Tabs ══ */
+.rec-tabs{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border)}
+.rec-tab{padding:9px 20px;font-size:.78rem;font-weight:700;cursor:pointer;
+  border:none;background:none;color:var(--muted);position:relative;top:2px;
+  border-bottom:2px solid transparent;transition:all .15s;border-radius:8px 8px 0 0}
+.rec-tab:hover{color:var(--primary);background:rgba(124,58,237,.05)}
+.rec-tab.active{color:#7c3aed;border-bottom-color:#7c3aed;background:var(--card)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+/* ══ Filtres ══ */
+.filtres-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  background:var(--card);border-radius:10px;padding:10px 14px;margin-bottom:16px;
+  box-shadow:var(--shadow)}
+.filtres-bar select, .filtres-bar input{font-size:.78rem;padding:5px 10px;
+  border:1px solid var(--border);border-radius:6px;background:var(--bg)}
+
+/* ══ Module block ══ */
+.mod-block{margin-bottom:16px;border:1.5px solid var(--border);border-radius:14px;
+  overflow:hidden;box-shadow:var(--shadow)}
+.mod-header{display:flex;align-items:center;gap:12px;padding:13px 18px;
+  background:linear-gradient(90deg,rgba(124,58,237,.08),var(--card));
+  cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
+.mod-header:hover{background:linear-gradient(90deg,rgba(124,58,237,.15),var(--bg))}
+.mod-icon{font-size:1.4rem}
+.mod-title{font-weight:900;font-size:.95rem;flex:1}
+.mod-total{font-size:1.1rem;font-weight:900;color:#dc2626}
+.mod-badges{display:flex;gap:6px;flex-wrap:wrap}
+.mod-body{padding:0}
+
+/* ══ Table redevables ══ */
+.rec-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.rec-table th{font-size:.65rem;font-weight:800;text-transform:uppercase;
+  color:var(--muted);padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border)}
+.rec-table td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.rec-table tbody tr:hover td{background:rgba(124,58,237,.03)}
+.rec-table tbody tr:last-child td{border-bottom:none}
+
+/* ══ Badges statut ══ */
+.stab-emis{background:#fee2e2;color:#dc2626;border-radius:8px;padding:2px 7px;font-size:.6rem;font-weight:800}
+.stab-sans{background:#f3f4f6;color:#6b7280;border-radius:8px;padding:2px 7px;font-size:.6rem;font-weight:800}
+.stab-lettre{background:#dbeafe;color:#1e40af;border-radius:8px;padding:2px 7px;font-size:.6rem;font-weight:800}
+
+/* ══ Actions bar ══ */
+.mod-actions{display:flex;gap:8px;padding:10px 14px;background:var(--bg);
+  border-top:1px solid var(--border);justify-content:flex-end;flex-wrap:wrap}
+
+/* ══ Statistiques ══ */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:18px}
+.stat-card{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat-card h4{margin:0 0 10px;font-size:.82rem;font-weight:800;color:var(--text)}
+.stat-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.stat-bar-label{font-size:.68rem;color:var(--muted);font-weight:700;min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-bar-bg{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
+.stat-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#7c3aed,#2563eb)}
+.stat-bar-val{font-size:.7rem;font-weight:800;color:var(--primary);min-width:60px;text-align:right}
+
+/* ══ Historique lettres ══ */
+.lettre-row{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-bottom:1px solid var(--border);transition:background .1s}
+.lettre-row:hover{background:var(--bg)}
+.lettre-num{font-family:monospace;font-weight:900;font-size:.82rem;color:#7c3aed}
+.lettre-info{flex:1;font-size:.75rem}
+.l-brou{background:#fef3c7;color:#92400e;border-radius:8px;padding:2px 8px;font-size:.62rem;font-weight:800}
+.l-env{background:#d1fae5;color:#065f46;border-radius:8px;padding:2px 8px;font-size:.62rem;font-weight:800}
+.l-ann{background:#fee2e2;color:#dc2626;border-radius:8px;padding:2px 8px;font-size:.62rem;font-weight:800}
+
+/* ══ Checkbox select ══ */
+.cb-select{cursor:pointer;width:14px;height:14px}
+
+/* ══ Excel btn ══ */
+.btn-excel{background:#16a34a;color:#fff;border:none;border-radius:8px;
+  padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;gap:5px;text-decoration:none}
+.btn-excel:hover{background:#15803d}
+
+/* ══ Print hidden ══ */
+@media print{.no-print{display:none!important}.print-only{display:block!important}}
+.print-only{display:none}
+
+/* ══ Résumé global ══ */
+.resume-global{background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;
+  border-radius:14px;padding:16px 20px;margin-bottom:16px}
+.resume-global table{width:100%;border-collapse:collapse;font-size:.78rem}
+.resume-global th{text-align:left;padding:5px 8px;font-size:.65rem;text-transform:uppercase;opacity:.7;
+  border-bottom:1px solid rgba(255,255,255,.15)}
+.resume-global td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08)}
+.resume-global tr:last-child td{border-bottom:none}
+.resume-global .total-row td{font-weight:900;border-top:1px solid rgba(255,255,255,.3);color:#fbbf24}
+
+/* ══ Annee chart ══ */
+.chart-annee{display:flex;gap:4px;align-items:flex-end;height:80px;margin-top:8px}
+.chart-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
+.chart-bar{background:linear-gradient(180deg,#7c3aed,#4f46e5);border-radius:3px 3px 0 0;min-width:18px;transition:height .3s}
+.chart-lbl{font-size:.55rem;color:var(--muted);font-weight:700}
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="display:grid;grid-template-columns:1fr 1.5fr;gap:18px;align-items:start">
-  <div class="card">
-    <div class="card-header"><h3>📋 Générer Avis</h3></div>
-    <div class="card-body">
-      <form method="post" action="{{ url_for('generer_avis') }}">
-        <div class="form-group mb-3">
-          <label>Mode de Génération</label>
-          <div class="df gap-3 mt-2">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.85rem;font-weight:600">
-              <input type="radio" name="mode" value="individuel" checked onchange="toggleMode('individuel')"> Individuel
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.85rem;font-weight:600">
-              <input type="radio" name="mode" value="lot" onchange="toggleMode('lot')"> 📦 Lot (tous impayés)
-            </label>
-          </div>
-        </div>
-        <div id="modeInd">
-          <div class="form-group mb-3">
-            <label>Déclaration impayée *</label>
-            <select name="declaration_id">
-              <option value="">— Sélectionner —</option>
-              {% for d in decls %}
-              <option value="{{ d.id }}">{{ d.numero }} | {{ d.module }} | {{ d.nom }} {{ d.prenom or d.raison_sociale or '' }} | {{ "%.2f"|format(d.montant_total) }} DH</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        <div id="modeLot" style="display:none">
-          <div class="alert alert-warn">⚠️ Génération en lot: <strong>{{ decls|length }}</strong> déclaration(s) impayée(s). Un avis sera créé pour chacune avec un numéro de lot unique.</div>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-danger" onclick="return confirm('Confirmer la génération?')">📨 Générer</button>
-        </div>
-      </form>
+
+<!-- Hero -->
+<div class="rec-hero">
+  <div style="font-size:2.2rem">📨</div>
+  <div style="flex:1">
+    <h2>Avis & Recouvrement — Arriérés par Module</h2>
+    <div class="rec-hero-sub">
+      Liste complète des redevables avec arriérés non payés · Génération de lettres par lot · Export Excel
     </div>
   </div>
+  <div class="rec-hero-actions">
+    <button onclick="exportExcel('')" class="btn-excel" title="Exporter tous les arriérés">📊 Export Excel</button>
+    <form method="post" action="{{ url_for('generer_avis') }}" style="display:inline">
+      <input type="hidden" name="mode" value="lot">
+      <button type="submit" class="btn btn-sm"
+              style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)"
+              onclick="return confirm('Générer des avis pour TOUS les impayés?')">
+        📨 Générer Avis Global
+      </button>
+    </form>
+  </div>
+</div>
 
-  <div class="card">
-    <div class="card-header">
-      <h3>Avis Émis ({{ items|length }})</h3>
-      <div class="df gap-2">
-        <span class="badge b-danger">En cours: {{ items|selectattr('statut','eq','emis')|list|length }}</span>
-        <span class="badge b-ok">Réglés: {{ items|selectattr('statut','eq','regle')|list|length }}</span>
+<!-- KPIs globaux -->
+{% set ns = namespace(total_ctb=0, total_decls=0, total_du=0, total_avis=0) %}
+{% for m in modules_list %}
+  {% set ns.total_ctb = ns.total_ctb + m.nb_redevables %}
+  {% set ns.total_decls = ns.total_decls + m.rows|length %}
+  {% set ns.total_du = ns.total_du + m.total %}
+  {% set ns.total_avis = ns.total_avis + m.nb_avis_emis %}
+{% endfor %}
+
+<div class="kpi-row">
+  <div class="kpi-c red"><div class="kpi-v">{{ "%.0f"|format(ns.total_du) }} <small style="font-size:.7rem">DH</small></div><div class="kpi-l">Total à Recouvrer</div></div>
+  <div class="kpi-c orange"><div class="kpi-v">{{ modules_list|length }}</div><div class="kpi-l">Modules concernés</div></div>
+  <div class="kpi-c purple"><div class="kpi-v">{{ ns.total_ctb }}</div><div class="kpi-l">Redevables</div></div>
+  <div class="kpi-c"><div class="kpi-v">{{ ns.total_decls }}</div><div class="kpi-l">Déclarations impayées</div></div>
+  <div class="kpi-c green"><div class="kpi-v">{{ ns.total_avis }}</div><div class="kpi-l">Avis émis</div></div>
+  <div class="kpi-c" style="border-top-color:#7c3aed"><div class="kpi-v" style="color:#7c3aed">{{ lettres|length }}</div><div class="kpi-l">Lettres générées</div></div>
+</div>
+
+<!-- Tabs -->
+<div class="rec-tabs">
+  <button class="rec-tab active" onclick="showRecTab('arrieres',this)">📋 Arriérés par Module</button>
+  <button class="rec-tab" onclick="showRecTab('resume',this)">📊 Résumé Global</button>
+  <button class="rec-tab" onclick="showRecTab('stats',this)">📈 Statistiques</button>
+  <button class="rec-tab" onclick="showRecTab('lettres',this)" id="tab-lettres">
+    📬 Historique Lettres
+    {% if lettres|selectattr('statut','eq','brouillon')|list %}
+    <span class="badge b-warn ml-1">{{ lettres|selectattr('statut','eq','brouillon')|list|length }}</span>
+    {% endif %}
+  </button>
+</div>
+
+<!-- ══ TAB : ARRIÉRÉS ══ -->
+<div class="tab-pane active" id="pane-arrieres">
+
+  <!-- Filtres -->
+  <form method="get" action="{{ url_for('avis') }}" class="filtres-bar">
+    <span style="font-size:.75rem;font-weight:700;color:var(--muted)">🔍 Filtres :</span>
+    <select name="module" onchange="this.form.submit()">
+      <option value="">Tous les modules</option>
+      {% for mod, lbl in MODULE_LABELS.items() %}
+      <option value="{{ mod }}" {{ 'selected' if module_filtre==mod }}>{{ lbl }}</option>
+      {% endfor %}
+    </select>
+    <select name="annee" onchange="this.form.submit()">
+      <option value="">Toutes années</option>
+      {% for a in annees %}
+      <option value="{{ a }}" {{ 'selected' if annee_filtre==a|string }}>{{ a }}</option>
+      {% endfor %}
+    </select>
+    <select name="statut" onchange="this.form.submit()">
+      <option value="">Tous statuts</option>
+      <option value="emis" {{ 'selected' if statut_filtre=='emis' }}>Avec avis émis</option>
+    </select>
+    {% if module_filtre or annee_filtre or statut_filtre %}
+    <a href="{{ url_for('avis') }}" class="btn btn-outline btn-xs">✕ Effacer</a>
+    {% endif %}
+  </form>
+
+  {% if not modules_list %}
+  <div class="card"><div class="empty-state"><span class="ei">✅</span>Aucun arriéré — Tout est à jour !</div></div>
+  {% endif %}
+
+  {% for m in modules_list %}
+  <div class="mod-block">
+    <!-- Header module -->
+    <div class="mod-header" onclick="toggleMod('{{ m.module }}')">
+      <span class="mod-icon">{{ m.icon }}</span>
+      <span class="mod-title">{{ m.label }}</span>
+      <div class="mod-badges">
+        <span class="badge b-danger">{{ m.nb_redevables }} redevable(s)</span>
+        <span class="badge b-info">{{ m.rows|length }} décl.</span>
+        {% if m.nb_avis_emis > 0 %}
+        <span class="badge b-ok">{{ m.nb_avis_emis }} avis</span>
+        {% endif %}
+      </div>
+      <span class="mod-total">{{ "%.2f"|format(m.total) }} DH</span>
+      <div style="display:flex;gap:6px;margin-left:10px">
+        <button class="btn btn-xs btn-outline" title="Exporter ce module en Excel"
+                onclick="event.stopPropagation();exportExcel('{{ m.module }}')">📊</button>
+        <span id="chev-{{ m.module }}">▼</span>
       </div>
     </div>
-    <div class="table-responsive">
-      <table>
-        <thead><tr><th>N° Avis</th><th>Contribuable</th><th>Module</th><th>Montant Dû</th><th>Date Émission</th><th>Lot</th><th>Statut</th></tr></thead>
-        <tbody>
-          {% for a in items %}
+
+    <!-- Corps module -->
+    <div id="mod-{{ m.module }}">
+      <!-- Tableau redevables -->
+      <div class="table-responsive">
+        <table class="rec-table">
+          <thead><tr>
+            <th><input type="checkbox" class="cb-select" onchange="selectAll('{{ m.module }}',this)"></th>
+            <th>Redevable</th><th>CIN/ICE</th><th>Tél.</th>
+            <th>N° Décl.</th><th>Année</th>
+            <th>Principal</th><th>Pénalités</th><th>Total Dû</th>
+            <th>Avis</th><th>Actions</th>
+          </tr></thead>
+          <tbody>
+          {% for r in m.rows %}
           <tr>
-            <td><strong style="color:var(--danger);font-size:.78rem">{{ a.numero_avis }}</strong></td>
-            <td style="font-size:.78rem"><strong>{{ a.nom }} {{ a.prenom or '' }}</strong><br><small class="text-muted">{{ a.adresse or '' }}</small></td>
-            <td><span class="badge b-info" style="font-size:.6rem">{{ a.module }}</span></td>
-            <td><strong style="color:var(--danger)">{{ "%.2f"|format(a.montant_du) }} DH</strong></td>
-            <td style="font-size:.78rem">{{ a.date_emission }}</td>
-            <td>{% if a.lot_id %}<span class="badge b-sec" style="font-size:.6rem" title="{{ a.lot_id }}">LOT</span>{% endif %}</td>
-            <td><span class="badge {% if a.statut=='emis' %}b-danger{% elif a.statut=='regle' %}b-ok{% else %}b-sec{% endif %}">{{ a.statut }}</span></td>
+            <td><input type="checkbox" class="cb-{{ m.module }} cb-select" value="{{ r.avis_id or '' }}" data-decl="{{ r.decl_id }}" data-avis="{{ r.avis_id or '' }}"></td>
+            <td>
+              <strong>{{ r.nom }} {{ r.prenom or '' }}</strong>
+              {% if r.raison_sociale %}<br><small class="text-muted">{{ r.raison_sociale }}</small>{% endif %}
+              {% if r.adresse %}<br><small class="text-muted" style="font-size:.6rem">{{ r.adresse[:40] }}</small>{% endif %}
+            </td>
+            <td style="font-family:monospace;font-size:.72rem">{{ r.cin or r.ice or '—' }}</td>
+            <td style="font-size:.72rem">{{ r.telephone or '—' }}</td>
+            <td style="font-family:monospace;font-size:.7rem">{{ r.decl_numero }}</td>
+            <td style="text-align:center;font-weight:700">{{ r.annee }}
+              {% if r.trimestre %}<br><small style="font-size:.6rem;color:var(--muted)">T{{ r.trimestre }}</small>{% endif %}
+            </td>
+            <td style="text-align:right">{{ "%.2f"|format(r.montant_principal or 0) }}</td>
+            <td style="text-align:right;color:#f59e0b">{{ "%.2f"|format((r.penalite_retard or 0)) }}</td>
+            <td style="text-align:right;font-weight:900;color:#dc2626">{{ "%.2f"|format(r.montant_total or 0) }}</td>
+            <td>
+              {% if r.avis_id %}
+                <span class="stab-emis">{{ r.numero_avis }}</span>
+                {% if r.lettre_id %}<br><span class="stab-lettre" style="font-size:.55rem">📬 Lettre</span>{% endif %}
+              {% else %}
+                <span class="stab-sans">Sans avis</span>
+                <form method="post" action="{{ url_for('generer_avis_individuel') }}" style="display:inline">
+                  <input type="hidden" name="declaration_id" value="{{ r.decl_id }}">
+                  <button class="btn btn-xs" style="font-size:.6rem;margin-top:3px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5">+ Avis</button>
+                </form>
+              {% endif %}
+            </td>
+            <td>
+              <a href="#" title="Détails contribuable" class="btn btn-xs btn-outline">👤</a>
+            </td>
           </tr>
-          {% else %}
-          <tr><td colspan="7" class="empty-state"><span class="ei">📭</span>Aucun avis émis</td></tr>
           {% endfor %}
-        </tbody>
-      </table>
+          </tbody>
+          <tfoot>
+          <tr style="background:var(--bg);font-weight:900">
+            <td colspan="8" style="text-align:right;padding:8px 12px;font-size:.75rem">TOTAL {{ m.label }} :</td>
+            <td style="text-align:right;color:#dc2626;font-size:.88rem;padding:8px 12px">{{ "%.2f"|format(m.total) }} DH</td>
+            <td colspan="2"></td>
+          </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Actions module -->
+      <div class="mod-actions">
+        <button class="btn btn-outline btn-sm" onclick="exportExcel('{{ m.module }}')">📊 Export Excel</button>
+
+        {% set has_avis = m.rows | selectattr('avis_id') | list | length %}
+        {% if has_avis > 0 %}
+        <!-- Génération lettre pour le module -->
+        <form method="post" action="{{ url_for('generer_lettre') }}" id="form-lettre-{{ m.module }}">
+          <input type="hidden" name="module" value="{{ m.module }}">
+          <input type="hidden" name="type_lettre" value="relance">
+          <input type="hidden" name="avis_ids" id="avis_ids_{{ m.module }}" value="">
+          <button type="submit" onclick="prepLettre('{{ m.module }}')" class="btn btn-sm btn-primary">
+            📬 Générer Lettre Notification
+          </button>
+        </form>
+        {% endif %}
+
+        {% if m.rows | rejectattr('avis_id') | list | length > 0 %}
+        <form method="post" action="{{ url_for('generer_avis') }}">
+          <input type="hidden" name="module" value="{{ m.module }}">
+          <button type="submit" class="btn btn-sm" style="background:#dc2626;color:#fff;border:none"
+                  onclick="return confirm('Générer des avis pour tous les impayés de ce module?')">
+            📨 Générer Avis — {{ m.module }}
+          </button>
+        </form>
+        {% endif %}
+      </div>
     </div>
-    {% if items %}
-    <div style="padding:8px 14px;background:var(--bg);font-size:.75rem;color:var(--muted);border-top:1px solid var(--border)">
-      Total dû: <strong style="color:var(--danger)">{{ "%.2f"|format(items|sum(attribute='montant_du')) }} DH</strong>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ══ TAB : RÉSUMÉ GLOBAL ══ -->
+<div class="tab-pane" id="pane-resume">
+  <div class="resume-global no-print">
+    <h3 style="margin:0 0 12px;font-size:.9rem;font-weight:900">📊 Reste à Recouvrer — Vue Globale</h3>
+    <table>
+      <thead><tr>
+        <th>Module</th><th style="text-align:right">Nbre Redev.</th>
+        <th style="text-align:right">Nbre Décl.</th>
+        <th style="text-align:right">Total Dû (DH)</th>
+        <th style="text-align:right">Avis Émis</th>
+      </tr></thead>
+      <tbody>
+      {% for m in modules_list %}
+      <tr>
+        <td>{{ m.icon }} {{ m.label }}</td>
+        <td style="text-align:right">{{ m.nb_redevables }}</td>
+        <td style="text-align:right">{{ m.rows|length }}</td>
+        <td style="text-align:right;font-weight:800;color:#fbbf24">{{ "%.2f"|format(m.total) }}</td>
+        <td style="text-align:right">{{ m.nb_avis_emis }}/{{ m.rows|length }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+      <tr class="total-row">
+        <td><strong>TOTAL</strong></td>
+        <td style="text-align:right"><strong>{{ ns.total_ctb }}</strong></td>
+        <td style="text-align:right"><strong>{{ ns.total_decls }}</strong></td>
+        <td style="text-align:right"><strong>{{ "%.2f"|format(ns.total_du) }}</strong></td>
+        <td style="text-align:right"><strong>{{ ns.total_avis }}/{{ ns.total_decls }}</strong></td>
+      </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- Stats par module -->
+  <div class="stat-grid">
+    {% if stats_module %}
+    <div class="stat-card">
+      <h4>💰 Total par Module (tous statuts)</h4>
+      {% set max_total = stats_module[0].total_du or 1 %}
+      {% for s in stats_module %}
+      <div class="stat-bar-row">
+        <div class="stat-bar-label" title="{{ s.module }}">{{ MODULE_ICONS.get(s.module,'📋') }} {{ MODULE_LABELS.get(s.module, s.module)[:18] }}</div>
+        <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{{ [((s.total_du or 0)/max_total*100)|int, 2]|max }}%"></div></div>
+        <div class="stat-bar-val">{{ "%.0f"|format(s.total_du or 0) }} DH</div>
+      </div>
+      {% endfor %}
     </div>
+    {% endif %}
+
+    <div class="stat-card">
+      <h4>📊 Taux de Recouvrement par Module</h4>
+      {% for s in stats_module %}
+      {% set taux = (s.total_recouvre / (s.total_du + s.total_recouvre) * 100) if (s.total_du + s.total_recouvre) > 0 else 0 %}
+      <div class="stat-bar-row">
+        <div class="stat-bar-label">{{ MODULE_LABELS.get(s.module, s.module)[:18] }}</div>
+        <div class="stat-bar-bg"><div style="height:100%;width:{{ taux|int }}%;background:linear-gradient(90deg,#10b981,#059669);border-radius:4px"></div></div>
+        <div class="stat-bar-val" style="color:#10b981">{{ "%.0f"|format(taux) }}%</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ TAB : STATISTIQUES ══ -->
+<div class="tab-pane" id="pane-stats">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- Stats par année -->
+    <div class="card">
+      <div class="card-header"><h3>📅 Arriérés par Année</h3></div>
+      <div style="padding:14px">
+        {% set years_data = {} %}
+        {% for s in stats_annee %}
+          {% if s.nb_impayes > 0 %}
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:.7rem;font-weight:800;min-width:35px">{{ s.annee }}</span>
+            <span style="font-size:.62rem;color:var(--muted);min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              {{ MODULE_LABELS.get(s.module, s.module)[:12] }}
+            </span>
+            <div style="flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:{{ [((s.total_du or 0)/([ns.total_du,1]|max)*100)|int,2]|max }}%;background:linear-gradient(90deg,#dc2626,#f59e0b);border-radius:4px"></div>
+            </div>
+            <span style="font-size:.68rem;font-weight:800;color:#dc2626;min-width:70px;text-align:right">{{ "%.0f"|format(s.total_du or 0) }} DH</span>
+            <span class="badge b-danger" style="font-size:.6rem">{{ s.nb_impayes }}</span>
+          </div>
+          {% endif %}
+        {% else %}
+        <div class="empty-state"><span class="ei">📊</span>Aucune donnée</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Avis par module -->
+    <div class="card">
+      <div class="card-header"><h3>📨 Avis par Module</h3></div>
+      <div style="padding:14px">
+        {% for s in stats_module %}
+        <div style="margin-bottom:12px;padding:10px;background:var(--bg);border-radius:8px;border-left:3px solid #7c3aed">
+          <div style="font-size:.75rem;font-weight:800;margin-bottom:4px">
+            {{ MODULE_ICONS.get(s.module,'📋') }} {{ MODULE_LABELS.get(s.module, s.module) }}
+          </div>
+          <div style="display:flex;gap:12px;font-size:.68rem">
+            <span>📋 <strong>{{ s.nb_impayes }}</strong> impayés</span>
+            <span>👥 <strong>{{ s.nb_redevables }}</strong> redevables</span>
+            <span style="color:#dc2626">💰 <strong>{{ "%.0f"|format(s.total_du or 0) }}</strong> DH dûs</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state"><span class="ei">✅</span>Tout est à jour</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TAB : HISTORIQUE LETTRES ══ -->
+<div class="tab-pane" id="pane-lettres">
+  <div class="card">
+    <div class="card-header">
+      <h3>📬 Historique Lettres de Notification</h3>
+      <div style="display:flex;gap:6px">
+        <span class="badge b-warn">{{ lettres|selectattr('statut','eq','brouillon')|list|length }} Brouillons</span>
+        <span class="badge b-ok">{{ lettres|selectattr('statut','eq','envoyee')|list|length }} Envoyées</span>
+      </div>
+    </div>
+
+    {% if lettres %}
+    {% for l in lettres %}
+    <div class="lettre-row">
+      <div>
+        <span class="lettre-num">{{ l.numero_lettre }}</span>
+        <br>
+        <span class="{% if l.statut=='brouillon' %}l-brou{% elif l.statut=='envoyee' %}l-env{% else %}l-ann{% endif %}">
+          {{ '📝 Brouillon' if l.statut=='brouillon' else ('✅ Envoyée' if l.statut=='envoyee' else '❌ Annulée') }}
+        </span>
+      </div>
+      <div class="lettre-info">
+        <div><strong>{{ MODULE_LABELS.get(l.module, l.module or 'Tous modules') }}</strong></div>
+        <div style="color:var(--muted)">
+          {{ l.nb_redevables }} redevable(s) · {{ "%.2f"|format(l.montant_total or 0) }} DH
+          · Généré le {{ l.date_generation or '—' }}
+          {% if l.agent_nom %} par {{ l.agent_nom }}{% endif %}
+          {% if l.date_envoi %} · Envoyé le {{ l.date_envoi }}{% endif %}
+        </div>
+        {% if l.type_lettre %}
+        <small style="color:var(--muted)">Type : {{ l.type_lettre }}</small>
+        {% endif %}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <a href="{{ url_for('lettre_imprimer', id=l.id) }}" class="btn btn-outline btn-xs" target="_blank">
+          🖨️ Imprimer
+        </a>
+        {% if l.statut == 'brouillon' %}
+        <form method="post" action="{{ url_for('lettre_approuver', id=l.id) }}" style="display:inline">
+          <button type="submit" class="btn btn-xs btn-primary"
+                  onclick="return confirm('Confirmer l\'envoi de cette lettre ?')">
+            ✅ Confirmer Envoi
+          </button>
+        </form>
+        <form method="post" action="{{ url_for('lettre_annuler', id=l.id) }}" style="display:inline">
+          <button type="submit" class="btn btn-xs" style="background:#fee2e2;color:#dc2626;border:none"
+                  onclick="return confirm('Annuler cette lettre ?')">✕ Annuler</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state"><span class="ei">📬</span>Aucune lettre générée</div>
     {% endif %}
   </div>
 </div>
+
 <script>
-function toggleMode(m){
-  document.getElementById('modeInd').style.display=m==='individuel'?'':'none';
-  document.getElementById('modeLot').style.display=m==='lot'?'':'none';
+/* ── Tabs ── */
+function showRecTab(name, btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.rec-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
 }
+// Si hash #lettres dans URL, ouvrir onglet lettres
+if(window.location.hash === '#lettres'){
+  document.querySelectorAll('.rec-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-lettres').parentElement.querySelectorAll('.rec-tab').forEach(b=>{
+    if(b.textContent.includes('Lettres')) b.classList.add('active');
+  });
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pane-lettres').classList.add('active');
+}
+
+/* ── Accordion modules ── */
+function toggleMod(mod){
+  const el = document.getElementById('mod-'+mod);
+  const ch = document.getElementById('chev-'+mod);
+  if(!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  if(ch) ch.textContent = open ? '▶' : '▼';
+}
+
+/* ── Select all checkboxes d'un module ── */
+function selectAll(mod, master){
+  document.querySelectorAll('.cb-'+mod).forEach(cb=>cb.checked = master.checked);
+}
+
+/* ── Prépare les avis_ids sélectionnés pour la lettre ── */
+function prepLettre(mod){
+  const cbs = document.querySelectorAll('.cb-'+mod+':checked');
+  const ids = [];
+  cbs.forEach(cb=>{
+    const avisId = cb.dataset.avis;
+    if(avisId && avisId !== '') ids.push(avisId);
+  });
+  // Si aucune sélection, passer vide (tous les avis du module)
+  const inp = document.getElementById('avis_ids_'+mod);
+  if(inp) inp.value = ids.join(',');
+  return true;
+}
+
+/* ── Export Excel (via API JSON → SheetJS) ── */
+async function exportExcel(module){
+  const url = '/avis/export-excel' + (module ? '?module='+module : '');
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if(!data || !data.length){ alert('Aucune donnée à exporter'); return; }
+
+    // Construire le CSV
+    const headers = Object.keys(data[0]);
+    const rows = [headers.join(';')];
+    data.forEach(row => {
+      rows.push(headers.map(h => {
+        const v = row[h] ?? '';
+        return typeof v === 'string' && v.includes(';') ? '"'+v+'"' : v;
+      }).join(';'));
+    });
+    const csv = '\uFEFF' + rows.join('\n'); // BOM pour Excel
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'arrieres_'+(module||'global')+'_{{ today or "export" }}.csv';
+    a.click();
+  } catch(e){
+    alert('Erreur export: '+e.message);
+  }
+}
+
+// Ouvrir tous les accords par défaut
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.querySelectorAll('[id^="mod-"]').forEach(el=>el.style.display='');
+});
+
+/* ── aujourd'hui ── */
+const today = '{{ today }}';
 </script>
+
 {% endblock %}

@@ -1,189 +1,203 @@
 {% extends 'base.html' %}
-{% block title %}Arrêtés Fiscaux{% endblock %}
-{% block page_title %}📜 Arrêtés Fiscaux — Gestion Fiscale{% endblock %}
+{% block title %}Arrêtés Fiscaux
+
+{% endblock %}
+{% block page_title %}📜 Arrêtés Fiscaux{% endblock %}
+{% block extra_head %}
+<style>
+.arrete-card{background:var(--card);border-radius:12px;border:1px solid var(--border);overflow:hidden;
+  box-shadow:var(--shadow);transition:box-shadow .2s}
+.arrete-card:hover{box-shadow:0 6px 24px rgba(0,0,0,.10)}
+.arrete-header{padding:14px 18px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border)}
+.arrete-num{font-family:monospace;font-size:.8rem;color:var(--muted)}
+.arrete-title{font-size:.95rem;font-weight:800;color:var(--primary)}
+.arrete-meta{font-size:.72rem;color:var(--muted);margin-top:2px}
+.arrete-badge-actif{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:2px 10px;font-size:.65rem;font-weight:800}
+.arrete-badge-old{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;border-radius:20px;padding:2px 10px;font-size:.65rem;font-weight:700}
+.timeline-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.tl-actif{background:#10b981}.tl-old{background:#d1d5db}
+.timeline-line{position:absolute;left:4px;top:14px;bottom:0;width:2px;background:var(--border)}
+
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.stat-kpi{background:var(--card);border-radius:10px;padding:12px 14px;border-left:4px solid var(--primary);
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:10px}
+.stat-kpi.ok{border-left-color:var(--ok)}.stat-kpi.warn{border-left-color:#fd7e14}
+.kv{font-size:1.2rem;font-weight:900;color:var(--primary)}
+.kl{font-size:.6rem;color:var(--muted);font-weight:700;text-transform:uppercase}
+.stat-kpi.ok .kv{color:var(--ok)}.stat-kpi.warn .kv{color:#fd7e14}
+
+/* formulaire inline propre */
+.form-inline{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style>
+{% endblock %}
 {% block content %}
 
-<div class="alert alert-info">
-  📜 Les arrêtés fiscaux définissent les tarifs applicables à partir d'une date d'effet.
-  Les calculs utilisent automatiquement le tarif en vigueur à chaque déclaration.
+<!-- KPIs -->
+<div class="stat-row">
+  <div class="stat-kpi"><span style="font-size:1.3rem">📜</span>
+    <div><div class="kv">{{ arretes|length }}</div><div class="kl">Total arrêtés</div></div></div>
+  <div class="stat-kpi ok"><span style="font-size:1.3rem">✅</span>
+    <div><div class="kv">{{ arretes|selectattr('statut','eq','actif')|list|length }}</div><div class="kl">En vigueur</div></div></div>
+  <div class="stat-kpi warn"><span style="font-size:1.3rem">🔄</span>
+    <div><div class="kv">{{ arretes|rejectattr('statut','eq','actif')|list|length }}</div><div class="kl">Remplacés</div></div></div>
 </div>
 
-<!-- ══ Ligne supérieure : Nouvel arrêté + Rubriques ══════════════ -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;margin-bottom:18px">
+<div style="display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start">
 
-  {% if user.peut_config %}
-  <!-- ── Créer un nouvel arrêté ──────────────────────────────── -->
-  <div class="card">
-    <div class="card-header"><h3>📜 Nouvel Arrêté Fiscal</h3></div>
-    <div class="card-body">
-      <form method="post" action="{{ url_for('config.creer_arrete') }}">
-        <div class="form-group mb-3">
-          <label>Titre de l'arrêté *</label>
-          <input name="titre" required placeholder="ex: Arrêté Fiscal 2025">
-        </div>
-        <div class="form-group mb-3">
-          <label>Date d'effet * <small style="color:var(--muted)">(à partir de cette date)</small></label>
-          <input type="date" name="date_effet" required value="{{ today }}">
-        </div>
-        <div class="form-group mb-3">
-          <label>Notes / Références</label>
-          <textarea name="notes" rows="2" placeholder="N° délibération, références légales..."></textarea>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">📜 Créer l'Arrêté</button>
-        </div>
-      </form>
+  <!-- ── Colonne gauche : Créer arrêté ── -->
+  <div>
+    {% if user.peut_config %}
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><h3>📜 Nouvel Arrêté Fiscal</h3></div>
+      <div style="padding:16px">
+        <form method="post" action="{{ url_for('config.creer_arrete') }}">
+          <div class="form-group mb-3">
+            <label>Titre *</label>
+            <input name="titre" required placeholder="ex: Arrêté Fiscal 2026">
+          </div>
+          <div class="form-group mb-3">
+            <label>Date d'effet *</label>
+            <input type="date" name="date_effet" required value="{{ today }}">
+          </div>
+          <div class="form-group mb-3">
+            <label>Références / Notes</label>
+            <textarea name="notes" rows="2" placeholder="N° délibération, références légales..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">
+            📜 Créer l'Arrêté
+          </button>
+        </form>
+      </div>
     </div>
-  </div>
-  {% endif %}
+    {% endif %}
 
-  <!-- ── Rubriques Fiscales ──────────────────────────────────── -->
-  <div class="card">
-    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-      <h3>📋 Rubriques Fiscales ({{ rubriques|length }})</h3>
-      {% if user.peut_config %}
-      <button class="btn btn-ok btn-sm" onclick="openModal('modal-add-rub-quick')">➕ Nouvelle Rubrique</button>
-      {% endif %}
-    </div>
-    <div style="overflow-y:auto;max-height:280px">
-      <table>
-        <thead><tr>
-          <th>Code</th><th>Module</th><th>Libellé</th><th>Statut</th><th></th>
-        </tr></thead>
-        <tbody>
-          {% for r in rubriques %}
-          <tr class="{{ 'row-inactive' if not r.actif else '' }}">
-            <td><code style="font-size:.72rem;color:var(--primary)">{{ r.code }}</code></td>
-            <td><span class="badge b-info" style="font-size:.6rem">{{ r.module }}</span></td>
-            <td style="font-size:.8rem">{{ r.libelle }}</td>
-            <td>
-              {% if r.actif %}
-              <span class="badge b-ok" style="font-size:.6rem">Actif</span>
-              {% else %}
-              <span class="badge b-sec" style="font-size:.6rem">Inactif</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if arretes %}
-              <a href="{{ url_for('config.arretes_detail', id=arretes[0].id) }}#rub-{{ r.module }}"
-                 class="btn btn-accent btn-xs" title="Voir les tarifs dans l'arrêté actif">
-                💰 Tarifs
-              </a>
-              {% endif %}
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="5" class="empty-state"><span class="ei">📋</span>Aucune rubrique</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:right">
-      <a href="{{ url_for('config.rubriques') }}" class="btn btn-outline btn-sm">📋 Gérer toutes les rubriques →</a>
+    <!-- Info box -->
+    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;padding:14px;font-size:.75rem;color:#1e40af;border:1px solid #bfdbfe">
+      <strong>📌 Comment ça marche ?</strong><br>
+      Chaque arrêté définit les tarifs fiscaux applicables à partir de sa <strong>date d'effet</strong>.
+      Le système utilise automatiquement le tarif en vigueur lors de chaque calcul.
     </div>
   </div>
 
-</div>
-
-<!-- ══ Liste des arrêtés ══════════════════════════════════════ -->
-<div class="card">
-  <div class="card-header"><h3>📚 Historique des Arrêtés ({{ arretes|length }})</h3></div>
-  <div class="table-responsive">
-    <table>
-      <thead><tr>
-        <th>N° Arrêté</th>
-        <th>Titre</th>
-        <th>Date d'Effet</th>
-        <th>Date Fin</th>
-        <th>Statut</th>
-        <th>Actions</th>
-      </tr></thead>
-      <tbody>
-        {% for a in arretes %}
-        <tr>
-          <td><strong style="color:var(--primary);font-family:monospace">{{ a.numero }}</strong></td>
-          <td>
-            <div style="font-weight:600;font-size:.85rem">{{ a.titre }}</div>
-            {% if a.notes %}<div style="font-size:.7rem;color:var(--muted)">{{ a.notes }}</div>{% endif %}
-          </td>
-          <td><strong>{{ a.date_effet }}</strong></td>
-          <td style="color:var(--muted)">{{ a.date_fin or '∞ en cours' }}</td>
-          <td>
-            {% if a.statut == 'actif' %}
-            <span class="badge b-ok">✓ Actif</span>
+  <!-- ── Colonne droite : Timeline arrêtés ── -->
+  <div class="card">
+    <div class="card-header"><h3>📚 Historique des Arrêtés ({{ arretes|length }})</h3></div>
+    <div style="padding:14px">
+      {% for a in arretes %}
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);position:relative">
+        <!-- dot -->
+        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:4px">
+          <div class="timeline-dot {{ 'tl-actif' if a.statut=='actif' else 'tl-old' }}"></div>
+          {% if not loop.last %}
+          <div style="flex:1;width:2px;background:var(--border);margin-top:4px;min-height:20px"></div>
+          {% endif %}
+        </div>
+        <!-- contenu -->
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="arrete-num">{{ a.numero }}</span>
+            {% if a.statut=='actif' %}
+            <span class="arrete-badge-actif">✓ En vigueur</span>
             {% else %}
-            <span class="badge b-sec">🔄 Remplacé</span>
+            <span class="arrete-badge-old">Remplacé</span>
             {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('config.arretes_detail', id=a.id) }}" class="btn btn-primary btn-xs">
-              📋 Détails / Tarifs
-            </a>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="6" class="empty-state"><span class="ei">📜</span>Aucun arrêté fiscal</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ══ MODAL : Nouvelle rubrique rapide ═══════════════════════ -->
-{% if user.peut_config %}
-<div class="modal-overlay" id="modal-add-rub-quick">
-  <div class="modal" style="max-width:500px">
-    <div class="modal-header">
-      <h3>📋 Nouvelle Rubrique Fiscale</h3>
-      <button class="modal-close" onclick="closeModal('modal-add-rub-quick')">✕</button>
-    </div>
-    <form method="post" action="{{ url_for('config.ajouter_rubrique') }}">
-      <div class="modal-body">
-        <div class="alert alert-info" style="font-size:.78rem;margin-bottom:14px">
-          💡 Utilisez les codes budgétaires officiels (ex: <code>30101014</code> pour TNB)
-        </div>
-        <div class="form-grid" style="grid-template-columns:1fr 1fr">
-          <div class="form-group">
-            <label>Code Budgétaire *</label>
-            <input name="code" required placeholder="ex: 40101011"
-                   pattern="\d{8}" title="8 chiffres" style="font-family:monospace">
           </div>
-          <div class="form-group">
-            <label>Module *</label>
-            <select name="module" required>
-              <option value="">— Sélectionner —</option>
-              <option value="TNB">TNB — Terrains Non Bâtis</option>
-              <option value="DEBITS_BOISSONS">Débits de Boissons</option>
-              <option value="TRANSPORT_VOYAGEURS">Transport Public Voyageurs</option>
-              <option value="STATIONNEMENT">Stationnement TPV</option>
-              <option value="OCCUPATION_DOMAINE">Occupation Domaine Public</option>
-              <option value="FOURRIERE">Fourrière</option>
-              <option value="LOCATION_LOCAUX">Location Locaux Commerciaux</option>
-              <option value="AFFERMAGE_SOUKS">Affermage Souks Communaux</option>
-            </select>
+          <div class="arrete-title" style="margin:3px 0">{{ a.titre }}</div>
+          <div class="arrete-meta">
+            📅 Du <strong>{{ a.date_effet }}</strong>
+            {% if a.date_fin %} au <strong>{{ a.date_fin }}</strong>{% else %} → <strong style="color:var(--ok)">en cours</strong>{% endif %}
+            {% if a.notes %} · {{ a.notes[:60] }}{% if a.notes|length > 60 %}…{% endif %}{% endif %}
           </div>
         </div>
-        <div class="form-group mb-3">
-          <label>Libellé Français *</label>
-          <input name="libelle" required placeholder="ex: Taxe sur les Débits de Boissons">
-        </div>
-        <div class="form-group mb-3">
-          <label>Libellé Arabe <small style="color:var(--muted)">(optionnel)</small></label>
-          <input name="libelle_ar" dir="rtl" placeholder="..." style="font-family:'Cairo',sans-serif">
-        </div>
-        <div class="form-group">
-          <label>Description / Base légale</label>
-          <textarea name="description" rows="2" placeholder="ex: Art. 46 Loi 47-06..."></textarea>
+        <div>
+          <div class="df gap-1">
+          <a href="{{ url_for('config.arretes_detail', id=a.id) }}"
+             class="btn btn-primary btn-xs">📋 Tarifs</a>
+          {% if user.peut_config %}
+          <button onclick="ouvrirSuppressionArrete({{ a.id }},'{{ a.numero }}','{{ a.titre }}')" 
+                  class="btn btn-xs" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5">
+            🗑️
+          </button>
+          {% endif %}
+          </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline" onclick="closeModal('modal-add-rub-quick')">Annuler</button>
-        <button type="submit" class="btn btn-ok">📋 Ajouter la Rubrique</button>
+      {% else %}
+      <div class="empty-state"><span class="ei">📜</span>Aucun arrêté fiscal créé</div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ MODAL : Suppression sécurisée d'Arrêté Fiscal ══ -->
+<div class="modal-overlay" id="modalSuppressionArrete">
+  <div class="modal" style="max-width:480px;width:95vw">
+    <div class="modal-header" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-radius:12px 12px 0 0">
+      <h3 style="color:#fff">🗑️ Supprimer l'Arrêté Fiscal</h3>
+      <button class="modal-close" onclick="closeModal('modalSuppressionArrete')" style="color:#fff">✕</button>
+    </div>
+    <form method="post" id="formSuppressionArrete" onsubmit="return verifierReponse()">
+      <input type="hidden" name="math_answer_expected" id="suppMathAttendu">
+      <div style="background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-weight:800;color:#dc2626;margin-bottom:4px">⚠️ Action irréversible</div>
+        <div id="suppArreteTitre" style="font-size:.82rem;color:#7f1d1d;font-weight:700"></div>
+        <div style="font-size:.72rem;color:#dc2626;margin-top:6px">
+          Tous les tarifs de cet arrêté seront <strong>définitivement supprimés</strong>.
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fcd34d;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-size:.72rem;font-weight:800;color:#92400e;text-transform:uppercase;margin-bottom:8px">🔐 Question de sécurité</div>
+        <div style="font-size:1.1rem;font-weight:900;color:#1e3a5f;margin-bottom:8px">
+          <span id="suppMathQuestion"></span> = ?
+        </div>
+        <input type="number" id="suppMathReponse" name="math_answer" placeholder="Votre réponse..."
+               style="width:100%;padding:8px 12px;border:2px solid #fcd34d;border-radius:8px;font-size:1rem;font-weight:800;text-align:center"
+               required autocomplete="off">
+        <div id="suppMathErreur" style="display:none;font-size:.72rem;color:#dc2626;font-weight:700;margin-top:5px;text-align:center">
+          ❌ Mauvaise réponse ! Réessayez.
+        </div>
+      </div>
+      <div class="form-group mb-3">
+        <label style="font-weight:800;font-size:.78rem">Motif de suppression <span style="color:#dc2626">*</span></label>
+        <textarea name="motif" rows="2" required
+                  placeholder="Ex: Arrêté créé par erreur, doublon..."
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;resize:vertical"></textarea>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding-top:12px;border-top:1px solid var(--border)">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modalSuppressionArrete')">Annuler</button>
+        <button type="submit" class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700">
+          🗑️ Confirmer la Suppression
+        </button>
       </div>
     </form>
   </div>
 </div>
-{% endif %}
+
+<script>
+function ouvrirSuppressionArrete(id, numero, titre){
+  const a = Math.floor(Math.random()*20)+5;
+  const b = Math.floor(Math.random()*15)+2;
+  const rep = a + b;
+  document.getElementById('suppMathQuestion').textContent = a + ' + ' + b;
+  document.getElementById('suppMathAttendu').value = rep;
+  document.getElementById('suppMathReponse').value = '';
+  document.getElementById('suppMathErreur').style.display = 'none';
+  document.getElementById('suppArreteTitre').textContent = numero + ' — ' + titre;
+  document.getElementById('suppMathReponse').style.borderColor = '#fcd34d';
+  document.getElementById('formSuppressionArrete').action = '/arretes-fiscaux/' + id + '/supprimer';
+  openModal('modalSuppressionArrete');
+}
+function verifierReponse(){
+  const attendu = parseInt(document.getElementById('suppMathAttendu').value);
+  const fourni  = parseInt(document.getElementById('suppMathReponse').value);
+  if(fourni !== attendu){
+    document.getElementById('suppMathErreur').style.display = 'block';
+    document.getElementById('suppMathReponse').style.borderColor = '#dc2626';
+    return false;
+  }
+  return true;
+}
+</script>
 
 {% endblock %}
-

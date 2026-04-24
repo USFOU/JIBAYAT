@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% block title %}Dashboard {{ mod_info.label }} — JIBAYAT{% endblock %}
+{% block page_title %}📊 Dashboard — {{ mod_info.label }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* couleur du module injectée via --mod-color sur #mod-root */
+.mod-header{
+  background: color-mix(in srgb, var(--mod-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mod-color) 25%, transparent);
+  border-left: 5px solid var(--mod-color);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.mod-header-left { display: flex; align-items: center; gap: 14px; }
+.mod-header-icon {
+  width: 54px; height: 54px; border-radius: 14px;
+  background: color-mix(in srgb, var(--mod-color) 15%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+  border: 1px solid color-mix(in srgb, var(--mod-color) 30%, transparent);
+}
+.mod-header-title { font-size: 1.35rem; font-weight: 900; color: var(--primary); }
+.mod-header-sub { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.kpi-card {
+  background: var(--card);
+  border-radius: 13px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  border-top: 4px solid var(--kpi-color, var(--primary));
+  transition: transform .2s, box-shadow .2s;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: -20px; right: -20px;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--kpi-color, var(--primary));
+  opacity: .05;
+}
+.kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.kpi-icon { font-size: 1.5rem; margin-bottom: 8px; display: block; }
+.kpi-val { font-size: 1.9rem; font-weight: 900; color: var(--kpi-color, var(--primary)); line-height: 1; }
+.kpi-label { font-size: .7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
+.kpi-sub { font-size: .72rem; color: var(--muted); margin-top: 6px; }
+.chart-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 22px; }
+@media(max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
+.chart-card { background: var(--card); border-radius: 13px; padding: 18px; box-shadow: var(--shadow); }
+.chart-card h4 { font-size: .85rem; font-weight: 800; color: var(--primary); margin-bottom: 14px; display: flex; align-items:center; gap:6px; }
+.progress-bar-wrap { margin-bottom: 10px; }
+.progress-bar-label { display: flex; justify-content: space-between; font-size: .75rem; color: var(--text); margin-bottom: 4px; }
+.progress-bar-label span:last-child { color: var(--muted); font-size: .7rem; }
+.progress-bar-bg { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.progress-bar-fill { height: 100%; border-radius: 4px; transition: width .8s ease; background: var(--mod-color); }
+.recent-list { list-style: none; }
+.recent-list li { padding: 9px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: .8rem; }
+.recent-list li:last-child { border-bottom: none; }
+.recent-list .rl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.stat-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .8rem; }
+.stat-row:last-child { border-bottom: none; }
+.stat-row .sr-label { color: var(--muted); }
+.stat-row .sr-val { font-weight: 700; color: var(--text); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Data store pour JS (évite Jinja2 dans <script>) -->
+<div id="mod-root"
+     style="--mod-color: {{ mod_info.color }}"
+     data-color="{{ mod_info.color }}"
+     data-mois-labels='{{ mois_labels | tojson }}'
+     data-mois-paye='{{ mois_paye | tojson }}'
+     data-mois-emis='{{ mois_emis | tojson }}'
+     data-nb-paye="{{ stats.nb_paye }}"
+     data-nb-impaye="{{ stats.nb_impaye }}"
+     data-nb-annule="{{ stats.nb_annule or 0 }}">
+</div>
+
+<!-- Header module -->
+<div class="mod-header">
+  <div class="mod-header-left">
+    <div class="mod-header-icon">{{ mod_info.icon }}</div>
+    <div>
+      <div class="mod-header-title">{{ mod_info.label }}</div>
+      <div class="mod-header-sub">Aperçu statistique — Année {{ annee_cur }}</div>
+    </div>
+  </div>
+  <div class="df gap-2" style="flex-wrap:wrap;">
+    <a href="{{ mod_info.liste_url }}" class="btn btn-primary btn-sm">📋 Liste</a>
+    <a href="{{ url_for('export_excel', module=mod_info.module_key) }}" class="btn btn-outline btn-sm">📥 Export Excel</a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+  <div class="kpi-card" style="--kpi-color:{{ mod_info.color }}">
+    <span class="kpi-icon">📂</span>
+    <div class="kpi-val">{{ stats.total_dossiers }}</div>
+    <div class="kpi-label">Total Dossiers</div>
+    <div class="kpi-sub">Tous statuts confondus</div>
+  </div>
+
+  <div class="kpi-card" style="--kpi-color:#2980b9">
+    <span class="kpi-icon">📄</span>
+    <div class="kpi-val">{{ stats.nb_decl_annee }}</div>
+    <div class="kpi-label">Déclarations {{ annee_cur }}</div>
+    <div class="kpi-sub">{{ stats.nb_emis }} émises · {{ stats.nb_sous_seuil }} sous seuil</div>
+  </div>
+
+  <div class="kpi-card" style="--kpi-color:#27ae60">
+    <span class="kpi-icon">✅</span>
+    <div class="kpi-val">{{ "%.0f"|format(stats.total_paye/1000) }}K</div>
+    <div class="kpi-label">Recouvré (DH)</div>
+    <div class="kpi-sub">{{ "%.2f"|format(stats.total_paye) }} DH · {{ stats.nb_paye }} pmt</div>
+  </div>
+
+  <div class="kpi-card" style="--kpi-color:#e74c3c">
+    <span class="kpi-icon">⏳</span>
+    <div class="kpi-val">{{ "%.0f"|format(stats.total_impaye/1000) }}K</div>
+    <div class="kpi-label">Impayé (DH)</div>
+    <div class="kpi-sub">{{ stats.nb_impaye }} déclaration(s) en attente</div>
+  </div>
+
+  <div class="kpi-card" style="--kpi-color:#e8a020">
+    <span class="kpi-icon">📊</span>
+    <div class="kpi-val">{{ "%.1f"|format(stats.taux_recouvrement) }}%</div>
+    <div class="kpi-label">Taux Recouvrement</div>
+    <div class="kpi-sub">Ratio payé / émis</div>
+  </div>
+
+  <div class="kpi-card" style="--kpi-color:#8e44ad">
+    <span class="kpi-icon">⚠️</span>
+    <div class="kpi-val">{{ stats.nb_avis }}</div>
+    <div class="kpi-label">Avis Non-Paiement</div>
+    <div class="kpi-sub">Avis émis actifs</div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="chart-grid">
+  <!-- Évolution mensuelle -->
+  <div class="chart-card">
+    <h4>📈 Recouvrement mensuel {{ annee_cur }}</h4>
+    <canvas id="chartMois" height="200"></canvas>
+  </div>
+
+  <!-- Répartition statuts -->
+  <div class="chart-card">
+    <h4>🎯 Répartition des statuts</h4>
+    <canvas id="chartStatuts" height="200"></canvas>
+    <div style="margin-top:12px;">
+      <div class="stat-row">
+        <span class="sr-label">💰 Total émis</span>
+        <span class="sr-val">{{ "%.2f"|format(stats.total_emis) }} DH</span>
+      </div>
+      <div class="stat-row">
+        <span class="sr-label">✅ Recouvré</span>
+        <span class="sr-val" style="color:#27ae60">{{ "%.2f"|format(stats.total_paye) }} DH</span>
+      </div>
+      <div class="stat-row">
+        <span class="sr-label">❌ Reste à recouvrer</span>
+        <span class="sr-val" style="color:#e74c3c">{{ "%.2f"|format(stats.total_impaye) }} DH</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Historique + Déclarations récentes -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px;">
+  <!-- Par année -->
+  <div class="chart-card">
+    <h4>📅 Historique par année</h4>
+    {% if stats_par_annee %}
+      {% for row in stats_par_annee %}
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-label">
+          <span>{{ row.annee }}</span>
+          <span>{{ "%.0f"|format(row.total_paye) }} / {{ "%.0f"|format(row.total_emis) }} DH</span>
+        </div>
+        <div class="progress-bar-bg">
+          {% set pct = [(row.total_paye / (row.total_emis or 1) * 100)|round(0,'floor'), 100]|min %}
+          <div class="progress-bar-fill" style="width:{{ pct }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="empty-state"><span class="ei">📭</span>Aucune donnée historique</div>
+    {% endif %}
+  </div>
+
+  <!-- Déclarations récentes -->
+  <div class="chart-card">
+    <h4>🕐 Déclarations récentes</h4>
+    {% if recentes %}
+    <ul class="recent-list">
+      {% for d in recentes %}
+      <li>
+        {% if d.statut == 'paye' %}
+          <div class="rl-dot" style="background:#27ae60"></div>
+        {% elif d.statut == 'emis' %}
+          <div class="rl-dot" style="background:#e8a020"></div>
+        {% else %}
+          <div class="rl-dot" style="background:#95a5a6"></div>
+        {% endif %}
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            {{ d.nom }} {% if d.prenom %}{{ d.prenom }}{% elif d.raison_sociale %}{{ d.raison_sociale }}{% endif %}
+          </div>
+          <div style="font-size:.7rem;color:var(--muted);">{{ d.numero }} · {{ d.annee }}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-weight:700;font-size:.82rem;">{{ "%.0f"|format(d.montant_total) }} DH</div>
+          {% if d.statut == 'paye' %}
+            <span class="badge b-ok">payé</span>
+          {% elif d.statut == 'emis' %}
+            <span class="badge b-warn">émis</span>
+          {% else %}
+            <span class="badge b-sec">{{ d.statut }}</span>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state"><span class="ei">📭</span>Aucune déclaration récente</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Accès rapide -->
+<div class="card">
+  <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <span style="font-size:.85rem;color:var(--muted);">Accès rapide :</span>
+    <a href="{{ mod_info.liste_url }}" class="btn btn-primary btn-sm">📋 Liste</a>
+    <a href="{{ url_for('avis') }}?module={{ mod_info.module_key }}" class="btn btn-warn btn-sm">⚠️ Impayés</a>
+    <a href="{{ url_for('paiements') }}" class="btn btn-ok btn-sm">💳 Paiements</a>
+    <a href="{{ url_for('export_excel', module=mod_info.module_key) }}" class="btn btn-outline btn-sm">📥 Export Excel</a>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const root     = document.getElementById('mod-root');
+  const modColor = root.dataset.color;
+  const moisLabels = JSON.parse(root.dataset.moisLabels);
+  const moisPaye   = JSON.parse(root.dataset.moisPaye);
+  const moisEmis   = JSON.parse(root.dataset.moisEmis);
+  const nbPaye     = parseInt(root.dataset.nbPaye, 10);
+  const nbImpaye   = parseInt(root.dataset.nbImpaye, 10);
+  const nbAnnule   = parseInt(root.dataset.nbAnnule, 10);
+
+  /* inject --mod-color on :root for CSS */
+  document.documentElement.style.setProperty('--mod-color', modColor);
+
+  /* Chart barres mensuel */
+  new Chart(document.getElementById('chartMois'), {
+    type: 'bar',
+    data: {
+      labels: moisLabels,
+      datasets: [
+        {
+          label: 'Émis (DH)',
+          data: moisEmis,
+          backgroundColor: modColor + '33',
+          borderColor: modColor,
+          borderWidth: 1.5,
+          borderRadius: 4,
+        },
+        {
+          label: 'Recouvré (DH)',
+          data: moisPaye,
+          backgroundColor: '#27ae6066',
+          borderColor: '#27ae60',
+          borderWidth: 1.5,
+          borderRadius: 4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: function(v) { return v >= 1000 ? (v/1000).toFixed(0)+'K' : v; } }
+        }
+      }
+    }
+  });
+
+  /* Chart doughnut statuts */
+  new Chart(document.getElementById('chartStatuts'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Payés', 'Impayés', 'Annulés'],
+      datasets: [{
+        data: [nbPaye, nbImpaye, nbAnnule],
+        backgroundColor: ['#27ae60cc', '#e74c3ccc', '#95a5a6cc'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '68%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } }
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

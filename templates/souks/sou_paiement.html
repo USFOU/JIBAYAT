@@ -1,0 +1,619 @@
+{% extends 'base.html' %}
+{% block title %}Paiement Souk — {{ aff.nom_souk }}{% endblock %}
+{% block page_title %}💳 Affermage — {{ aff.nom_souk }}{% endblock %}
+{% block extra_head %}
+<style>
+.sou-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:18px;align-items:start}
+@media(max-width:860px){.sou-grid{grid-template-columns:1fr}}
+
+.aff-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
+.aff-info-item{display:flex;flex-direction:column;gap:2px}
+.aff-info-item .lbl{font-size:.63rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.aff-info-item .val{font-size:.86rem;font-weight:700;color:var(--text)}
+
+.summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.summary-card{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);text-align:center;border-top:4px solid var(--primary);transition:transform .2s}
+.summary-card:hover{transform:translateY(-2px)}
+.summary-card.danger{border-top-color:var(--danger)}.summary-card.ok{border-top-color:var(--ok)}.summary-card.accent{border-top-color:var(--accent)}
+.summary-card .sc-val{font-size:1.5rem;font-weight:900;color:var(--primary);line-height:1}
+.summary-card.danger .sc-val{color:var(--danger)}.summary-card.accent .sc-val{color:var(--accent)}
+.summary-card .sc-lbl{font-size:.65rem;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:4px}
+
+/* Barre d'actions contrat */
+.contract-actions{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--border);background:var(--bg);border-radius:0 0 10px 10px}
+
+/* Timeline renouvellements */
+.renouv-timeline{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.renouv-period{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;background:var(--bg);border-left:4px solid var(--primary)}
+.renouv-period.courant{background:rgba(30,58,95,.07);border-left-color:var(--ok)}
+.renouv-period .rp-badge{background:var(--primary);color:#fff;border-radius:20px;padding:2px 8px;font-size:.63rem;font-weight:800;white-space:nowrap;flex-shrink:0}
+.renouv-period.courant .rp-badge{background:var(--ok)}
+.renouv-period .rp-redev{font-size:.95rem;font-weight:900;color:var(--primary)}
+.renouv-period.courant .rp-redev{color:var(--ok)}
+.renouv-period .rp-dates{font-size:.67rem;color:var(--muted)}
+.renouv-period .rp-aug{font-size:.64rem;background:#d4edda;color:#155724;border-radius:4px;padding:1px 6px;font-weight:700;margin-left:auto;flex-shrink:0}
+
+/* Grille mois */
+.mois-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:5px;padding:10px;max-height:300px;overflow-y:auto}
+.mois-chip{position:relative;cursor:pointer}
+.mois-chip input[type=checkbox]{position:absolute;opacity:0;width:0;height:0}
+.mois-chip label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 4px;border-radius:8px;border:2px solid var(--border);background:var(--bg);cursor:pointer;transition:all .15s;font-size:.68rem;font-weight:600;text-align:center;user-select:none;min-height:58px}
+.mois-chip label .mois-annee{font-size:.58rem;color:var(--muted);font-weight:500}
+.mois-chip label .mois-rev{font-size:.62rem;font-weight:800;color:var(--accent)}
+.mois-chip label .mois-rn{font-size:.54rem;background:var(--primary);color:#fff;border-radius:3px;padding:0 3px;margin-top:1px}
+.mois-chip input:checked+label{border-color:var(--primary);background:rgba(30,58,95,.1);color:var(--primary)}
+.mois-chip input:checked+label .mois-rev{color:var(--primary)}
+.mois-chip label:hover{border-color:var(--primary-l);background:rgba(42,82,152,.07)}
+
+.sel-actions{display:flex;gap:7px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg);align-items:center;flex-wrap:wrap}
+.sel-count{margin-left:auto;font-size:.77rem;font-weight:700;color:var(--primary)}
+
+.paiement-recap{background:linear-gradient(135deg,var(--primary),var(--primary-l));color:#fff;border-radius:11px;padding:13px 16px;margin:0 10px 10px}
+.recap-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.15);font-size:.81rem}
+.recap-row:last-child{border-bottom:none}
+.recap-detail{display:flex;justify-content:space-between;padding:2px 8px;font-size:.7rem;opacity:.82;border-bottom:1px solid rgba(255,255,255,.08)}
+.recap-total{font-size:1.35rem;font-weight:900;color:var(--accent)}
+
+.hist-badge-mois{display:flex;flex-wrap:wrap;gap:3px;max-width:240px}
+.hist-mois-tag{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 4px;font-size:.58rem;color:var(--text);font-weight:600}
+
+/* Avis */
+.avis-card{border-radius:9px;padding:10px 14px;background:var(--bg);border-left:4px solid var(--warn-bd);font-size:.78rem;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.avis-card.emis{border-left-color:var(--danger)}
+.avis-card.regle{border-left-color:var(--ok)}
+
+/* Modales actions */
+.edit-toggle-btn{background:none;border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;color:var(--muted);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.edit-toggle-btn:hover{border-color:var(--primary);color:var(--primary)}
+.edit-form-collapse{display:none;padding:10px 14px 0}
+.edit-form-collapse.open{display:block}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="df gap-2 mb-3">
+  <a href="{{ url_for('sou.sou_liste') }}" class="btn btn-outline btn-sm">← Retour Souks</a>
+</div>
+
+<!-- ═══ Résumé ══════════════════════════════════════════════════ -->
+<div class="summary-strip">
+  <div class="summary-card danger">
+    <div class="sc-val">{{ nb_mois }}</div>
+    <div class="sc-lbl">Mois non payés</div>
+  </div>
+  <div class="summary-card accent">
+    <div class="sc-val">{{ "%.2f"|format(redevance_actuelle) }}</div>
+    <div class="sc-lbl">Redevance actuelle (DH/mois)</div>
+  </div>
+  <div class="summary-card danger">
+    <div class="sc-val">{{ "%.2f"|format(total_du) }}</div>
+    <div class="sc-lbl">Total dû (DH)</div>
+  </div>
+</div>
+
+<div class="sou-grid">
+
+  <!-- ─── Colonne gauche ──────────────────────────────────────── -->
+  <div>
+
+    <!-- ══ Fiche Affermage + Actions ══ -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3>🛒 {{ aff.nom_souk }}{% if aff.num_emplacement %} — Empl. {{ aff.num_emplacement }}{% endif %}</h3>
+        <button class="edit-toggle-btn" onclick="toggleEdit()" id="editBtn">✏️ Modifier</button>
+      </div>
+
+      <div class="aff-info-grid">
+        <div class="aff-info-item"><span class="lbl">Fermier</span><span class="val">{{ aff.nom }} {{ aff.prenom or aff.raison_sociale or '' }}</span></div>
+        <div class="aff-info-item"><span class="lbl">N° Contrat</span><span class="val" style="color:var(--primary)">{{ aff.numero }}</span></div>
+        <div class="aff-info-item"><span class="lbl">Activité</span><span class="val">{{ aff.type_activite or '—' }}</span></div>
+        <div class="aff-info-item"><span class="lbl">Redevance initiale</span><span class="val" style="color:var(--accent)">{{ "%.2f"|format(rev_mens_initiale) }} DH/mois</span></div>
+        <div class="aff-info-item"><span class="lbl">Durée contrat</span><span class="val">{{ duree_contrat }} an(s)</span></div>
+        <div class="aff-info-item"><span class="lbl">Augmentation</span><span class="val" style="color:var(--ok)">+{{ taux_aug }}% / renouvellement</span></div>
+        <div class="aff-info-item"><span class="lbl">Date début</span><span class="val">{{ aff.date_debut or '—' }}</span></div>
+        <div class="aff-info-item"><span class="lbl">Date fin</span>
+          <span class="val {{ 'text-ok' if aff.statut=='actif' else 'text-danger' }}">
+            {{ aff.date_fin or date_fin_theorique or 'Indéterminée' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Actions contrat -->
+      <div class="contract-actions">
+        <!-- Renouveler -->
+        {% if aff.statut == 'actif' %}
+        <button onclick="openModal('modalRenouveler')" class="btn btn-primary btn-sm">🔄 Renouveler</button>
+        {% endif %}
+        <!-- Terminer -->
+        {% if aff.statut == 'actif' %}
+        <button onclick="openModal('modalTerminer')" class="btn btn-sm" style="background:var(--danger);color:#fff">🛑 Résilier</button>
+        {% else %}
+        <span class="badge b-danger" style="padding:6px 12px">Contrat {{ aff.statut }}</span>
+        {% endif %}
+        <!-- Avis officiel imprimable -->
+        <a href="{{ url_for('sou.sou_avis_non_paiement', id=ref_id) }}" target="_blank"
+           class="btn btn-sm" style="background:#fd7e14;color:#fff"
+           {% if total_du == 0 %}title="Aucun impayé" style="opacity:.5;pointer-events:none"{% endif %}>
+          📋 Avis officiel
+        </a>
+        <!-- Voir avis déjà créés -->
+        <button onclick="openModal('modalAvis')" class="btn btn-outline btn-sm">
+          📄 Voir les avis {% if avis_list %}<span class="badge b-danger" style="margin-left:4px">{{ avis_list|length }}</span>{% endif %}
+        </button>
+      </div>
+
+      <!-- Formulaire modification -->
+      <div class="edit-form-collapse" id="editForm">
+        <hr>
+        <form method="post" action="{{ url_for('sou.sou_modifier', id=ref_id) }}">
+          <div class="form-grid mb-3">
+            <div class="form-group"><label>Nom Souk</label><input name="nom_souk" value="{{ aff.nom_souk or '' }}"></div>
+            <div class="form-group"><label>N° Emplacement</label><input name="num_emplacement" value="{{ aff.num_emplacement or '' }}"></div>
+            <div class="form-group"><label>Activité</label><input name="type_activite" value="{{ aff.type_activite or '' }}"></div>
+            <div class="form-group">
+              <label>Redevance mensuelle initiale (DH)</label>
+              <input type="number" name="redevance_mensuelle" step="0.01"
+                     value="{{ "%.2f"|format(rev_mens_initiale) }}">
+            </div>
+            <div class="form-group">
+              <label>Durée contrat (ans)</label>
+              <input type="number" name="duree_contrat" min="1" max="20" value="{{ duree_contrat }}">
+            </div>
+            <div class="form-group">
+              <label>Taux augmentation renouvellement (%)</label>
+              <input type="number" name="taux_augmentation" step="0.1" min="0" max="50" value="{{ taux_aug }}">
+            </div>
+            <div class="form-group"><label>Date début</label><input type="date" name="date_debut" value="{{ aff.date_debut or '' }}"></div>
+            <div class="form-group"><label>Date fin</label><input type="date" name="date_fin" value="{{ aff.date_fin or '' }}"></div>
+            <div class="form-group"><label>Statut</label>
+              <select name="statut">
+                <option value="actif" {{ 'selected' if aff.statut=='actif' else '' }}>Actif</option>
+                <option value="resilie" {{ 'selected' if aff.statut=='resilie' else '' }}>Résilié</option>
+                <option value="suspendu" {{ 'selected' if aff.statut=='suspendu' else '' }}>Suspendu</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions" style="padding:0 0 12px">
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleEdit()">Annuler</button>
+            <button type="submit" class="btn btn-primary btn-sm">💾 Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ══ Timeline des Renouvellements ══ -->
+    {% if periodes %}
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3>🔄 Périodes de Renouvellement</h3>
+        <span style="font-size:.7rem;color:var(--muted)">+{{ taux_aug }}% à chaque renouvellement</span>
+      </div>
+      <div class="renouv-timeline">
+        {% for p in periodes %}
+        <div class="renouv-period {{ 'courant' if loop.last else '' }}">
+          <span class="rp-badge">
+            {% if loop.first %}Initial{% else %}R{{ loop.index0 }}{% endif %}
+          </span>
+          <div style="flex:1">
+            <div class="rp-redev">{{ "%.2f"|format(p.redevance_mensuelle) }} DH<span style="font-size:.7rem;font-weight:400;opacity:.7">/mois</span></div>
+            <div class="rp-dates">{{ p.date_debut.strftime('%d/%m/%Y') }} → {{ p.date_fin.strftime('%d/%m/%Y') }}</div>
+          </div>
+          {% if not loop.first %}<span class="rp-aug">▲ +{{ taux_aug }}%</span>{% endif %}
+          {% if loop.last %}<span class="badge b-ok">En cours</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ══ Répartition des impayés ══ -->
+    {% if groupes %}
+    <div class="card mb-3">
+      <div class="card-header"><h3>📊 Répartition des impayés</h3></div>
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Période</th><th>DH/mois</th><th>Nb</th><th>Sous-total</th></tr></thead>
+          <tbody>
+            {% for g in groupes %}
+            <tr>
+              <td style="font-size:.73rem">
+                <span class="badge b-primary">R{{ g.renouvellement }}</span>
+                <br>{{ g.mois_debut }} → {{ g.mois_fin }}
+              </td>
+              <td><strong style="color:var(--primary)">{{ "%.2f"|format(g.redevance_mensuelle) }}</strong></td>
+              <td><span class="badge b-info">{{ g.nb_mois }}</span></td>
+              <td><strong>{{ "%.2f"|format(g.montant) }} DH</strong></td>
+            </tr>
+            {% endfor %}
+            <tr style="background:var(--bg)">
+              <td colspan="2"><strong>TOTAL</strong></td>
+              <td><span class="badge b-danger">{{ nb_mois }}</span></td>
+              <td><strong style="color:var(--danger)">{{ "%.2f"|format(total_du) }} DH</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if params %}
+    <div class="card">
+      <div class="card-header"><h3>⚙️ Paramètres</h3></div>
+      <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px">
+        {% for p in params %}
+        <div style="background:var(--bg);border-radius:6px;padding:5px 10px;font-size:.71rem;border:1px solid var(--border)">
+          {{ p.libelle }}: <strong style="color:var(--primary)">{{ p.valeur }} {{ p.unite }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ─── Colonne droite ──────────────────────────────────────── -->
+  <div>
+
+    <!-- Sélecteur de mois -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3>📅 Mois non payés
+          {% if nb_mois > 0 %}<span class="badge b-danger ml-1">{{ nb_mois }}</span>{% endif %}
+        </h3>
+        {% if nb_mois == 0 %}<span class="badge b-ok">✅ À jour</span>{% endif %}
+      </div>
+
+      {% if mois_non_payes %}
+      <form method="post" action="{{ url_for('sou.sou_payer', id=ref_id) }}" id="payForm">
+        <input type="hidden" name="total_calcule" id="totalCalculeInput" value="0">
+
+        <div class="sel-actions">
+          <button type="button" class="btn btn-outline btn-xs" onclick="selectAll()">☑ Tout</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="selectNone()">☐ Aucun</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="selectYear()">📅 {{ today[:4] }}</button>
+          <span class="sel-count" id="selCount">0 sélectionné(s)</span>
+        </div>
+
+        <div class="mois-grid" id="moisGrid">
+          {% for m in mois_non_payes %}
+          <div class="mois-chip" data-index="{{ loop.index0 }}">
+            <input type="checkbox" name="mois_selectionnes" value="{{ m.mois }}"
+                   id="mois_{{ m.mois }}" data-rev="{{ m.redevance }}"
+                   data-index="{{ loop.index0 }}"
+                   onchange="onMoisChange(this)">
+            <label for="mois_{{ m.mois }}">
+              <span>{{ m.label.split(' ')[0] }}</span>
+              <span class="mois-annee">{{ m.label.split(' ')[1] }}</span>
+              <span class="mois-rev">{{ "%.2f"|format(m.redevance) }} DH</span>
+              <span class="mois-rn">R{{ m.renouvellement }}</span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="padding:4px 10px 6px;font-size:.68rem;color:var(--muted);border-top:1px solid var(--border);background:var(--bg)">
+          ℹ️ La sélection est <strong>chronologique obligatoire</strong> — vous ne pouvez pas payer un mois sans payer les mois antérieurs.
+        </div>
+
+        <!-- Récapitulatif dynamique -->
+        <div class="paiement-recap" id="recapBox" style="display:none">
+          <div class="recap-row"><span>Mois sélectionnés</span><strong id="recapNb">0</strong></div>
+          <div id="recapDetail"></div>
+          <div class="recap-row" style="margin-top:4px">
+            <span style="font-size:.88rem;font-weight:700">TOTAL À PAYER</span>
+            <strong class="recap-total" id="recapTotal">0.00 DH</strong>
+          </div>
+        </div>
+
+        <!-- Options paiement -->
+        <div id="payOptions" style="display:none;padding:0 12px 12px">
+          <div style="background:linear-gradient(135deg,#fff3cd,#ffeaa7);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:.76rem;border-left:3px solid #ffc107">
+            <strong>⚠️ Workflow paiement :</strong><br>
+            Saisir le N° de bulletin de versement → Le bulletin est créé en <strong>attente</strong> dans <a href="/paiements" target="_blank">/paiements</a> pour encaissement par le régisseur.
+          </div>
+          <div class="form-grid mb-3">
+            <div class="form-group">
+              <label>N° Bulletin <span style="color:var(--danger)">*</span></label>
+              <input name="numero_bulletin" id="numBulInput"
+                     placeholder="Ex: 2026/0042"
+                     style="font-weight:700;font-size:.9rem"
+                     required>
+              <div style="font-size:.63rem;color:var(--muted);margin-top:2px">N° Bulletin attribué par la régie (saisi manuellement)</div>
+            </div>
+
+            <div class="form-group"><label>Mode de paiement</label>
+              <select name="mode_paiement">
+                <option value="especes">💵 Espèces</option>
+                <option value="cheque">🏦 Chèque</option>
+                <option value="virement">💳 Virement</option>
+                <option value="mandat">📮 Mandat</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Notes</label><input name="notes" placeholder="Remarques optionnelles..."></div>
+          </div>
+          {% if user.peut_creer_bulletin or user.peut_ajouter %}
+          <button type="submit" class="btn btn-accent"
+                  style="width:100%;justify-content:center;font-size:.88rem;padding:11px"
+                  onclick="return confirmPay()">
+            🏦 Envoyer en attente &rarr; Régisseur /paiements
+          </button>
+          {% else %}
+          <div class="alert alert-warn">⚠️ Accès non autorisé.</div>
+          {% endif %}
+        </div>
+      </form>
+
+      {% else %}
+      <div class="empty-state" style="padding:28px">
+        <span class="ei">✅</span>
+        <strong>Tous les loyers sont à jour !</strong>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:4px">Depuis le {{ aff.date_debut or '—' }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Historique des paiements -->
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 Historique des paiements</h3>
+        {% if historique %}<span style="font-size:.72rem;color:var(--muted)">{{ historique|length }} op.</span>{% endif %}
+      </div>
+      {% if historique %}
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Bulletin</th><th>Mois couverts</th><th>Montant</th><th>Statut</th></tr></thead>
+          <tbody>
+            {% for h in historique %}
+            <tr>
+              <td>
+                <small style="color:var(--primary);font-weight:700">{{ h.numero_bulletin or h.numero or '—' }}</small>
+                <div style="font-size:.62rem;color:var(--muted)">{{ h.date_creation[:10] if h.date_creation else '' }}</div>
+              </td>
+              <td>
+                <div class="hist-badge-mois">
+                  {% if h.notes %}{% for p in h.notes.split('|')[0].strip().split(',') %}
+                    {% set mp = p.strip() %}{% if mp and mp|length == 7 %}
+                    <span class="hist-mois-tag">{{ mp }}</span>{% endif %}
+                  {% endfor %}{% else %}—{% endif %}
+                </div>
+              </td>
+              <td><strong>{{ "%.2f"|format(h.montant_total) }} DH</strong></td>
+              <td><span class="badge {% if h.statut=='paye' %}b-ok{% elif h.statut=='emis' %}b-warn{% else %}b-info{% endif %}">{{ h.statut }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% set ns = namespace(enc=0) %}
+      {% for h in historique %}{% if h.statut=='paye' %}{% set ns.enc = ns.enc + h.montant_total %}{% endif %}{% endfor %}
+      <div style="padding:7px 14px;background:var(--bg);font-size:.73rem;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+        <span style="color:var(--muted)">Total encaissé:</span>
+        <strong class="text-ok">{{ "%.2f"|format(ns.enc) }} DH</strong>
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="ei">📋</span>Aucun paiement enregistré</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODALE : Renouveler Contrat ══ -->
+<div class="modal-overlay" id="modalRenouveler">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>🔄 Renouveler le Contrat</h3>
+      <button class="modal-close" onclick="closeModal('modalRenouveler')">✕</button>
+    </div>
+    <div class="modal-body">
+      {% if periodes %}
+      {% set derniere = periodes[-1] %}
+      <div style="background:var(--bg);border-radius:8px;padding:14px;margin-bottom:16px">
+        <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-bottom:8px">📋 PÉRIODE ACTUELLE</div>
+        <div>Du <strong>{{ derniere.date_debut.strftime('%d/%m/%Y') }}</strong> au <strong>{{ derniere.date_fin.strftime('%d/%m/%Y') }}</strong></div>
+        <div>Redevance : <strong style="color:var(--primary)">{{ "%.2f"|format(derniere.redevance_mensuelle) }} DH/mois</strong></div>
+      </div>
+      {% if prochaine_periode %}
+      <div style="background:linear-gradient(135deg,var(--ok),#20c060);border-radius:8px;padding:14px;color:#fff">
+        <div style="font-size:.7rem;opacity:.8;font-weight:700;margin-bottom:8px">✅ APRÈS RENOUVELLEMENT (+{{ taux_aug }}%)</div>
+        <div>Nouvelle redevance : <strong style="font-size:1.1rem">{{ "%.2f"|format(prochaine_periode.redevance_mensuelle) }} DH/mois</strong></div>
+        <div style="font-size:.78rem;opacity:.85;margin-top:4px">
+          Période : {{ prochaine_periode.date_debut.strftime('%d/%m/%Y') }} → {{ prochaine_periode.date_fin.strftime('%d/%m/%Y') }}
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+      <form method="post" action="{{ url_for('sou.sou_renouveler', id=ref_id) }}" style="margin-top:16px">
+        <div class="modal-footer" style="border-top:none;padding:0">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalRenouveler')">Annuler</button>
+          <button type="submit" class="btn btn-primary"
+                  onclick="return confirm('Confirmer le renouvellement du contrat ?')">
+            🔄 Confirmer le renouvellement
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE : Résilier Contrat ══ -->
+<div class="modal-overlay" id="modalTerminer">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 style="color:var(--danger)">🛑 Résilier le Contrat</h3>
+      <button class="modal-close" onclick="closeModal('modalTerminer')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form method="post" action="{{ url_for('sou.sou_terminer', id=ref_id) }}">
+        <div class="form-group mb-3">
+          <label>Date de résiliation</label>
+          <input type="date" name="date_resiliation" value="{{ today }}" required>
+        </div>
+        <div class="form-group mb-3">
+          <label>Motif (optionnel)</label>
+          <input name="motif_resiliation" placeholder="Ex: Non renouvellement, Décès...">
+        </div>
+        <div class="alert" style="background:#fff3cd;border:1px solid #ffc107;color:#856404;border-radius:8px;padding:10px">
+          ⚠️ La résiliation est définitive. Assurez-vous que tous les paiements dus ont été encaissés.
+        </div>
+        <div class="modal-footer" style="border-top:none;padding:0;margin-top:12px">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalTerminer')">Annuler</button>
+          <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff"
+                  onclick="return confirm('Confirmer la résiliation du contrat ?')">
+            🛑 Confirmer la résiliation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE : Avis d'imposition ══ -->
+<div class="modal-overlay" id="modalAvis">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3>📋 Avis émis — {{ aff.nom_souk }}</h3>
+      <button class="modal-close" onclick="closeModal('modalAvis')">✕</button>
+    </div>
+    <div class="modal-body">
+      {% if avis_list %}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        {% for av in avis_list %}
+        <div class="avis-card {{ 'regle' if av.statut=='regle' else 'emis' }}">
+          <div>
+            <div style="font-weight:700;font-size:.82rem">{{ av.numero_avis }}</div>
+            <div style="font-size:.7rem;color:var(--muted)">
+              Émis le {{ av.date_emission }} — Année {{ av.annee }}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:800;color:var(--danger)">{{ "%.2f"|format(av.montant_du) }} DH</div>
+            <span class="badge {% if av.statut=='regle' %}b-ok{% else %}b-danger{% endif %}">{{ av.statut }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="ei">📋</span>Aucun avis émis pour ce contrat</div>
+      {% endif %}
+      <div style="margin-top:14px;text-align:right">
+        <a href="{{ url_for('avis') }}" class="btn btn-outline btn-sm">📋 Gérer tous les avis</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ANNEE = new Date().getFullYear().toString();
+
+// Liste ordonnée des checkboxes (dans l'ordre chronologique du DOM)
+const MOIS_INPUTS = Array.from(document.querySelectorAll('#moisGrid input[type=checkbox]'));
+
+const REV_PAR_MOIS = {};
+MOIS_INPUTS.forEach(cb => { REV_PAR_MOIS[cb.value] = parseFloat(cb.dataset.rev) || 0; });
+
+/**
+ * Règle de chronologie stricte :
+ * - Cocher un mois (index N) → cocher tous les mois 0..N
+ * - Décocher un mois (index N) → décocher tous les mois N..fin
+ */
+function onMoisChange(changed) {
+  const idx = parseInt(changed.dataset.index);
+  if (changed.checked) {
+    // Forcer la sélection de tous les mois précédents
+    MOIS_INPUTS.slice(0, idx + 1).forEach(cb => { cb.checked = true; });
+  } else {
+    // Forcer la désélection de tous les mois suivants
+    MOIS_INPUTS.slice(idx).forEach(cb => { cb.checked = false; });
+  }
+  updateRecap();
+  highlightChronology();
+}
+
+/** Colore en jaune les mois non-sélectionnés qui sont antérieurs aux sélectionnés */
+function highlightChronology() {
+  const lastCheckedIdx = MOIS_INPUTS.reduce((acc, cb, i) => cb.checked ? i : acc, -1);
+  MOIS_INPUTS.forEach((cb, i) => {
+    const label = cb.nextElementSibling;
+    if (!cb.checked && i < lastCheckedIdx) {
+      label.style.borderColor = 'var(--danger)';
+      label.style.background  = 'rgba(220,53,69,.08)';
+    } else {
+      label.style.borderColor = '';
+      label.style.background  = '';
+    }
+  });
+}
+
+function updateRecap() {
+  const checked = MOIS_INPUTS.filter(cb => cb.checked);
+  const nb = checked.length;
+  document.getElementById('selCount').textContent = nb + ' sélectionné(s)';
+  const recapBox = document.getElementById('recapBox');
+  const payOpts  = document.getElementById('payOptions');
+
+  if (nb === 0) {
+    recapBox.style.display = 'none';
+    payOpts.style.display  = 'none';
+    document.getElementById('totalCalculeInput').value = '0';
+    return;
+  }
+
+  let total = 0;
+  const groupes = {};
+  checked.forEach(cb => {
+    const rev = REV_PAR_MOIS[cb.value] || 0;
+    total += rev;
+    const k = rev.toFixed(2);
+    if (!groupes[k]) groupes[k] = { rev, nb: 0 };
+    groupes[k].nb++;
+  });
+  total = Math.round(total * 100) / 100;
+
+  document.getElementById('totalCalculeInput').value = total.toFixed(2);
+  recapBox.style.display = 'block';
+  payOpts.style.display  = 'block';
+  document.getElementById('recapNb').textContent  = nb + ' mois';
+  document.getElementById('recapTotal').textContent = total.toFixed(2) + ' DH';
+
+  const keys = Object.keys(groupes).sort((a,b) => parseFloat(a) - parseFloat(b));
+  document.getElementById('recapDetail').innerHTML = keys.map(k => {
+    const g = groupes[k];
+    return `<div class="recap-detail"><span>${g.nb} mois × ${parseFloat(k).toFixed(2)} DH/mois</span><span>${(g.nb*g.rev).toFixed(2)} DH</span></div>`;
+  }).join('');
+}
+
+function selectAll()  {
+  MOIS_INPUTS.forEach(c => c.checked = true);
+  updateRecap(); highlightChronology();
+}
+function selectNone() {
+  MOIS_INPUTS.forEach(c => c.checked = false);
+  updateRecap(); highlightChronology();
+}
+// selectYear désactivé car incompatible avec la règle chronologique
+function selectYear() {
+  // Sélectionner jusqu'au dernier mois de l'année courante
+  let lastIdx = -1;
+  MOIS_INPUTS.forEach((cb, i) => { if (cb.value.startsWith(ANNEE)) lastIdx = i; });
+  if (lastIdx >= 0) {
+    MOIS_INPUTS.slice(0, lastIdx + 1).forEach(cb => cb.checked = true);
+    MOIS_INPUTS.slice(lastIdx + 1).forEach(cb => cb.checked = false);
+  }
+  updateRecap(); highlightChronology();
+}
+function toggleEdit() {
+  const f = document.getElementById('editForm');
+  const b = document.getElementById('editBtn');
+  f.classList.toggle('open');
+  b.textContent = f.classList.contains('open') ? '✕ Fermer' : '✏️ Modifier';
+}
+function confirmPay() {
+  const nb    = MOIS_INPUTS.filter(c => c.checked).length;
+  const total = document.getElementById('totalCalculeInput').value;
+  const bull  = document.getElementById('numBulInput')?.value || '';
+  if (!bull.trim()) { alert('Veuillez saisir le N° Bulletin'); return false; }
+  return confirm(`Confirmer le paiement de ${nb} mois pour ${parseFloat(total).toFixed(2)} DH ?\nBulletin : ${bull}`);
+}
+
+updateRecap();
+</script>
+{% endblock %}

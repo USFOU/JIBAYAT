@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Paramètres Fourrière{% endblock %}
+{% block page_title %}⚙️ Paramètres Module Fourrière{% endblock %}
+{% block content %}
+<div class="df gap-2 mb-3">
+  <a href="{{ url_for('fou.fou_liste') }}" class="btn btn-outline btn-sm">← Fourrière</a>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+
+  <!-- Types de véhicules & tarifs -->
+  <div class="card">
+    <div class="card-header">
+      <h3>🚗 Types de véhicules & Tarifs journaliers</h3>
+    </div>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Code</th><th>Type</th><th>Tarif/Jour (DH)</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for t in types_vh %}
+          <tr>
+            <td><strong style="color:var(--primary)">{{ t.code }}</strong></td>
+            <td>
+              <form method="post" style="display:flex;gap:6px;align-items:center">
+                <input type="hidden" name="action" value="update_type">
+                <input type="hidden" name="tid" value="{{ t.id }}">
+                <input name="libelle" value="{{ t.libelle }}"
+                       style="border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:.78rem;flex:1">
+            </td>
+            <td>
+                <input type="number" name="tarif_journalier" value="{{ t.tarif_journalier }}" step="0.5" min="0"
+                       style="border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:.78rem;width:80px">
+            </td>
+            <td>
+                <button type="submit" class="btn btn-accent btn-xs">💾</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:12px;border-top:1px solid var(--border)">
+      <div style="font-size:.78rem;font-weight:700;margin-bottom:8px">➕ Ajouter un type</div>
+      <form method="post" class="df gap-2" style="flex-wrap:wrap">
+        <input type="hidden" name="action" value="add_type">
+        <input name="code" placeholder="Code (ex: VP)" style="width:80px;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <input name="libelle" placeholder="Libellé" style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <input type="number" name="tarif_journalier" placeholder="Tarif/j" step="0.5" min="0"
+               style="width:90px;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <button type="submit" class="btn btn-primary btn-sm">➕ Ajouter</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Déposants -->
+  <div class="card">
+    <div class="card-header"><h3>🏛️ Déposants</h3></div>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Code</th><th>Libellé</th></tr></thead>
+        <tbody>
+          {% for d in deposants %}
+          <tr><td>{{ d.code }}</td><td>{{ d.libelle }}</td></tr>
+          {% else %}
+          <tr><td colspan="2" class="empty-state">Aucun</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:12px;border-top:1px solid var(--border)">
+      <form method="post" class="df gap-2">
+        <input type="hidden" name="action" value="add_param">
+        <input type="hidden" name="categorie" value="deposant">
+        <input name="code" placeholder="Code" style="width:80px;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <input name="libelle" placeholder="Libellé déposant" style="flex:1;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <button type="submit" class="btn btn-primary btn-sm">➕</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- États véhicule (enchères) -->
+  <div class="card">
+    <div class="card-header"><h3>📊 États véhicules (enchères)</h3></div>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Code</th><th>Libellé</th></tr></thead>
+        <tbody>
+          {% for e in etats_vh %}
+          <tr><td>{{ e.code }}</td><td>{{ e.libelle }}</td></tr>
+          {% else %}
+          <tr><td colspan="2" class="empty-state">Aucun</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:12px;border-top:1px solid var(--border)">
+      <form method="post" class="df gap-2">
+        <input type="hidden" name="action" value="add_param">
+        <input type="hidden" name="categorie" value="etat_vehicule">
+        <input name="code" placeholder="Code" style="width:80px;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <input name="libelle" placeholder="Ex: Très bon état" style="flex:1;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <button type="submit" class="btn btn-primary btn-sm">➕</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Motifs -->
+  <div class="card">
+    <div class="card-header"><h3>📋 Motifs de mise en fourrière</h3></div>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Code</th><th>Libellé</th></tr></thead>
+        <tbody>
+          {% for m in motifs %}
+          <tr><td>{{ m.code }}</td><td>{{ m.libelle }}</td></tr>
+          {% else %}
+          <tr><td colspan="2" class="empty-state">Aucun</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:12px;border-top:1px solid var(--border)">
+      <form method="post" class="df gap-2">
+        <input type="hidden" name="action" value="add_param">
+        <input type="hidden" name="categorie" value="motif">
+        <input name="code" placeholder="Code" style="width:80px;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <input name="libelle" placeholder="Ex: Signalement citoyen" style="flex:1;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem">
+        <button type="submit" class="btn btn-primary btn-sm">➕</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

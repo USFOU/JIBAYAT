@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block page_title %}Paquets — Régie{% endblock %}
+
+{% block content %}
+<style>
+.badge-recu{background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+.badge-ouvert{background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+.badge-epuise{background:#dcfce7;color:#15803d;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+.nb-carnets-mini{display:flex;gap:4px;align-items:center;font-size:.75rem}
+
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;background:var(--bg);border-bottom:1px solid var(--border);align-items:center}
+.filter-bar .fb-reset{display:inline-flex;align-items:center;background:none;border:1.5px solid var(--border);border-radius:8px;padding:5px 12px;font-size:.75rem;cursor:pointer;color:var(--muted);font-weight:700;text-decoration:none;transition:0.2s ease}
+.filter-bar .fb-reset:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.filter-bar .fb-reset.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+</style>
+
+<div class="alert alert-info" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <span>📋 <strong>Gestion des Paquets</strong> — Réception des vignettes en vrac et découpage en carnets.</span>
+  <a href="{{ url_for('regie.carnets') }}" class="btn btn-outline btn-sm" style="background:#fff">📗 Gérer les Carnets</a>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>📦 Paquets de carnets ({{ paquets|length }})</h3>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('modalPaquet').style.display='flex'">➕ Nouveau Paquet</button>
+  </div>
+
+  <div class="filter-bar">
+    <span style="font-size:.8rem;font-weight:700;color:var(--muted)">Filtrer :</span>
+    <a href="{{ url_for('regie.paquets') }}" class="fb-reset {{ 'active' if not statut_filtre else '' }}">Tous</a>
+    <a href="?statut=recu" class="fb-reset {{ 'active' if statut_filtre=='recu' else '' }}">📥 Reçus</a>
+    <a href="?statut=ouvert" class="fb-reset {{ 'active' if statut_filtre=='ouvert' else '' }}">📤 Ouverts</a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+    <thead><tr>
+      <th>N° Paquet</th><th>Type</th><th>Plage vignettes</th><th>Quantité</th>
+      <th>Date réception</th><th>Statut</th><th>Carnets</th><th>Actions</th>
+    </tr></thead>
+    <tbody>
+    {% for p in paquets %}
+    <tr>
+      <td><strong>{{ p.numero_paquet }}</strong></td>
+      <td><span class="badge">{{ p.designation or '—' }}</span></td>
+      <td style="font-family:monospace;font-size:.82rem">{{ p.num_premier }} → {{ p.num_dernier }}</td>
+      <td>{{ p.quantite_vignettes }}</td>
+      <td>{{ p.date_reception or '—' }}</td>
+      <td>
+        {% if p.statut == 'recu' %}<span class="badge-recu">📥 Reçu</span>
+        {% elif p.statut == 'ouvert' %}<span class="badge-ouvert">📤 Ouvert</span>
+        {% else %}<span class="badge-epuise">✅ Épuisé</span>{% endif %}
+      </td>
+      <td>
+        <div class="nb-carnets-mini">
+          <span style="color:var(--ok)">✅{{ p.nb_consomme or 0 }}</span>
+          <span style="color:var(--accent)">📤{{ p.nb_affecte or 0 }}</span>
+          <span style="color:var(--primary)">📗{{ p.nb_stock or 0 }}</span>
+        </div>
+      </td>
+      <td>
+        {% if p.statut == 'recu' %}
+        <div style="display:flex;gap:4px">
+          <form method="POST" action="{{ url_for('regie.ouvrir_paquet', pid=p.id) }}"
+                onsubmit="return confirm('Ouvrir le paquet et générer les carnets ?')">
+            <button type="submit" class="btn btn-outline" style="font-size:.72rem;padding:4px 10px">📂 Ouvrir</button>
+          </form>
+          <button type="button" class="btn btn-outline" style="font-size:.72rem;padding:4px 10px" 
+            onclick="openEditPaquet({{ p.id }}, {{ p.valeur_id|tojson }}, '{{ p.numero_paquet|escape }}', '{{ p.date_reception|escape }}', {{ p.num_premier|tojson }}, {{ p.num_dernier|tojson }})">✏️</button>
+          <form method="POST" action="{{ url_for('regie.supprimer_paquet', pid=p.id) }}"
+                onsubmit="return confirmForm(this, {title:'Supprimer le paquet',msg:'Supprimer le paquet <strong>{{ p.numero_paquet }}</strong> ? Cette action est irréversible.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+            <button type="submit" class="btn btn-outline" style="font-size:.72rem;padding:4px 10px;color:var(--danger);border-color:var(--danger)">🗑️</button>
+          </form>
+        </div>
+        {% else %}
+        <a href="{{ url_for('regie.carnets') }}?paquet={{ p.id }}" class="btn btn-outline" style="font-size:.72rem;padding:4px 10px">📗 Carnets</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty-state"><span class="ei">📦</span>Aucun paquet enregistré</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- MODAL NOUVEAU PAQUET -->
+<div id="modalPaquet" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">📦 Nouveau Paquet de carnets</div>
+      <button class="modal-close" onclick="document.getElementById('modalPaquet').style.display='none'">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('regie.ajouter_paquet') }}">
+      <div class="modal-body" style="display:grid;gap:14px">
+        <div class="form-group">
+          <label>Type de valeur *</label>
+          <select name="valeur_id" id="add_valeur_id" required class="form-control" onchange="majInfoPaquet('add')">
+            <option value="">— Sélectionner —</option>
+            {% for v in valeurs %}
+            <option value="{{ v.id }}" data-unites="{{ v.nb_unites_carnet }}">{{ v.designation }} ({{ v.valeur_unitaire }} DH × {{ v.nb_unites_carnet }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label>N° de Paquet *</label>
+            <input type="text" name="numero_paquet" required class="form-control" placeholder="ex: PAQ-2024-001">
+          </div>
+          <div class="form-group">
+            <label>Date de réception *</label>
+            <input type="date" name="date_reception" required class="form-control" value="{{ today }}">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label>Num. DP (1er numéro) *</label>
+            <input type="number" name="num_premier" id="add_num_premier" required class="form-control" placeholder="ex: 100001" oninput="majInfoPaquet('add')">
+          </div>
+          <div class="form-group">
+            <label>Num. ARR (dernier) <span style="font-size:.7rem;color:var(--primary);font-weight:600">⚡ Auto</span></label>
+            <input type="number" name="num_dernier" id="add_num_dernier" required class="form-control"
+              style="background:var(--primary-subtle,#eff6ff);border-color:var(--primary,#3b82f6);color:var(--primary,#3b82f6);font-weight:700"
+              placeholder="— calculé automatiquement —" readonly>
+          </div>
+        </div>
+        <!-- Info auto-calculée -->
+        <div id="add_info_box" style="background:var(--primary-subtle,#eff6ff);border:1.5px solid var(--primary,#3b82f6);border-radius:10px;padding:10px 14px;font-size:.82rem;display:none">
+          📊 <strong>Calcul automatique :</strong>
+          <span id="add_info_text"></span>
+        </div>
+        <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:10px 14px;font-size:.8rem;color:#92400e">
+          📦 <strong>Information :</strong> Le système génère automatiquement <strong>10 carnets</strong> séquentiels à l'ouverture.
+          Le Num. ARR = Num. DP + (10 carnets × nb unités/carnet) − 1.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modalPaquet').style.display='none'">Annuler</button>
+        <button type="submit" class="btn">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL MODIFIER PAQUET -->
+<div id="modalEditPaquet" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Modifier le Paquet</div>
+      <button type="button" class="modal-close" onclick="document.getElementById('modalEditPaquet').style.display='none'">✕</button>
+    </div>
+    <form method="POST" id="formEditPaquet">
+      <div class="modal-body" style="display:grid;gap:14px">
+        <div class="form-group">
+          <label>Type de valeur *</label>
+          <select name="valeur_id" id="ep_valeur_id" required class="form-control" onchange="majInfoPaquet('ep')">
+            <option value="">— Sélectionner —</option>
+            {% for v in valeurs %}
+            <option value="{{ v.id }}" data-unites="{{ v.nb_unites_carnet }}">{{ v.designation }} ({{ v.valeur_unitaire }} DH × {{ v.nb_unites_carnet }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label>N° de Paquet *</label>
+            <input type="text" name="numero_paquet" id="ep_numero_paquet" required class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Date de réception *</label>
+            <input type="date" name="date_reception" id="ep_date_reception" required class="form-control">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label>Num. DP (1er numéro) *</label>
+            <input type="number" name="num_premier" id="ep_num_premier" required class="form-control" oninput="majInfoPaquet('ep')">
+          </div>
+          <div class="form-group">
+            <label>Num. ARR (dernier) <span style="font-size:.7rem;color:var(--primary);font-weight:600">⚡ Auto</span></label>
+            <input type="number" name="num_dernier" id="ep_num_dernier" required class="form-control"
+              style="background:var(--primary-subtle,#eff6ff);border-color:var(--primary,#3b82f6);color:var(--primary,#3b82f6);font-weight:700"
+              placeholder="— calculé automatiquement —" readonly>
+          </div>
+        </div>
+        <!-- Info auto-calculée -->
+        <div id="ep_info_box" style="background:var(--primary-subtle,#eff6ff);border:1.5px solid var(--primary,#3b82f6);border-radius:10px;padding:10px 14px;font-size:.82rem;display:none">
+          📊 <strong>Calcul automatique :</strong>
+          <span id="ep_info_text"></span>
+        </div>
+        <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:10px 14px;font-size:.8rem;color:#92400e">
+          📦 <strong>Information :</strong> Le système génère automatiquement <strong>10 carnets</strong> séquentiels à l'ouverture.
+          Le Num. ARR = Num. DP + (10 carnets × nb unités/carnet) − 1.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modalEditPaquet').style.display='none'">Annuler</button>
+        <button type="submit" class="btn">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const today = new Date().toISOString().split('T')[0];
+if(document.querySelector('input[name="date_reception"]:not(#ep_date_reception)')){
+  document.querySelector('input[name="date_reception"]:not(#ep_date_reception)').value = today;
+}
+
+// Retourne le nb d'unités/carnet selon le select
+function getNbUnites(prefix) {
+  const sel = document.getElementById(prefix + '_valeur_id');
+  if (!sel) return 0;
+  const opt = sel.options[sel.selectedIndex];
+  return parseInt(opt?.dataset.unites) || 0;
+}
+
+// Calcul auto de num_dernier et affichage des infos paquet
+function majInfoPaquet(prefix) {
+  const dp  = parseInt(document.getElementById(prefix + '_num_premier').value) || 0;
+  const nbUnites = getNbUnites(prefix);
+  const box = document.getElementById(prefix + '_info_box');
+  const txt = document.getElementById(prefix + '_info_text');
+  const arrInput = document.getElementById(prefix + '_num_dernier');
+
+  if (dp > 0 && nbUnites > 0) {
+    // ARR = DP + (10 carnets × nb_unités) - 1
+    const totalVignettes = 10 * nbUnites;
+    const arr = dp + totalVignettes - 1;
+    arrInput.value = arr;
+    box.style.display = 'block';
+    txt.innerHTML = `Num. ARR = <strong>${arr}</strong> &nbsp;|&nbsp; Total vignettes : <strong>${totalVignettes}</strong> (10 carnets × ${nbUnites} unités)`;
+  } else if (dp > 0 && nbUnites === 0) {
+    arrInput.value = '';
+    box.style.display = 'block';
+    txt.innerHTML = `<span style="color:var(--danger,#dc2626)">⚠️ Sélectionnez d'abord un type de valeur pour calculer le Num. ARR.</span>`;
+  } else {
+    arrInput.value = '';
+    box.style.display = 'none';
+  }
+}
+
+function openEditPaquet(id, valeurId, numPaquet, dateRec, dPremier, dDernier) {
+  document.getElementById('formEditPaquet').action = `/regie/paquets/${id}/modifier`;
+  const sel = document.getElementById('ep_valeur_id');
+  sel.value = valeurId;
+  document.getElementById('ep_numero_paquet').value = numPaquet;
+  document.getElementById('ep_date_reception').value = dateRec;
+  document.getElementById('ep_num_premier').value = dPremier;
+  // Afficher le num_dernier existant directement (mode édition = on garde la valeur stockée)
+  const arrInput = document.getElementById('ep_num_dernier');
+  arrInput.value = dDernier;
+  // Recalcul pour afficher les infos
+  majInfoPaquet('ep');
+  document.getElementById('modalEditPaquet').style.display = 'flex';
+}
+</script>
+{% endblock %}

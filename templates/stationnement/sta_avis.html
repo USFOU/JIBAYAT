@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Avis de Non-Paiement — Stationnement TPV</title>
+  <style>
+    body { font-family:'Calibri',Arial,sans-serif;font-size:10.5pt;color:#111;margin:0;padding:18px; }
+    .header { text-align:center;border-bottom:2px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px; }
+    .header h1 { font-size:13pt;color:#1e3a5f;margin:0 0 3px; }
+    .header p  { margin:0;font-size:8.5pt;color:#555; }
+    .avis-title { text-align:center;background:#1e3a5f;color:#fff;padding:7px 16px;border-radius:6px;
+      font-size:12pt;font-weight:700;margin:10px 0 4px; }
+    .avis-ref { text-align:center;font-size:8.5pt;color:#666;margin-bottom:10px; }
+    .info-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px; }
+    .info-box { border:1px solid #ccc;border-radius:5px;padding:7px 10px; }
+    .info-box label { font-size:7.5pt;color:#777;font-weight:700;text-transform:uppercase;display:block;margin-bottom:2px; }
+    .info-box div  { font-weight:700;font-size:10.5pt; }
+    .tarif-banner { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px; }
+    .tarif-box { border-radius:5px;padding:7px 10px;border:1.5px solid; }
+    .tarif-box.tpv { background:#f0f4ff;border-color:#c7d7ff; }
+    .tarif-box.sta { background:#f0fdf4;border-color:#bbf7d0; }
+    .tarif-box label { font-size:7.5pt;color:#555;font-weight:700;text-transform:uppercase;display:block; }
+    .tarif-box .val { font-weight:900;font-size:11pt;margin-top:1px; }
+    .tarif-box .note { font-size:7.5pt;color:#777;margin-top:2px; }
+    table { width:100%;border-collapse:collapse;margin-bottom:10px;font-size:9.5pt; }
+    table th { background:#1e3a5f;color:#fff;padding:5px 7px;text-align:left; }
+    table td { padding:5px 7px;border-bottom:1px solid #eee;vertical-align:middle; }
+    table tr:nth-child(even) { background:#f8f9fa; }
+    .total-row td { background:#fff3cd;font-weight:700;border-top:2px solid #1e3a5f; }
+    .warn-box { background:#fff3cd;border:1.5px solid #f59e0b;border-radius:5px;
+      padding:7px 10px;margin-bottom:9px;font-size:8.5pt;color:#78350f; }
+    .legal { font-size:7.5pt;color:#666;border-top:1px solid #ddd;margin-top:10px;padding-top:7px; }
+    .badge-retard { background:#fee2e2;color:#991b1b;border-radius:3px;
+      padding:1px 6px;font-size:7.5pt;font-weight:700; }
+    .badge-ok { background:#dcfce7;color:#166534;border-radius:3px;
+      padding:1px 6px;font-size:7.5pt;font-weight:700; }
+    @media print { body { padding:0; } }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Commune de {{ commune }}</h1>
+  <p>Service de la Fiscalité Communale{% if province %} — Province de {{ province }}{% endif %}</p>
+</div>
+
+<div class="avis-title">⚠️ AVIS DE NON-PAIEMENT — STATIONNEMENT TPV</div>
+<div class="avis-ref">Réf. N° {{ n_avis }} — Émis le {{ today }}</div>
+
+<!-- Informations du redevable -->
+<div class="info-grid">
+  <div class="info-box">
+    <label>Redevable</label>
+    <div>{{ vehicule.nom }} {{ vehicule.prenom or vehicule.raison_sociale or '' }}</div>
+  </div>
+  <div class="info-box">
+    <label>CIN / RC</label>
+    <div>{{ vehicule.cin or vehicule.rc or '—' }}</div>
+  </div>
+  <div class="info-box">
+    <label>Immatriculation</label>
+    <div>{{ vehicule.immatriculation }}</div>
+  </div>
+  <div class="info-box">
+    <label>Type de Véhicule</label>
+    <div>{{ vehicule.type_vehicule }}</div>
+  </div>
+</div>
+
+<!-- Tarifs appliqués -->
+<div class="tarif-banner">
+  <div class="tarif-box tpv">
+    <label>📋 Taxe Transport Public des Voyageurs</label>
+    <div class="val">{{ "%.2f"|format(tarif_tpv_trim) }} DH / trimestre</div>
+    <div class="note">⚠️ Pénalités de retard et majoration applicables</div>
+  </div>
+  <div class="tarif-box sta">
+    <label>🅿️ Droit de Stationnement TPV</label>
+    <div class="val">{{ "%.2f"|format(tarif_sta_trim) }} DH / trimestre</div>
+    <div class="note">✅ Pas de pénalités de retard</div>
+  </div>
+</div>
+
+<div class="warn-box">
+  ⚠️ Nous vous informons que les droits ci-dessous n'ont pas été acquittés à ce jour.
+  Merci de vous régulariser auprès de la régie communale dans les plus brefs délais.
+</div>
+
+<!-- Tableau des trimestres impayés -->
+<table>
+  <thead>
+    <tr>
+      <th>Année</th>
+      <th>Trimestre</th>
+      <th>Échéance</th>
+      <th>TPV (DH)</th>
+      <th>Pén. TPV</th>
+      <th>STA (DH)</th>
+      <th>Total (DH)</th>
+      <th>Statut</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% set grand = namespace(val=0) %}
+    {% for t in non_payes %}
+    {% set pen = (tarif_tpv_trim * 0.10)|round(2) if t.en_retard else 0 %}
+    {% set total_t = (tarif_tpv_trim + tarif_sta_trim + pen)|round(2) %}
+    {% set _ = grand.__setattr__('val', grand.val + total_t) %}
+    <tr>
+      <td><strong>{{ t.annee }}</strong></td>
+      <td><strong>T{{ t.trimestre }}</strong> <small style="color:#777">{{ TRIMESTRES[t.trimestre] }}</small></td>
+      <td style="font-size:8.5pt">{{ t.echeance }}</td>
+      <td style="color:#1d4ed8;font-weight:700">{{ "%.2f"|format(tarif_tpv_trim) }}</td>
+      <td>{% if pen > 0 %}<span style="color:#dc2626;font-weight:700">+{{ "%.2f"|format(pen) }}</span>{% else %}—{% endif %}</td>
+      <td style="color:#15803d;font-weight:700">{{ "%.2f"|format(tarif_sta_trim) }}</td>
+      <td><strong>{{ "%.2f"|format(total_t) }}</strong></td>
+      <td>
+        {% if t.en_retard %}<span class="badge-retard">⚠️ En retard</span>
+        {% else %}<span class="badge-ok">⏳ Non payé</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="total-row">
+      <td colspan="6" style="text-align:right;font-size:9pt">TOTAL DÛ ({{ non_payes|length }} trimestre(s))</td>
+      <td colspan="2"><strong style="font-size:11pt">{{ "%.2f"|format(grand.val) }} DH</strong></td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="legal">
+  <strong>Base légale :</strong> Loi n° 47-06 relative à la fiscalité des collectivités locales.
+  Art. 141 à 144 : Taxe sur le Transport Public des Voyageurs (TPV) — paiement trimestriel.
+  Art. 145 : Droit de Stationnement sur véhicules TPV — paiement trimestriel, sans pénalités de retard.
+  Tarifs fixés par l'Arrêté Fiscal en vigueur. La pénalité de retard sur la Taxe TPV est de 10% par trimestre échu.
+</div>
+
+<div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+  <div style="text-align:center">
+    <div style="font-size:8.5pt;color:#777;margin-bottom:18px">Signature du Redevable</div>
+    <div style="border-bottom:1px solid #999;width:150px;margin:auto"></div>
+  </div>
+  <div style="text-align:center">
+    <div style="font-size:8.5pt;color:#777;margin-bottom:18px">Le Receveur Municipal</div>
+    <div style="border-bottom:1px solid #999;width:150px;margin:auto"></div>
+  </div>
+</div>
+
+<script>window.onload = function(){ window.print(); }</script>
+</body>
+</html>

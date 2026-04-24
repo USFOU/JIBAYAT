@@ -1,60 +1,260 @@
 {% extends 'base.html' %}
-{% block title %}Souks Communaux{% endblock %}
+{% block title %}Affermage Souks Communaux{% endblock %}
 {% block page_title %}🛒 Affermage Souks Communaux{% endblock %}
+{% block extra_head %}
+<style>
+.sou-stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.sou-stat{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);border-left:4px solid var(--primary);display:flex;align-items:center;gap:10px}
+.sou-stat .ss-icon{font-size:1.5rem}.sou-stat .ss-val{font-size:1.3rem;font-weight:900;color:var(--primary)}.sou-stat .ss-lbl{font-size:.67rem;color:var(--muted);font-weight:600}
+.sou-stat.ok{border-left-color:var(--ok)}.sou-stat.ok .ss-val{color:var(--ok)}
+.sou-stat.accent{border-left-color:var(--accent)}.sou-stat.accent .ss-val{color:var(--accent)}
+.sou-stat.danger{border-left-color:var(--danger)}.sou-stat.danger .ss-val{color:var(--danger)}
+.search-bar-top{display:flex;gap:8px;padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);align-items:center}
+.search-bar-top input{flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.84rem}
+.souk-badge{background:rgba(30,58,95,.08);border-radius:6px;padding:3px 8px;font-weight:800;color:var(--primary);font-size:.76rem}
+.rev-pill{display:inline-block;background:linear-gradient(135deg,var(--accent),#e06f0a);color:#fff;border-radius:20px;padding:2px 10px;font-size:.73rem;font-weight:800}
+.imp-pill{display:inline-block;background:rgba(220,53,69,.12);color:var(--danger);border:1px solid rgba(220,53,69,.25);border-radius:20px;padding:2px 8px;font-size:.67rem;font-weight:700}
+.imp-pill.zero{background:rgba(40,167,69,.1);color:var(--ok);border-color:rgba(40,167,69,.25)}
+.modal-section-title{font-size:.68rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:12px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.preview-periodes{background:linear-gradient(135deg,var(--primary),var(--primary-l));border-radius:10px;padding:12px 16px;color:#fff;margin-top:12px;display:none}
+.preview-periodes table{width:100%;border-collapse:collapse;font-size:.7rem}
+.preview-periodes table td{padding:3px 6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.preview-periodes table td:last-child{text-align:right;font-weight:700;color:var(--accent)}
+.date-auto-badge{background:#d4edda;color:#155724;border-radius:6px;padding:4px 10px;font-size:.72rem;font-weight:700;margin-top:4px;display:none}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="alert alert-info">📋 Produit d'affermage des souks et marchés communaux.
-  <div class="ms-auto"><a href="{{ url_for('export_excel', module='AFFERMAGE_SOUKS') }}" class="btn btn-success btn-sm">📊 Excel</a></div>
+<div class="alert alert-info" style="margin-bottom:16px;display:flex;align-items:center">
+  📋 Produit d'affermage des souks et marchés communaux. Redevance <strong>mensuelle</strong>.
 </div>
+
+<!-- Stats rapides -->
+{% set ns = namespace(total_mens=0, total_imp=0, nb_actifs=0) %}
+{% for d in items_data %}
+  {% set ns.total_mens = ns.total_mens + d.rev_mens %}
+  {% set ns.total_imp = ns.total_imp + d.total_impaye %}
+  {% if d.item.statut == 'actif' %}{% set ns.nb_actifs = ns.nb_actifs + 1 %}{% endif %}
+{% endfor %}
+<div class="sou-stat-strip">
+  <div class="sou-stat"><span class="ss-icon">🛒</span>
+    <div><div class="ss-val">{{ items|length }}</div><div class="ss-lbl">Total affermages</div></div></div>
+  <div class="sou-stat ok"><span class="ss-icon">✅</span>
+    <div><div class="ss-val">{{ ns.nb_actifs }}</div><div class="ss-lbl">Contrats actifs</div></div></div>
+  <div class="sou-stat accent"><span class="ss-icon">💰</span>
+    <div><div class="ss-val">{{ "%.0f"|format(ns.total_mens) }}</div><div class="ss-lbl">Total redevances/mois (DH)</div></div></div>
+  <div class="sou-stat danger"><span class="ss-icon">⚠️</span>
+    <div><div class="ss-val">{{ "%.0f"|format(ns.total_imp) }}</div><div class="ss-lbl">Total impayé (DH)</div></div></div>
+</div>
+
+<!-- Tableau -->
 <div class="card">
-  <div class="card-header"><h3>Affermages ({{ items|length }})</h3><button onclick="openModal('addSou')" class="btn btn-primary btn-sm">➕ Nouvel Affermage</button></div>
+  <div class="card-header">
+    <h3>📋 Affermages ({{ items|length }})</h3>
+    <button onclick="openModal('addSou')" class="btn btn-primary btn-sm">➕ Nouvel Affermage</button>
+  </div>
+  <div class="search-bar-top">
+    <input type="text" id="searchInput" placeholder="🔍 Rechercher souk, fermier, emplacement..." oninput="filterTable()">
+    <span id="filterCount" style="font-size:.75rem;color:var(--muted);white-space:nowrap"></span>
+  </div>
   <div class="table-responsive">
-    <table>
-      <thead><tr><th>N°</th><th>Souk</th><th>Emplacement</th><th>Fermier</th><th>Activité</th><th>Redevance/an</th><th>Statut</th><th>Actions</th></tr></thead>
-      <tbody>
-        {% for item in items %}
+    <table id="souTable">
+      <thead>
         <tr>
-          <td><strong style="color:var(--primary)">{{ item.numero }}</strong></td>
-          <td><strong>{{ item.nom_souk }}</strong></td>
-          <td>{{ item.num_emplacement or '—' }}</td>
-          <td>{{ item.nom }} {{ item.prenom or item.raison_sociale or '' }}<br><small class="text-muted">{{ item.ctb_num }}</small></td>
-          <td style="font-size:.78rem">{{ item.type_activite or '—' }}</td>
-          <td><strong>{{ item.redevance_annuelle or '—' }} DH</strong></td>
-          <td><span class="badge {{ 'b-ok' if item.statut=='actif' else 'b-danger' }}">{{ item.statut }}</span></td>
-          <td><div class="df gap-2">
-            <a href="{{ url_for('sou.sou_detail', id=item.id) }}" class="btn btn-primary btn-xs">🔍</a>
-            <a href="{{ url_for('sou.sou_paiement', id=item.id) }}" class="btn btn-accent btn-xs">💳</a>
-          </div></td>
+          <th>N° Contrat</th>
+          <th>Souk</th>
+          <th>Fermier</th>
+          <th>Activité</th>
+          <th>Rev./mois</th>
+          <th>Durée</th>
+          <th>Début → Fin</th>
+          <th>⚠️ Impayé</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in items_data %}
+        {% set item = d.item %}
+        <tr class="sou-row">
+          <td><strong style="color:var(--primary);font-size:.78rem">{{ item.numero }}</strong></td>
+          <td>
+            <span class="souk-badge">{{ item.nom_souk }}</span>
+            {% if item.num_emplacement %}<br><small style="color:var(--muted)">Empl. {{ item.num_emplacement }}</small>{% endif %}
+          </td>
+          <td>
+            <a onclick="showCtbInfo({{ item.contribuable_id }})" style="cursor:pointer;color:var(--primary);font-weight:700;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+              {{ item.nom }} {{ item.prenom or item.raison_sociale or '' }}
+            </a>
+            <br><small class="text-muted">{{ item.ctb_num }}</small>
+          </td>
+          <td style="font-size:.77rem">{{ item.type_activite or '—' }}</td>
+          <td><span class="rev-pill">{{ "%.2f"|format(d.rev_mens) }} DH</span></td>
+          <td style="font-size:.75rem">
+            <div>{{ item.duree_contrat or 1 }} an(s)</div>
+            <div style="color:var(--ok);font-size:.65rem">+{{ item.taux_augmentation or 5 }}%</div>
+          </td>
+          <td style="font-size:.74rem">
+            <div>{{ item.date_debut or '—' }}</div>
+            <div style="color:{{ 'var(--danger)' if item.statut=='resilie' else 'var(--muted)' }}">
+              → {{ item.date_fin or 'Indéterminée' }}
+            </div>
+          </td>
+          <td>
+            <span class="imp-pill {{ 'zero' if d.total_impaye == 0 else '' }}">
+              {% if d.total_impaye > 0 %}
+              ⚠️ {{ d.nb_mois_impaye }} mois<br>{{ "%.2f"|format(d.total_impaye) }} DH
+              {% else %}✅ À jour{% endif %}
+            </span>
+          </td>
+          <td>
+            <span class="badge {{ 'b-ok' if item.statut=='actif' else 'b-danger' }}">{{ item.statut }}</span>
+          </td>
+          <td>
+            <div class="df gap-2">
+              <a href="{{ url_for('sou.sou_detail', id=item.id) }}" class="btn btn-outline btn-xs" title="Détail">🔍</a>
+              <a href="{{ url_for('sou.sou_paiement', id=item.id) }}" class="btn btn-accent btn-xs" title="Paiement">💳</a>
+            </div>
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" class="empty-state"><span class="ei">🛒</span>Aucun affermage</td></tr>
+        <tr><td colspan="10" class="empty-state"><span class="ei">🛒</span>Aucun affermage enregistré</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
+<!-- ══ MODALE Nouvel Affermage ══ -->
 <div class="modal-overlay" id="addSou">
-  <div class="modal">
-    <div class="modal-header"><h3>🛒 Nouvel Affermage Souk</h3><button class="modal-close" onclick="closeModal('addSou')">✕</button></div>
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3>🛒 Nouvel Affermage Souk</h3>
+      <button class="modal-close" onclick="closeModal('addSou')">✕</button>
+    </div>
     <div class="modal-body">
       <form method="post" action="{{ url_for('sou.sou_ajouter') }}">
-        <div class="form-group mb-3"><label>Fermier (Contribuable) *</label>
-          <select name="contribuable_id" required><option value="">— Sélectionner —</option>
-            {% for c in contribuables %}<option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</option>{% endfor %}
+
+        <div class="modal-section-title">👤 Fermier</div>
+        <div class="form-group mb-3">
+          <label>Contribuable (Fermier) *</label>
+          <select name="contribuable_id" required>
+            <option value="">— Sélectionner —</option>
+            {% for c in contribuables %}
+            <option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</option>
+            {% endfor %}
           </select>
         </div>
+
+        <div class="modal-section-title">🛒 Souk & Emplacement</div>
         <div class="form-grid mb-3">
-          <div class="form-group"><label>Nom du Souk *</label><input name="nom_souk" required></div>
-          <div class="form-group"><label>N° Emplacement</label><input name="num_emplacement"></div>
-          <div class="form-group"><label>Type Activité</label><input name="type_activite"></div>
-          <div class="form-group"><label>Redevance Annuelle (DH)</label><input type="number" name="redevance_annuelle" step="1"></div>
-          <div class="form-group"><label>Date début</label><input type="date" name="date_debut"></div>
+          <div class="form-group"><label>Nom du Souk *</label><input name="nom_souk" required placeholder="Ex: LKHMIS, SOUK ARBA..."></div>
+          <div class="form-group"><label>N° Emplacement</label><input name="num_emplacement" placeholder="Ex: A-05, 12..."></div>
+          <div class="form-group"><label>Type d'Activité</label><input name="type_activite" placeholder="Ex: Légumes, Vêtements..."></div>
         </div>
-        <div class="modal-footer">
+
+        <div class="modal-section-title">💰 Conditions Financières</div>
+        <div class="form-grid mb-3">
+          <div class="form-group">
+            <label>Redevance mensuelle (DH) *</label>
+            <input type="number" name="redevance_mensuelle" id="revInput" step="0.01" min="0"
+                   required placeholder="833.33" oninput="updatePreview()">
+          </div>
+          <div class="form-group">
+            <label>Équivalent annuel</label>
+            <input type="text" id="revAnnuel" readonly style="background:#f8f9fa;font-weight:700;color:var(--accent)" placeholder="—">
+          </div>
+          <div class="form-group">
+            <label>Durée du contrat (ans)</label>
+            <input type="number" name="duree_contrat" id="dureeInput" min="1" max="20" value="1" oninput="updatePreview()">
+          </div>
+          <div class="form-group">
+            <label>Taux augmentation au renouvellement (%)</label>
+            <input type="number" name="taux_augmentation" id="tauxInput" step="0.1" min="0" max="50" value="5.0" oninput="updatePreview()">
+          </div>
+        </div>
+
+        <div class="modal-section-title">📅 Période du contrat</div>
+        <div class="form-grid mb-3">
+          <div class="form-group">
+            <label>Date de début *</label>
+            <input type="date" name="date_debut" id="dateDebutInput" required oninput="updatePreview()">
+          </div>
+          <div class="form-group">
+            <label>Date de fin <small style="color:var(--ok)">(calculée auto.)</small></label>
+            <input type="date" name="date_fin" id="dateFinInput">
+            <div class="date-auto-badge" id="dateFinBadge">📅 Calculée automatiquement</div>
+          </div>
+        </div>
+
+        <div class="preview-periodes" id="previewPeriodes">
+          <div style="font-size:.7rem;opacity:.7;margin-bottom:8px;font-weight:700">🔄 APERÇU DES RENOUVELLEMENTS</div>
+          <table><thead><tr><td style="opacity:.6">Période</td><td style="opacity:.6">Du → Au</td><td style="opacity:.6">Rev./mois</td></tr></thead>
+          <tbody id="previewTbody"></tbody></table>
+        </div>
+
+        <div class="modal-footer" style="border-top:1px solid var(--border);margin:0 -20px -20px;padding:14px 20px">
           <button type="button" class="btn btn-outline" onclick="closeModal('addSou')">Annuler</button>
-          <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+          <button type="submit" class="btn btn-primary">💾 Créer l'affermage</button>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<script>
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const rows = document.querySelectorAll('#souTable tbody .sou-row');
+  let visible = 0;
+  rows.forEach(r => { const m = r.textContent.toLowerCase().includes(q); r.style.display = m ? '' : 'none'; if (m) visible++; });
+  document.getElementById('filterCount').textContent = q ? visible + ' résultat(s)' : '';
+}
+
+function updatePreview() {
+  const rev   = parseFloat(document.getElementById('revInput').value)  || 0;
+  const duree = parseInt(document.getElementById('dureeInput').value)  || 1;
+  const taux  = parseFloat(document.getElementById('tauxInput').value) || 5.0;
+  const debut = document.getElementById('dateDebutInput').value;
+
+  document.getElementById('revAnnuel').value = rev > 0 ? (rev * 12).toFixed(2) + ' DH/an' : '';
+
+  const dateFinInput = document.getElementById('dateFinInput');
+  const dateFinBadge = document.getElementById('dateFinBadge');
+  if (debut) {
+    const d = new Date(debut);
+    d.setFullYear(d.getFullYear() + duree);
+    d.setDate(d.getDate() - 1);
+    const iso = d.toISOString().slice(0, 10);
+    dateFinInput.value = iso;
+    dateFinBadge.style.display = 'block';
+    dateFinBadge.textContent = '📅 Fin calculée : ' + iso;
+  } else { dateFinBadge.style.display = 'none'; }
+
+  if (!debut || rev <= 0) { document.getElementById('previewPeriodes').style.display = 'none'; return; }
+
+  const today = new Date();
+  let d = new Date(debut);
+  let revC = rev;
+  let rows = [];
+  let numR = 0;
+
+  while (d <= today && rows.length < 8) {
+    let dFin = new Date(d);
+    dFin.setFullYear(dFin.getFullYear() + duree);
+    dFin.setDate(dFin.getDate() - 1);
+    const isCur = d <= today && today <= dFin;
+    const aug = numR > 0 ? ` <span style="color:#ffc107">(+${taux}%)</span>` : '';
+    rows.push(`<tr style="${isCur ? 'background:rgba(255,255,255,.15);font-weight:700' : ''}">
+      <td>${numR === 0 ? '📄 Initial' : '🔄 Renou. ' + numR}${aug}</td>
+      <td>${d.toISOString().slice(0,10)} → ${dFin.toISOString().slice(0,10)}</td>
+      <td>${revC.toFixed(2)} DH/mois</td></tr>`);
+    revC = Math.round(revC * (1 + taux / 100) * 100) / 100;
+    d = new Date(dFin); d.setDate(d.getDate() + 1);
+    numR++;
+  }
+  document.getElementById('previewTbody').innerHTML = rows.join('');
+  document.getElementById('previewPeriodes').style.display = 'block';
+}
+</script>
 {% endblock %}

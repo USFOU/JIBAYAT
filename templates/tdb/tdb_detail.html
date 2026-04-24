@@ -2,10 +2,14 @@
 {% block title %}{{ etab.nom_etablissement }}{% endblock %}
 {% block page_title %}🍺 {{ etab.nom_etablissement }}{% endblock %}
 {% block content %}
-<div class="df gap-2 mb-3">
+<div class="df gap-2 mb-3" style="flex-wrap:wrap;align-items:center">
   <a href="{{ url_for('tdb.tdb_liste') }}" class="btn btn-outline btn-sm">← Liste</a>
   <a href="{{ url_for('tdb.tdb_paiement', id=etab.id) }}" class="btn btn-accent">💳 Paiement & Déclarations</a>
   <button onclick="openModal('editEtab')" class="btn btn-primary btn-sm">✏️ Modifier</button>
+  <form method="post" action="{{ url_for('tdb.tdb_supprimer', id=etab.id) }}" style="margin-left:auto"
+        onsubmit="return confirmForm(this, {title:'Supprimer l\'\u00e9tablissement',msg:'Archiver <strong>{{ etab.nom_etablissement }}</strong> ? Les déclarations non payées seront conservées.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+    <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5">🗑️ Supprimer</button>
+  </form>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
   <div class="card">

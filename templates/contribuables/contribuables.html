@@ -1,57 +1,234 @@
 {% extends 'base.html' %}
 {% block title %}Contribuables{% endblock %}
-{% block page_title %}👥 Base Contribuables{% endblock %}
+{% block page_title %}👥 Contribuables{% endblock %}
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+.stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);border-left:4px solid var(--primary);display:flex;align-items:center;gap:10px}
+.stat-card.danger{border-left-color:var(--danger)}.stat-card.ok{border-left-color:var(--ok)}.stat-card.accent{border-left-color:var(--accent)}.stat-card.warn{border-left-color:#f59e0b}
+.stat-card .sv{font-size:1.3rem;font-weight:900;color:var(--primary)}.stat-card.danger .sv{color:var(--danger)}.stat-card.accent .sv{color:var(--accent)}.stat-card.warn .sv{color:#f59e0b}
+.stat-card .sl{font-size:.65rem;color:var(--muted);font-weight:600;text-transform:uppercase}
+
+.mod-tags{display:flex;flex-wrap:wrap;gap:3px}
+.mod-tag{display:inline-block;border-radius:4px;padding:2px 5px;font-size:.57rem;font-weight:700;border:1px solid currentColor;opacity:.85}
+.mod-tag.TNB{color:#1e3a5f;border-color:#1e3a5f;background:rgba(30,58,95,.07)}
+.mod-tag.TDB{color:#6f42c1;border-color:#6f42c1;background:rgba(111,66,193,.07)}
+.mod-tag.STATIONNEMENT{color:#0d6efd;border-color:#0d6efd;background:rgba(13,110,253,.07)}
+.mod-tag.ODP{color:#20c997;border-color:#20c997;background:rgba(32,201,151,.07)}
+.mod-tag.LOCATION{color:#fd7e14;border-color:#fd7e14;background:rgba(253,126,20,.07)}
+.mod-tag.AFFERMAGE_SOUKS{color:#e83e3e;border-color:#e83e3e;background:rgba(232,62,62,.07)}
+.mod-tag.FOURRIERE{color:#6c757d;border-color:#6c757d;background:rgba(108,117,125,.07)}
+
+.imp-pill{display:inline-block;border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.imp-pill.has{background:rgba(220,53,69,.12);color:var(--danger);border:1px solid rgba(220,53,69,.25)}
+.imp-pill.ok{background:rgba(40,167,69,.1);color:var(--ok);border:1px solid rgba(40,167,69,.2)}
+
+/* Filter bar */
+.filter-bar{display:flex;gap:8px;padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.search-wrap{flex:1;min-width:200px;position:relative}
+.search-wrap input{width:100%;padding:7px 12px 7px 34px;border:1.5px solid var(--border);border-radius:8px;font-size:.83rem;background:var(--card);color:var(--text)}
+.search-wrap::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.85rem;pointer-events:none}
+.mod-filter{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.mod-btn{border:1.5px solid var(--border);background:var(--bg);border-radius:6px;padding:4px 10px;font-size:.68rem;cursor:pointer;font-weight:600;transition:all .15s;text-decoration:none;color:var(--text);white-space:nowrap}
+.mod-btn:hover,.mod-btn.act{background:var(--primary);color:#fff;border-color:var(--primary)}
+.mod-btn.aucun.act{background:#f59e0b;border-color:#f59e0b;color:#fff}
+.mod-btn.aucun:hover{background:#f59e0b;border-color:#f59e0b;color:#fff}
+
+/* Table compact */
+#ctbTable th, #ctbTable td{padding:5px 8px;font-size:0.8rem;vertical-align:middle}
+.addr-cell{font-size:.72rem;color:var(--muted);max-width:160px}
+.contact-cell{font-size:.72rem;white-space:nowrap}
+
+/* ── Colonne manager ── */
+.col-manager-btn{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--border);background:var(--card);border-radius:8px;padding:5px 10px;font-size:.75rem;cursor:pointer;font-weight:600;color:var(--text);transition:all .2s;white-space:nowrap}
+.col-manager-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.col-panel{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.15);padding:14px 16px;z-index:500;min-width:200px;max-height:320px;overflow-y:auto}
+.col-panel.open{display:block}
+.col-panel label{display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;padding:5px 0;cursor:pointer;color:var(--text);user-select:none}
+.col-panel label input{accent-color:var(--primary);width:14px;height:14px}
+.col-panel-title{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+#ctbTable th{position:relative;user-select:none;}
+.col-resizer{position:absolute;right:0;top:0;height:100%;width:5px;cursor:col-resize;background:transparent;}
+.col-resizer:hover,.col-resizer.active{background:var(--primary);opacity:.4;}
+
+/* ═══════════════════════════════════════════
+   PRINT / PDF — PAYSAGE
+═══════════════════════════════════════════ */
+@media print {
+  @page { size: A4 landscape; margin: 10mm 12mm; }
+  .sidebar,.topbar,.stat-strip,.filter-bar,.btn,.no-print,
+  #ctbTable,.table-responsive,.pagination-bar { display:none !important; }
+  body{background:#fff;font-family:'Cairo',sans-serif}
+  .main{margin-left:0!important;padding:0!important}
+  .content{padding:0!important}
+  .card{border:none!important;box-shadow:none!important}
+  .card-header{display:none}
+  .print-section{display:block!important}
+}
+
+.print-section{display:none}
+
+/* Entête PDF */
+.pdf-header{
+  display:flex;align-items:stretch;border-bottom:3px solid #1e3a5f;
+  margin-bottom:14px;padding-bottom:12px;font-family:'Cairo',sans-serif;
+}
+.pdf-header .col-ar{flex:1;text-align:right;direction:rtl;line-height:1.7;font-size:10pt;color:#1e3a5f;font-weight:700}
+.pdf-header .col-logo{width:90px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 10px}
+.pdf-header .col-logo img{max-width:70px;max-height:70px;object-fit:contain}
+.pdf-header .col-logo .logo-fallback{font-size:2.8rem;line-height:1}
+.pdf-header .col-fr{flex:1;text-align:left;line-height:1.7;font-size:10pt;color:#1e3a5f;font-weight:700}
+
+.pdf-title{text-align:center;font-size:13pt;font-weight:900;color:#1e3a5f;
+  margin:10px 0 14px;font-family:'Cairo',sans-serif;border-bottom:1.5px solid #e2e8f0;padding-bottom:8px}
+
+.pdf-meta{display:flex;justify-content:space-between;font-size:8.5pt;
+  color:#555;margin-bottom:10px;font-family:'Cairo',sans-serif}
+
+/* Table PDF */
+.print-table{width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:8.5pt}
+.print-table th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:center;font-weight:800;border:1px solid #1e3a5f}
+.print-table td{padding:5px 7px;border:1px solid #c9d5e8;vertical-align:middle}
+.print-table tr:nth-child(even) td{background:#f0f4fb}
+.print-table .num-col{text-align:center;font-weight:700;width:30px}
+.print-table .ar-col{direction:rtl;text-align:right;font-size:9pt;font-weight:700}
+.print-table .addr-col{font-size:8pt;color:#444}
+.print-table .mod-col{text-align:center;font-size:7.5pt}
+.print-table .cin-col{text-align:center;font-family:monospace;font-size:8pt}
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- Stats -->
+<div class="stat-strip">
+  <div class="stat-card"><span style="font-size:1.4rem">👥</span>
+    <div><div class="sv">{{ items|length }}</div><div class="sl">Contribuables</div></div></div>
+  <div class="stat-card accent"><span style="font-size:1.4rem">📋</span>
+    <div><div class="sv" style="color:var(--accent)">{{ items|selectattr('modules')|list|length }}</div><div class="sl">Avec modules</div></div></div>
+  <div class="stat-card warn"><span style="font-size:1.4rem">⚪</span>
+    <div><div class="sv">{{ items|rejectattr('modules')|list|length }}</div><div class="sl">Sans module</div></div></div>
+  <div class="stat-card danger"><span style="font-size:1.4rem">⚠️</span>
+    <div><div class="sv">{{ "%.0f"|format(total_global_impaye) }}</div><div class="sl">Impayé (DH)</div></div></div>
+  <div class="stat-card ok"><span style="font-size:1.4rem">✅</span>
+    <div><div class="sv">{{ items|selectattr('total_impaye','equalto',0)|list|length }}</div><div class="sl">À jour</div></div></div>
+</div>
+
 <div class="card">
   <div class="card-header">
-    <h3>Liste des Contribuables ({{ items|length }})</h3>
-    <div class="df gap-2">
-      <a href="{{ url_for('contribuables.ajouter_contribuable') }}" class="btn btn-primary btn-sm">➕ Nouveau</a>
-      <a href="{{ url_for('export_excel', module='CONTRIBUABLES') }}" class="btn btn-success btn-sm">📊 Excel</a>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h3>📋 Liste des Contribuables ({{ items|length }})</h3>
+      <a href="{{ url_for('contribuables.export_excel') }}" class="btn btn-success btn-sm">📊 Excel</a>
+      <button onclick="window.print()" class="btn btn-warning btn-sm">🖨️ PDF</button>
+      <!-- Gestionnaire de colonnes -->
+      <div style="position:relative">
+        <button class="col-manager-btn" onclick="toggleColPanel()" id="colManagerBtn">⚙️ Colonnes</button>
+        <div class="col-panel" id="colPanel">
+          <div class="col-panel-title">Afficher / Masquer les colonnes</div>
+          <label><input type="checkbox" checked data-col="0" onchange="toggleCol(0,this.checked)"> Identité</label>
+          <label><input type="checkbox" checked data-col="1" onchange="toggleCol(1,this.checked)"> CIN / ICE</label>
+          <label><input type="checkbox" checked data-col="2" onchange="toggleCol(2,this.checked)"> Adresse</label>
+          <label><input type="checkbox" checked data-col="3" onchange="toggleCol(3,this.checked)"> Contact</label>
+          <label><input type="checkbox" checked data-col="4" onchange="toggleCol(4,this.checked)"> Modules Fiscaux</label>
+          <label><input type="checkbox" checked data-col="5" onchange="toggleCol(5,this.checked)"> Impayé</label>
+          <label><input type="checkbox" checked data-col="6" onchange="toggleCol(6,this.checked)"> Actions</label>
+        </div>
+      </div>
+    </div>
+    <a href="{{ url_for('contribuables.ajouter_contribuable') }}" class="btn btn-primary btn-sm">➕ Ajouter</a>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <input type="text" id="searchInput" value="{{ q }}" placeholder="Rechercher (nom, CIN, adresse, téléphone...)">
+    </div>
+    <div class="mod-filter">
+      <span style="font-size:.72rem;font-weight:700;color:var(--muted)">Modules :</span>
+      <a href="{{ url_for('contribuables.contribuables') }}"
+         class="mod-btn {% if not filtre_module %}act{% endif %}">Tous</a>
+      {% for code, label in module_labels.items() %}
+      <a href="{{ url_for('contribuables.contribuables', module=code) }}"
+         class="mod-btn {{ 'act' if filtre_module==code else '' }}">{{ label }}</a>
+      {% endfor %}
+      <a href="{{ url_for('contribuables.contribuables', module='AUCUN') }}"
+         class="mod-btn aucun {{ 'act' if filtre_module=='AUCUN' else '' }}">⚪ Sans module</a>
     </div>
   </div>
-  <div class="search-bar">
-    <form method="get" style="display:flex;gap:8px;flex:1">
-      <input name="q" value="{{ q }}" placeholder="Chercher: nom, prénom, اسم...">
-      <button type="submit" class="btn btn-primary btn-sm">🔍</button>
-      {% if q %}<a href="{{ url_for('contribuables.contribuables') }}" class="btn btn-outline btn-sm">✕</a>{% endif %}
-    </form>
-  </div>
+
+  <!-- Table écran -->
   <div class="table-responsive">
-    <table>
-      <thead><tr><th>CIN / ICE / RC</th><th>Type</th><th>Nom / الاسم</th><th>Adresse / العنوان</th><th>Tél.</th><th>Ville</th><th>Actions</th></tr></thead>
+    <table id="ctbTable">
+      <thead>
+        <tr>
+          <th>Identité du Contribuable<span class="col-resizer" data-col="0"></span></th>
+          <th>CIN / ICE<span class="col-resizer" data-col="1"></span></th>
+          <th>Adresse<span class="col-resizer" data-col="2"></span></th>
+          <th>Contact<span class="col-resizer" data-col="3"></span></th>
+          <th>Modules Fiscaux<span class="col-resizer" data-col="4"></span></th>
+          <th>⚠️ Impayé<span class="col-resizer" data-col="5"></span></th>
+          <th class="no-print">Actions</th>
+        </tr>
+      </thead>
       <tbody>
         {% for c in items %}
         <tr>
           <td>
-            {% if c.cin %}<strong style="color:var(--primary)">{{ c.cin }}</strong>{% endif %}
-            {% if c.ice %}<br><span style="font-size:.75rem;color:var(--muted)">ICE: {{ c.ice }}</span>{% endif %}
-            {% if c.rc %}<br><span style="font-size:.75rem;color:var(--muted)">RC: {{ c.rc }}</span>{% endif %}
-            {% if not c.cin and not c.ice and not c.rc %}<span style="color:var(--muted)">—</span>{% endif %}
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:.92rem;flex-shrink:0">{% if c.type_personne == 'morale' %}<span title="Personne Morale">🏢</span>{% else %}<span title="Personne Physique">👤</span>{% endif %}</span>
+              <div style="display:flex;align-items:center;gap:0;min-width:0;flex-wrap:nowrap">
+                <span style="font-weight:700;font-size:.82rem;white-space:nowrap">{{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}</span>
+                {% if c.nom_ar or c.raison_sociale_ar %}
+                <span style="margin:0 6px;color:var(--border);font-weight:400">│</span>
+                <span style="font-family:'Cairo',sans-serif;font-size:.82rem;font-weight:800;color:var(--primary);direction:rtl;white-space:nowrap">{{ (c.nom_ar ~ ' ' ~ (c.prenom_ar or '')) if c.nom_ar else c.raison_sociale_ar }}</span>
+                {% endif %}
+              </div>
+            </div>
           </td>
-          <td><span class="badge {{ 'b-info' if c.type_personne=='physique' else 'b-primary' }}">{{ c.type_personne }}</span></td>
+          <td style="font-size:.77rem">
+            {% if c.cin %}<div>🪪 {{ c.cin }}</div>{% endif %}
+            {% if c.ice %}<div>🏭 {{ c.ice }}</div>{% endif %}
+            {% if c.rc  %}<div style="color:var(--muted)">RC: {{ c.rc }}</div>{% endif %}
+          </td>
+          <td class="addr-cell">
+            {% if c.adresse %}<div title="{{ c.adresse }}">📍 {{ c.adresse[:40] }}{% if c.adresse|length > 40 %}…{% endif %}</div>{% endif %}
+            {% if c.adresse_ar %}<div style="direction:rtl;font-family:'Cairo',sans-serif;font-size:.72rem;color:var(--muted)">{{ c.adresse_ar[:35] }}</div>{% endif %}
+            {% if c.ville %}<div style="color:var(--muted)">🏙️ {{ c.ville }}</div>{% endif %}
+            {% if not c.adresse and not c.ville %}<span style="color:var(--muted)">—</span>{% endif %}
+          </td>
+          <td class="contact-cell">
+            {% if c.telephone %}<div>📞 {{ c.telephone }}</div>{% endif %}
+            {% if c.email %}<div style="font-size:.68rem;color:var(--accent)">✉️ {{ c.email[:25] }}{% if c.email|length > 25 %}…{% endif %}</div>{% endif %}
+            {% if not c.telephone and not c.email %}<span style="color:var(--muted)">—</span>{% endif %}
+          </td>
           <td>
-            <strong>{% if c.type_personne=='physique' %}{{ c.nom }} {{ c.prenom or '' }}{% else %}{{ c.raison_sociale or c.nom }}{% endif %}</strong>
-            {% if c.type_personne=='physique' and c.nom_ar %}
-            <br><span dir="rtl" style="font-size:.78rem;color:var(--muted)">{{ c.nom_ar }} {{ c.prenom_ar or '' }}</span>
-            {% elif c.raison_sociale_ar %}
-            <br><span dir="rtl" style="font-size:.78rem;color:var(--muted)">{{ c.raison_sociale_ar }}</span>
+            <div class="mod-tags">
+              {% for m in c.modules %}
+              <span class="mod-tag {{ m.code }}">{{ m.label }}</span>
+              {% else %}
+              <span style="font-size:.67rem;color:var(--muted);font-style:italic">Aucun</span>
+              {% endfor %}
+            </div>
+          </td>
+          <td>
+            {% if c.total_impaye > 0 %}
+            <span class="imp-pill has">⚠️ {{ "%.2f"|format(c.total_impaye) }} DH</span>
+            {% else %}
+            <span class="imp-pill ok">✅ À jour</span>
             {% endif %}
           </td>
-          <td style="max-width:180px">
-            <span style="font-size:.8rem">{{ c.adresse or '—' }}</span>
-            {% if c.adresse_ar %}<br><span dir="rtl" style="font-size:.78rem;color:var(--muted)">{{ c.adresse_ar }}</span>{% endif %}
-          </td>
-          <td>{{ c.telephone or '—' }}</td>
-          <td>{{ c.ville or '—' }}</td>
-          <td>
-            <div class="df gap-2">
-              <a href="{{ url_for('contribuables.modifier_contribuable', id=c.id) }}" class="btn btn-outline btn-xs">✏️</a>
-              {% if user.peut_supprimer %}
-              <form method="post" action="{{ url_for('contribuables.supprimer_contribuable', id=c.id) }}" data-confirm="danger" data-confirm-title="Confirmer la suppression" data-confirm-msg="Cette action est irréversible. Voulez-vous vraiment supprimer cet élément ?">
-                <button type="submit" class="btn btn-danger btn-xs">🗑️</button>
-              </form>
+          <td class="no-print">
+            <div class="df gap-1" style="flex-wrap:wrap">
+              <a href="{{ url_for('contribuables.ctb_detail', id=c.id) }}"
+                 class="btn btn-primary btn-xs" title="Détail complet">🔍 Détail</a>
+              {% if c.total_impaye > 0 %}
+              <a href="{{ url_for('contribuables.ctb_avis_non_paiement', id=c.id) }}"
+                 target="_blank" class="btn btn-xs" style="background:#fd7e14;color:#fff" title="Avis officiel">
+                📋 Avis
+              </a>
               {% endif %}
+              <a href="{{ url_for('contribuables.modifier_contribuable', id=c.id) }}"
+                 class="btn btn-outline btn-xs" title="Modifier">✏️</a>
             </div>
           </td>
         </tr>
@@ -61,8 +238,266 @@
       </tbody>
     </table>
   </div>
-  <div style="padding:10px 16px;background:var(--bg);font-size:.76rem;color:var(--muted);border-top:1px solid var(--border)">
-    Total: <strong>{{ items|length }}</strong> contribuable(s)
+</div>
+
+<!-- ═══════════ SECTION IMPRESSION PDF ═══════════ -->
+<div class="print-section">
+  <!-- En-tête officiel -->
+  <div class="pdf-header">
+    <div class="col-ar">
+      <div>المملكة المغربية</div>
+      <div>وزارة الداخلية</div>
+      <div>جهة {{ user.region_nom or '' }}</div>
+      <div>عمالة/إقليم {{ user.province_nom or '' }}</div>
+      <div>المصالح البلدية</div>
+    </div>
+    <div class="col-logo">
+      {% if commune_logo %}
+      <img src="{{ url_for('static', filename='uploads/' + commune_logo) }}" alt="Logo Commune">
+      {% else %}
+      <div class="logo-fallback">🏛️</div>
+      {% endif %}
+      <div style="font-size:7pt;font-weight:700;color:#1e3a5f;text-align:center;font-family:'Cairo',sans-serif">{{ user.commune_nom or 'جماعة' }}</div>
+    </div>
+    <div class="col-fr">
+      <div>Royaume du Maroc</div>
+      <div>Ministère de l'Intérieur</div>
+      <div>Région {{ user.region_nom or '' }}</div>
+      <div>Province/Préfecture {{ user.province_nom or '' }}</div>
+      <div>Services Municipaux</div>
+    </div>
+  </div>
+
+  <div class="pdf-title">
+    لائحة الملزمين / Liste des Contribuables
+    {% if filtre_module %} — Filtre : {{ module_labels.get(filtre_module, filtre_module) }}{% endif %}
+  </div>
+
+  <div class="pdf-meta">
+    <span>📅 Date d'édition : {{ today if today else '' }}</span>
+    <span>Total : {{ items|length }} contribuable(s)</span>
+    <span>Impayé global : {{ "%.2f"|format(total_global_impaye) }} DH</span>
+  </div>
+
+  <table class="print-table">
+    <thead>
+      <tr>
+        <th class="num-col">#</th>
+        <th style="width:14%">الاسم الكامل</th>
+        <th style="width:14%">Nom complet</th>
+        <th style="width:9%">CIN / ICE</th>
+        <th style="width:20%">العنوان / Adresse</th>
+        <th style="width:10%">الهاتف / Contact</th>
+        <th style="width:16%">الوحدات الجبائية / Modules</th>
+        <th style="width:10%">المبلغ المتأخر / Impayé</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in items %}
+      <tr>
+        <td class="num-col">{{ loop.index }}</td>
+        <td class="ar-col" style="font-family:'Cairo',sans-serif">
+          {{ (c.nom_ar ~ ' ' ~ (c.prenom_ar or '')) if c.nom_ar else (c.raison_sociale_ar or '—') }}
+        </td>
+        <td style="font-weight:600">
+          {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}
+        </td>
+        <td class="cin-col">{{ c.cin or c.ice or '—' }}</td>
+        <td class="addr-col">
+          {{ c.adresse or '' }}{% if c.adresse and c.ville %}, {% endif %}{{ c.ville or '' }}
+          {% if c.adresse_ar %}<br><span style="direction:rtl;display:block;font-family:'Cairo',sans-serif">{{ c.adresse_ar }}</span>{% endif %}
+        </td>
+        <td style="text-align:center;direction:ltr">{{ c.telephone or '—' }}</td>
+        <td class="mod-col">
+          {% for m in c.modules %}{{ m.label }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}
+        </td>
+        <td style="text-align:center;font-weight:700;color:{% if c.total_impaye > 0 %}#c0392b{% else %}#27ae60{% endif %}">
+          {% if c.total_impaye > 0 %}{{ "%.2f"|format(c.total_impaye) }} DH{% else %}À jour{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="background:#1e3a5f;color:#fff;font-weight:800">
+        <td colspan="7" style="text-align:right;padding:6px 10px;font-family:'Cairo',sans-serif">
+          المجموع / Total impayé :
+        </td>
+        <td style="text-align:center;padding:6px">{{ "%.2f"|format(total_global_impaye) }} DH</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div style="margin-top:30px;display:flex;justify-content:space-between;font-family:'Cairo',sans-serif;font-size:9pt">
+    <div style="text-align:center;width:35%">
+      <div>توقيع المسؤول / Signature</div>
+      <div style="margin-top:40px;border-top:1px solid #000;padding-top:4px">الاسم واللقب / Nom et Prénom</div>
+    </div>
+    <div style="text-align:center;width:35%">
+      <div>ختم الجماعة / Cachet</div>
+      <div style="margin-top:40px;height:60px;border:1px dashed #aaa;border-radius:50%;width:80px;margin:10px auto 0"></div>
+    </div>
   </div>
 </div>
+
+<script>
+const TODAY_STR = new Date().toISOString().split('T')[0];
+// Injecter la date dans le PDF
+document.querySelectorAll('.pdf-meta span').forEach(el => {
+  el.innerHTML = el.innerHTML.replace("{{ today if today else '' }}", TODAY_STR);
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    const table = document.getElementById("ctbTable");
+    if(!table) return;
+    const tbody = table.querySelector("tbody");
+    const allRows = Array.from(tbody.querySelectorAll("tr")).filter(r => !r.querySelector('td[colspan]'));
+    if(allRows.length === 0) return;
+    
+    let filteredRows = [...allRows];
+    
+    const controls = document.createElement("div");
+    controls.className = "pagination-bar no-print";
+    controls.style = "display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg);border-top:1px solid var(--border)";
+    
+    const leftDiv = document.createElement("div");
+    leftDiv.style = "display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600";
+    leftDiv.innerHTML = `<span>Afficher</span>`;
+    
+    const limitSelect = document.createElement("select");
+    limitSelect.innerHTML = `<option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="tous">Tous</option>`;
+    limitSelect.style = "padding:3px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:.8rem";
+    leftDiv.appendChild(limitSelect);
+    leftDiv.insertAdjacentHTML('beforeend', '<span>résultats par page</span>');
+    
+    const rightDiv = document.createElement("div");
+    rightDiv.style = "font-size:.78rem;color:var(--muted);font-weight:600";
+    
+    const pagination = document.createElement("div");
+    pagination.style = "display:flex;gap:4px";
+    
+    controls.appendChild(leftDiv);
+    controls.appendChild(pagination);
+    controls.appendChild(rightDiv);
+    table.parentNode.insertBefore(controls, table.nextSibling);
+    
+    let currentPage = 1;
+    
+    function render() {
+        const limitVal = limitSelect.value;
+        const totalRows = filteredRows.length;
+        const limit = limitVal === 'tous' ? totalRows : parseInt(limitVal);
+        const totalPages = Math.ceil(totalRows / Math.max(limit, 1));
+        if(currentPage > totalPages) currentPage = Math.max(totalPages, 1);
+        if(currentPage < 1) currentPage = 1;
+        const start = (currentPage - 1) * limit;
+        const end = limitVal === 'tous' ? totalRows : start + limit;
+        allRows.forEach(r => r.style.display = "none");
+        filteredRows.forEach((r, i) => { if(i >= start && i < end) r.style.display = ""; });
+        rightDiv.textContent = `${filteredRows.length} résultat(s) affiché(s)`;
+        pagination.innerHTML = "";
+        if(totalPages > 1) {
+            let sp = Math.max(1, currentPage - 2), ep = Math.min(totalPages, currentPage + 2);
+            if(sp > 1) { pagination.appendChild(createPageBtn(1)); if(sp > 2) pagination.insertAdjacentHTML('beforeend','<span style="padding:0 4px">…</span>'); }
+            for(let p = sp; p <= ep; p++) pagination.appendChild(createPageBtn(p));
+            if(ep < totalPages) { if(ep < totalPages-1) pagination.insertAdjacentHTML('beforeend','<span style="padding:0 4px">…</span>'); pagination.appendChild(createPageBtn(totalPages)); }
+        }
+    }
+    
+    function createPageBtn(p) {
+        const btn = document.createElement("button");
+        btn.textContent = p;
+        btn.style = `padding:3px 9px;border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:.78rem;background:${p===currentPage?'var(--primary)':'var(--card)'};color:${p===currentPage?'#fff':'var(--text)'}`;
+        btn.onclick = () => { currentPage = p; render(); window.scrollTo({top:0,behavior:'smooth'}); };
+        return btn;
+    }
+    
+    limitSelect.addEventListener("change", () => { currentPage = 1; render(); });
+    
+    const searchInput = document.getElementById("searchInput");
+    if(searchInput) {
+        searchInput.addEventListener("input", function() {
+            const term = this.value.trim().toLowerCase();
+            filteredRows = term === "" ? [...allRows] : allRows.filter(r => (r.innerText||"").toLowerCase().includes(term));
+            currentPage = 1;
+            render();
+        });
+    }
+    render();
+});
+
+// ── Gestionnaire colonnes (masquer/afficher) ──────────────
+function toggleColPanel() {
+  const panel = document.getElementById('colPanel');
+  panel.classList.toggle('open');
+}
+// Fermer si clic dehors
+document.addEventListener('click', function(e) {
+  const btn = document.getElementById('colManagerBtn');
+  const panel = document.getElementById('colPanel');
+  if (panel && !panel.contains(e.target) && e.target !== btn) {
+    panel.classList.remove('open');
+  }
+});
+
+function toggleCol(colIdx, visible) {
+  const table = document.getElementById('ctbTable');
+  if (!table) return;
+  // th
+  const ths = table.querySelectorAll('thead tr th');
+  if (ths[colIdx]) ths[colIdx].style.display = visible ? '' : 'none';
+  // td dans chaque ligne
+  table.querySelectorAll('tbody tr').forEach(row => {
+    const tds = row.querySelectorAll('td');
+    if (tds[colIdx]) tds[colIdx].style.display = visible ? '' : 'none';
+  });
+  // Sauvegarder état
+  const state = Array.from(document.querySelectorAll('.col-panel input[type=checkbox]'))
+    .map(cb => cb.checked);
+  localStorage.setItem('ctb_col_visibility', JSON.stringify(state));
+}
+
+// Restaurer l'état des colonnes au chargement
+(function restoreCols() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ctb_col_visibility') || '[]');
+    saved.forEach((visible, idx) => {
+      if (!visible) {
+        const cb = document.querySelector(`.col-panel input[data-col="${idx}"]`);
+        if (cb) { cb.checked = false; toggleCol(idx, false); }
+      }
+    });
+  } catch(e) {}
+})();
+
+// ── Resize des colonnes par drag ──────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  const table = document.getElementById('ctbTable');
+  if (!table) return;
+
+  let startX, startW, th;
+
+  table.querySelectorAll('.col-resizer').forEach(resizer => {
+    resizer.addEventListener('mousedown', function(e) {
+      th = this.closest('th');
+      startX = e.pageX;
+      startW = th.offsetWidth;
+      resizer.classList.add('active');
+
+      const onMove = function(ev) {
+        const newW = Math.max(40, startW + (ev.pageX - startX));
+        th.style.width = newW + 'px';
+        th.style.minWidth = newW + 'px';
+      };
+      const onUp = function() {
+        resizer.classList.remove('active');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    });
+  });
+});
+</script>
 {% endblock %}

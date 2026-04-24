@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block page_title %}Carnets — Régie{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Badges statut ── */
+.badge-stock   {background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap}
+.badge-affecte {background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap}
+.badge-consomme{background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap}
+
+/* ── Stats strip ── */
+.rg-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.rg-stat{background:var(--card);border-radius:12px;padding:13px 16px;box-shadow:var(--shadow);
+  border-left:4px solid var(--primary);display:flex;align-items:center;gap:10px}
+.rg-stat.blue {border-left-color:#3b82f6}.rg-stat.gold{border-left-color:#f59e0b}.rg-stat.green{border-left-color:#10b981}
+.rg-stat .rs-icon{font-size:1.35rem}
+.rg-stat .rs-val{font-size:1.15rem;font-weight:900;color:var(--primary)}
+.rg-stat.blue .rs-val{color:#3b82f6}.rg-stat.gold .rs-val{color:#f59e0b}.rg-stat.green .rs-val{color:#10b981}
+.rg-stat .rs-lbl{font-size:.62rem;color:var(--muted);font-weight:600;text-transform:uppercase}
+
+/* ── Filter bar ── */
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;background:var(--bg);border-bottom:1px solid var(--border);align-items:center}
+.filter-bar .search-wrap{flex:2;min-width:180px;position:relative}
+.filter-bar .search-wrap input{width:100%;padding:7px 12px 7px 34px;border:1.5px solid var(--border);border-radius:8px;font-size:.83rem;background:var(--card);color:var(--text)}
+.filter-bar .search-wrap::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.85rem;pointer-events:none}
+.filter-bar select{flex:1;min-width:130px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;background:var(--card);color:var(--text)}
+.fb-reset{display:inline-flex;align-items:center;gap:4px;background:none;border:1.5px solid var(--border);border-radius:8px;padding:6px 12px;font-size:.75rem;cursor:pointer;color:var(--muted);font-weight:700;text-decoration:none;white-space:nowrap;transition:all .2s}
+.fb-reset:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
+#filterCount{font-size:.72rem;color:var(--muted);white-space:nowrap;font-weight:700}
+
+/* ── Table ── */
+#carnetsTable th,#carnetsTable td{padding:8px 10px;font-size:.82rem;vertical-align:middle}
+.num-mono{font-family:monospace;font-weight:700;color:var(--primary)}
+.range-cell{font-family:monospace;font-size:.76rem;color:var(--muted)}
+.valeur-pill{display:inline-block;background:linear-gradient(135deg,var(--primary),var(--primary-l));color:#fff;border-radius:20px;padding:2px 10px;font-size:.73rem;font-weight:800}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Bandeau -->
+<div class="alert alert-info" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <span>📋 <strong>Gestion des Carnets</strong> — Suivi du stock central jusqu'à la consommation.</span>
+  <a href="{{ url_for('regie.paquets') }}" class="btn btn-outline btn-sm" style="background:#fff">📦 Gérer les Paquets</a>
+</div>
+
+<!-- Stats -->
+{% set nb_stock = carnets|selectattr('statut','equalto','en_stock')|list|length %}
+{% set nb_aff   = carnets|selectattr('statut','equalto','affecte') |list|length %}
+{% set nb_conso = carnets|selectattr('statut','equalto','consomme')|list|length %}
+<div class="rg-stats">
+  <div class="rg-stat">      <span class="rs-icon">📗</span><div><div class="rs-val">{{ carnets|length }}</div><div class="rs-lbl">Total carnets</div></div></div>
+  <div class="rg-stat blue"> <span class="rs-icon">🏦</span><div><div class="rs-val">{{ nb_stock }}</div><div class="rs-lbl">En stock</div></div></div>
+  <div class="rg-stat gold"> <span class="rs-icon">📤</span><div><div class="rs-val">{{ nb_aff }}</div><div class="rs-lbl">Affectés</div></div></div>
+  <div class="rg-stat green"><span class="rs-icon">✅</span><div><div class="rs-val">{{ nb_conso }}</div><div class="rs-lbl">Consommés</div></div></div>
+</div>
+
+<!-- Tableau -->
+<div class="card">
+  <div class="card-header">
+    <h3>📗 Carnets (<span id="carnetsCount">{{ carnets|length }}</span>)</h3>
+  </div>
+
+  <!-- Filtres -->
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Rechercher N° carnet, employé, service, type...">
+    </div>
+    <select id="fStatut" onchange="applyFilters()">
+      <option value="">— Tous les statuts —</option>
+      <option value="en_stock">📗 En stock</option>
+      <option value="affecte">📤 Affecté</option>
+      <option value="consomme">✅ Consommé</option>
+    </select>
+    <select id="fValeur" onchange="applyFilters()">
+      <option value="">— Tous les types —</option>
+      {% for v in valeurs %}
+      <option value="{{ v.id }}">{{ v.designation }}</option>
+      {% endfor %}
+    </select>
+    <select id="fService" onchange="applyFilters()">
+      <option value="">— Tous les services —</option>
+      {% for s in services %}
+      <option value="{{ s.id }}">{{ s.nom }}</option>
+      {% endfor %}
+    </select>
+    <select id="fEmploye" onchange="applyFilters()">
+      <option value="">— Tous les employés —</option>
+      {% for e in employes %}
+      <option value="{{ e.id }}">{{ e.nom }} {{ e.prenom or '' }}</option>
+      {% endfor %}
+    </select>
+    <button class="fb-reset" onclick="resetFilters()">✕ Réinitialiser</button>
+    <span id="filterCount"></span>
+  </div>
+
+  <div class="table-responsive">
+    <table id="carnetsTable">
+      <thead><tr>
+        <th>N° Carnet</th><th>Type</th><th>Plage</th>
+        <th>Statut</th><th>Service</th><th>Employé</th>
+        <th>Affecté le</th><th>Valeur totale</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+      {% for c in carnets %}
+      <tr class="carnet-row"
+          data-search="{{ c.numero_carnet|lower }} {{ (c.designation or '')|lower }} {{ (c.emp_nom or '')|lower }} {{ (c.emp_prenom or '')|lower }} {{ (c.service_nom or '')|lower }}"
+          data-statut="{{ c.statut }}"
+          data-valeur="{{ c.valeur_id }}"
+          data-service="{{ c.service_id or '' }}"
+          data-employe="{{ c.employe_id or '' }}">
+        <td><span class="num-mono">{{ c.numero_carnet }}</span></td>
+        <td><span class="badge b-info">{{ c.designation }}</span></td>
+        <td class="range-cell">{{ c.num_premier }} → {{ c.num_dernier }}</td>
+        <td>
+          {% if c.statut == 'en_stock' %}<span class="badge-stock">📗 Stock</span>
+          {% elif c.statut == 'affecte' %}<span class="badge-affecte">📤 Affecté</span>
+          {% else %}<span class="badge-consomme">✅ Consommé</span>{% endif %}
+        </td>
+        <td>{{ c.service_nom or '—' }}</td>
+        <td>
+          {% if c.emp_nom %}<div style="font-weight:600">{{ c.emp_nom }} {{ c.emp_prenom or '' }}</div>
+          {% else %}<span style="color:var(--muted)">—</span>{% endif %}
+        </td>
+        <td style="font-size:.78rem;color:var(--muted)">{{ c.date_affectation or '—' }}</td>
+        <td><span class="valeur-pill">{{ (c.valeur_unitaire * c.nb_unites_carnet)|int }} DH</span></td>
+        <td>
+          {% if c.statut == 'en_stock' %}
+          <button class="btn btn-outline btn-xs" onclick="openAffecter({{ c.id }}, '{{ c.numero_carnet }}')">📥 Affecter</button>
+          {% elif c.statut == 'affecte' %}
+          <a href="{{ url_for('regie.versements') }}" class="btn btn-xs" style="background:#10b981;color:#fff">💰 Verser</a>
+          {% else %}
+          <span style="font-size:.72rem;color:var(--muted)">Versé le {{ c.date_versement_employe or '—' }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty-state"><span class="ei">📗</span>Aucun carnet trouvé</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL AFFECTATION -->
+<div id="modalAffecter" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">📥 Affecter le carnet <span id="nomCarnet" style="color:var(--accent)"></span></div>
+      <button class="modal-close" onclick="document.getElementById('modalAffecter').style.display='none'">✕</button>
+    </div>
+    <form method="POST" id="formAffecter">
+      <div class="modal-body" style="display:grid;gap:14px">
+        <div class="form-group">
+          <label>Service *</label>
+          <select name="service_id" id="selService" required class="form-control" onchange="loadEmployes(this.value)">
+            <option value="">— Sélectionner un service —</option>
+            {% for s in services %}<option value="{{ s.id }}">{{ s.nom }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Employé *</label>
+          <select name="employe_id" id="selEmploye" required class="form-control">
+            <option value="">— Sélectionner d'abord un service —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Date d'affectation</label>
+          <input type="date" name="date_affectation" class="form-control" id="datAff">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modalAffecter').style.display='none'">Annuler</button>
+        <button type="submit" class="btn btn-primary">📥 Affecter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('datAff').value = new Date().toISOString().split('T')[0];
+
+function openAffecter(cid, num) {
+  document.getElementById('nomCarnet').textContent = num;
+  document.getElementById('formAffecter').action = '/regie/carnets/' + cid + '/affecter';
+  document.getElementById('selService').value = '';
+  document.getElementById('selEmploye').innerHTML = "<option>— Sélectionner d'abord un service —</option>";
+  document.getElementById('modalAffecter').style.display = 'flex';
+}
+
+function loadEmployes(sid) {
+  const sel = document.getElementById('selEmploye');
+  if (!sid) { sel.innerHTML = "<option>— Sélectionner d'abord un service —</option>"; return; }
+  fetch('/regie/config/employes-par-service/' + sid)
+    .then(r => r.json())
+    .then(data => {
+      sel.innerHTML = '<option value="">— Sélectionner un employé —</option>';
+      data.forEach(e => { const o = document.createElement('option'); o.value=e.id; o.textContent=e.nom+' '+(e.prenom||''); sel.appendChild(o); });
+    });
+}
+
+function applyFilters() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const statut  = document.getElementById('fStatut').value;
+  const valeur  = document.getElementById('fValeur').value;
+  const service = document.getElementById('fService').value;
+  const employe = document.getElementById('fEmploye').value;
+  let visible = 0;
+  document.querySelectorAll('.carnet-row').forEach(row => {
+    const show =
+      (!q       || row.dataset.search.includes(q)) &&
+      (!statut  || row.dataset.statut  === statut) &&
+      (!valeur  || row.dataset.valeur  === valeur) &&
+      (!service || row.dataset.service === service) &&
+      (!employe || row.dataset.employe === employe);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const total = document.querySelectorAll('.carnet-row').length;
+  document.getElementById('filterCount').textContent = (q||statut||valeur||service||employe) ? visible+'/'+total+' résultat(s)' : '';
+  document.getElementById('carnetsCount').textContent = visible || total;
+}
+
+function resetFilters() {
+  ['searchInput','fStatut','fValeur','fService','fEmploye'].forEach(id => document.getElementById(id).value='');
+  applyFilters();
+}
+
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+
+// Pré-appliquer depuis URL
+(function(){
+  const p = new URLSearchParams(location.search);
+  if(p.get('statut'))    document.getElementById('fStatut').value  = p.get('statut');
+  if(p.get('valeur_id')) document.getElementById('fValeur').value  = p.get('valeur_id');
+  if(p.get('service_id'))document.getElementById('fService').value = p.get('service_id');
+  if(p.get('employe_id'))document.getElementById('fEmploye').value = p.get('employe_id');
+  applyFilters();
+})();
+</script>
+{% endblock %}

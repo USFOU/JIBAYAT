@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Importer un Bordereau de Versement{% endblock %}
+{% block page_title %}📥 Importation des Bordereaux{% endblock %}
+
+{% block extra_head %}
+<style>
+.mod-header{
+  background: color-mix(in srgb, #27ae60 10%, transparent);
+  border: 1px solid color-mix(in srgb, #27ae60 25%, transparent);
+  border-left: 5px solid #27ae60;
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.mod-header-left { display: flex; align-items: center; gap: 14px; }
+.mod-header-icon {
+  width: 54px; height: 54px; border-radius: 14px;
+  background: color-mix(in srgb, #27ae60 15%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+  border: 1px solid color-mix(in srgb, #27ae60 30%, transparent);
+}
+.mod-header-title { font-size: 1.35rem; font-weight: 900; color: var(--primary); }
+.mod-header-sub { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+/* Drag and drop zone styling */
+.file-upload-wrapper {
+  position: relative;
+  width: 100%;
+  border: 2px dashed color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: 16px;
+  padding: 50px 20px;
+  text-align: center;
+  background: color-mix(in srgb, var(--primary) 3%, transparent);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  margin-bottom: 24px;
+}
+.file-upload-wrapper:hover, .file-upload-wrapper.dragover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-color: var(--primary);
+}
+.file-upload-icon {
+  font-size: 3rem;
+  color: var(--primary);
+  margin-bottom: 12px;
+}
+.file-upload-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+.file-upload-subtext {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.file-upload-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.filename-display {
+  display: none;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 16px;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+.filename-display i { color: #27ae60; font-size: 1.2rem; }
+
+.adv-config-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.adv-config-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Loading animation overlay */
+#loadingOverlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+  background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); z-index: 9999; 
+  flex-direction: column; justify-content: center; align-items: center;
+}
+.loader-spinner {
+  width: 70px; height: 70px; 
+  border: 5px solid color-mix(in srgb, var(--primary) 20%, transparent); 
+  border-top-color: var(--primary); 
+  border-radius: 50%; 
+  animation: spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite; 
+  margin-bottom: 24px;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.loader-title { font-size: 1.5rem; font-weight: 800; color: var(--primary); margin-bottom: 8px; }
+.loader-sub { font-size: 1rem; color: var(--muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="mod-header">
+  <div class="mod-header-left">
+    <div class="mod-header-icon">📥</div>
+    <div>
+      <div class="mod-header-title">Importer un Bordereau</div>
+      <div class="mod-header-sub">Téléchargez le fichier Excel GIR pour extraire et générer les PDF d'émission</div>
+    </div>
+  </div>
+  <div class="df gap-2" style="flex-wrap:wrap;">
+    <a href="{{ url_for('emission.dashboard') }}" class="btn btn-outline btn-sm">
+      <i class="bi bi-arrow-left"></i> Retour
+    </a>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+        <form method="post" action="{{ url_for('emission.upload') }}" enctype="multipart/form-data" id="uploadForm" onsubmit="document.getElementById('loadingOverlay').style.display='flex';">
+            
+            <div class="file-upload-wrapper" id="dropZone">
+                <div class="file-upload-icon">📄</div>
+                <div class="file-upload-text">Glissez-déposez le fichier Excel ici</div>
+                <div class="file-upload-subtext">ou cliquez pour parcourir (.xls, .xlsx)</div>
+                <input type="file" name="fichier" id="fileInput" accept=".xls,.xlsx" required class="file-upload-input">
+            </div>
+            
+            <div class="filename-display" id="filenameDisplay">
+                <i>✅</i> <span id="filenameText">fichier.xlsx</span>
+            </div>
+
+            <div class="adv-config-box mt-4">
+                <div class="adv-config-title">
+                    <span>⚙️</span> Options de lecture (Auto-détecté par défaut)
+                </div>
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label>Mois concerné</label>
+                        <select name="mois" class="form-control" style="cursor: pointer;">
+                            <option value="">-- Auto-détection --</option>
+                            <option value="1">Janvier</option>
+                            <option value="2">Février</option>
+                            <option value="3">Mars</option>
+                            <option value="4">Avril</option>
+                            <option value="5">Mai</option>
+                            <option value="6">Juin</option>
+                            <option value="7">Juillet</option>
+                            <option value="8">Août</option>
+                            <option value="9">Septembre</option>
+                            <option value="10">Octobre</option>
+                            <option value="11">Novembre</option>
+                            <option value="12">Décembre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label>Année concernée</label>
+                        <input type="number" name="annee" class="form-control" placeholder="Ex: {{ today.year }} (Laisser vide pour auto)">
+                    </div>
+                </div>
+                <div class="form-text mt-3 text-muted" style="font-size:0.8rem;">
+                    <i style="color:#e8a020">⚠️ Note :</i> Le système recherchera automatiquement <strong>"MOIS :"</strong> et <strong>"ANNEE :"</strong> dans l'en-tête du document. Il n'est pas nécessaire de remplir ces champs sauf si l'auto-détection échoue.
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end gap-3" style="margin-top: 30px;">
+                <a href="{{ url_for('emission.dashboard') }}" class="btn btn-outline" style="padding: 12px 24px;">Annuler</a>
+                <button type="submit" class="btn btn-primary" style="padding: 12px 24px; font-size: 1rem;" id="submitBtn" disabled>
+                    Importer et Générer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+    <div class="loader-spinner"></div>
+    <div class="loader-title">Traitement en cours...</div>
+    <div class="loader-sub">Veuillez patienter pendant la génération des bordereaux PDF et l'enregistrement des lignes.</div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const filenameDisplay = document.getElementById('filenameDisplay');
+    const filenameText = document.getElementById('filenameText');
+    const submitBtn = document.getElementById('submitBtn');
+
+    fileInput.addEventListener('change', function(e) {
+        if(this.files && this.files.length > 0) {
+            const fileName = this.files[0].name;
+            filenameText.textContent = fileName;
+            filenameDisplay.style.display = 'flex';
+            dropZone.style.borderColor = '#27ae60';
+            dropZone.style.background = 'color-mix(in srgb, #27ae60 5%, transparent)';
+            submitBtn.disabled = false;
+        } else {
+            filenameDisplay.style.display = 'none';
+            dropZone.style.borderColor = '';
+            dropZone.style.background = '';
+            submitBtn.disabled = true;
+        }
+    });
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+});
+</script>
+{% endblock %}

@@ -83,18 +83,49 @@
     margin-top: 4px;
   }
 
-  .box-office {
-    width: 30%;
-    border: 1.5px solid #1e3a5f;
-    border-radius: 6px;
-    padding: 10px 12px;
-    font-size: 10pt;
-    line-height: 2;
-    background: #f8f9fc;
-  }
-  .box-office .row-lbl { color: #555; font-size: 9.5pt; }
-  .box-office .row-val { font-weight: 700; border-bottom: 1px dotted #aaa; display: inline-block; min-width: 100px; }
+.box-office {
+  width: 30%;
+  border: 1.5px solid #1e3a5f;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 10pt;
+  background: #f8f9fc;
+}
 
+.box-header {
+  font-weight: 800;
+  font-size: 10.5pt;
+  color: #1e3a5f;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #1e3a5f;
+  padding-bottom: 4px;
+}
+
+.box-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.row-lbl {
+  color: #555;
+  font-size: 9.5pt;
+  white-space: nowrap;
+}
+
+.row-val {
+  font-weight: 700;
+  border-bottom: 1px dotted #aaa;
+  flex: 1;
+  min-width: 100px;
+}
+
+.sign-line {
+  height: 28px;
+  border-bottom: 1px dotted #aaa;
+  margin-top: 6px;
+}
   /* ── Titre Déclaration ── */
   .decl-title {
     text-align: center;
@@ -242,9 +273,7 @@
 
 <script>
   window.onload = function() {
-    {% if request.args.get('print') %}
     window.print();
-    {% endif %}
   };
 </script>
 
@@ -261,9 +290,9 @@
     <div style="font-size:13pt;font-weight:900">المملكة المغربية</div>
     <hr class="divider">
     <div>وزارة الداخلية</div>
-    <div style="font-size:10pt;color:#444">جهة {{ province }}</div>
-    <div style="font-size:10pt;color:#444">عمالة/إقليم {{ province }}</div>
-    <div style="margin-top:4px">جماعة <strong style="color:#c8a84b">{{ commune }}</strong></div>
+    <div style="font-size:10pt;color:#444">جهة {{ region_ar }}</div>
+    <div style="font-size:10pt;color:#444">عمالة/إقليم {{ province_ar }}</div>
+    <div style="margin-top:4px">جماعة <strong style="color:#c8a84b">{{ commune_ar }}</strong></div>
   </div>
 
   <!-- Centre : Intitulé taxe -->
@@ -277,15 +306,21 @@
 
   <!-- Gauche : Cadre réservé à la régie -->
   <div class="box-office">
-    <div style="font-weight:800;font-size:10.5pt;color:#1e3a5f;margin-bottom:6px;border-bottom:1px solid #1e3a5f;padding-bottom:4px">
+    <div class="box-header">
       يُخصَّص للمصلحة
     </div>
-    <div class="row-lbl">رقم الإقرار</div>
-    <div class="row-val">{{ decl.numero if decl else '' }}</div>
-    <div class="row-lbl" style="margin-top:6px">سُلِّم بتاريخ</div>
-    <div class="row-val"></div>
-    <div class="row-lbl" style="margin-top:6px">توقيع المسؤول</div>
-    <div style="height:28px;border-bottom:1px dotted #aaa"></div>
+    <div class="box-row">
+      <div class="row-lbl">رقم الإقرار</div>
+      <div class="row-val">{{ decl.numero if decl else '' }}</div>
+    </div>
+    <div class="box-row">
+      <div class="row-lbl">سُلِّم بتاريخ</div>
+      <div class="row-val"></div>
+    </div>
+    <div class="box-row">
+      <div class="row-lbl">توقيع المسؤول</div>
+      <div class="row-val"></div>
+    </div>
   </div>
 
 </div>
@@ -298,7 +333,7 @@
 
 <!-- ══════════ SECTION 1 : Identité ══════════ -->
 <div class="section">
-  <div class="section-title">أولاً — هوية المصرح &nbsp;|&nbsp; Identité du Déclarant</div>
+  <div class="section-title">هوية المصرح &nbsp;|&nbsp; Identité du Déclarant</div>
 
   <div class="field-row">
     <div class="field-label">الإسم الشخصي والعائلي أو الإسم التجاري :</div>
@@ -326,7 +361,7 @@
     <div class="field-label" style="margin-bottom:6px">صفة صاحب الإقرار :</div>
     <div class="checkboxes-row">
       <div class="chk-item">
-        <div class="chk-box">✓</div> <span>مالك</span>
+        <div class="chk-box">&nbsp;</div> <span>مالك</span>
       </div>
       <div class="chk-item">
         <div class="chk-box">&nbsp;</div> <span>مستغل</span>
@@ -341,7 +376,7 @@
 
 <!-- ══════════ SECTION 2 : Propriété ══════════ -->
 <div class="section">
-  <div class="section-title">ثانياً — بيانات العقار &nbsp;|&nbsp; Données du Terrain</div>
+  <div class="section-title">بيانات العقار &nbsp;|&nbsp; Données du Terrain</div>
 
   <div class="field-row">
     <div class="field-label">موقع العقار :</div>
@@ -365,11 +400,11 @@
   <div class="signature-grid">
     <div class="sig-box">
       <strong>مكان وتاريخ التوقيع</strong>
-      في ..............  بتاريخ : {{ decl.date_declaration if decl else '............' }}
+      في .......................................  بتاريخ : {{ decl.date_declaration if decl else '...............................' }}
     </div>
-    <div class="sig-box" style="min-width:180px">
+    <div class="sig-box" style="width:180px">
       <strong>إمضاء المصرح</strong>
-      <div style="height:40px"></div>
+      <div style="height:80px"></div>
     </div>
   </div>
 </div>

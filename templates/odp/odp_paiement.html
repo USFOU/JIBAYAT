@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% block title %}Paiement ODP — {{ occ.numero }}{% endblock %}
+{% block page_title %}🏪 Paiement ODP — {{ occ.numero }}{% endblock %}
+{% block extra_head %}
+<style>
+.ctb-bar { background:var(--card);border:1px solid var(--border);border-radius:10px; padding:10px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:.82rem; }
+.ctb-bar .ctb-item { display:flex;flex-direction:column; }
+.ctb-bar .ctb-lbl { font-size:.65rem;text-transform:uppercase;color:var(--muted);font-weight:700; }
+.ctb-bar .ctb-val { font-weight:700; }
+
+.year-block { border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden; }
+.year-head { display:flex;align-items:center;gap:8px;padding:9px 12px; background:var(--bg);cursor:pointer;border-bottom:1px solid var(--border); user-select:none; }
+.year-content { padding:10px; }
+.year-content.collapsed { display:none; }
+.year-label { font-weight:900;font-size:.92rem;color:var(--primary); }
+
+.trims-row { display:grid;grid-template-columns:repeat(4,1fr);gap:7px; }
+.tc { border:1.5px solid var(--border);border-radius:8px;padding:8px 10px; cursor:pointer;transition:all .18s;position:relative; }
+.tc.sel { border-color:var(--primary);background:rgba(37,99,235,.07); box-shadow:0 0 0 2px rgba(37,99,235,.2); }
+.tc.retard { border-left:3px solid var(--danger); }
+.tc input[type=checkbox] { position:absolute;top:6px;right:6px; width:14px;height:14px; }
+.tc-num { font-weight:900;font-size:.9rem;color:var(--primary); }
+.tc-calc { font-size:.68rem;margin-top:4px;line-height:1.7; display:none; }
+.tc.sel .tc-calc { display:block; }
+.tot-line { font-weight:900;color:var(--primary); }
+
+.grand-bar { background:linear-gradient(135deg,#1e3a5f,#2a5298);color:#fff; border-radius:9px;padding:12px 16px;margin-top:10px; display:none;justify-content:space-between;align-items:center; }
+.grand-bar.vis { display:flex; }
+.action-bar { display:none;margin-top:8px;gap:8px; }
+.action-bar.vis { display:flex; }
+
+/* Mode switch */
+.mode-switch { display:inline-flex;background:var(--bg);padding:4px;border-radius:8px;margin-bottom:14px;border:1px solid var(--border); }
+.mode-switch label { cursor:pointer;padding:6px 12px;font-size:.8rem;font-weight:700;border-radius:6px;transition:all .2s; }
+.mode-switch input { display:none; }
+.mode-switch input:checked + span { background:var(--primary);color:#fff;box-shadow:var(--shadow); }
+.mode-switch span { display:block;padding:6px 12px;border-radius:6px; }
+
+/* Année block pour par annee */
+.an-block { display:none; }
+.mode-annee .an-block { display:block; }
+.mode-annee .trims-row { display:none; }
+
+</style>
+{% endblock %}
+{% block content %}
+
+<div class="df gap-2 mb-3 flex-wrap">
+  <a href="{{ url_for('odp.odp_liste') }}" class="btn btn-outline btn-sm">← Liste ODP</a>
+  <a href="{{ url_for('odp.odp_detail', id=occ.id) }}" class="btn btn-outline btn-sm">🔍 Fiche</a>
+  <a href="{{ url_for('odp.odp_avis', id=occ.id) }}" target="_blank" class="btn btn-xs" style="background:#c8a84b;color:#fff;padding:7px 12px">📜 Avis de paiement</a>
+  <button onclick="openModal('renouvModal')" class="btn btn-primary btn-sm ml-auto">🔄 Renouveler (Auto Date)</button>
+</div>
+
+<div class="ctb-bar">
+  <div class="ctb-item"><span class="ctb-lbl">Autorisation ODP</span><span class="ctb-val">🏪 {{ occ.numero }}</span></div>
+  <div class="ctb-item"><span class="ctb-lbl">Contribuable</span><span class="ctb-val">{{ occ.nom }} {{ occ.prenom or occ.raison_sociale or '' }}</span></div>
+  <div class="ctb-item"><span class="ctb-lbl">Type</span><span class="badge b-info">{{ occ.type_occupation }}</span></div>
+  <div class="ctb-item"><span class="ctb-lbl">Superficie</span><span class="ctb-val" id="occ-sup">{{ occ.superficie }} m²</span></div>
+  <div class="ctb-item"><span class="ctb-lbl">Tarif</span><span class="ctb-val">{{ tarifs[0].valeur if tarifs else 50 }} DH/m²/an</span></div>
+  <div class="ctb-item"><span class="ctb-lbl">Date Fin Actuelle</span><span class="ctb-val {% if today > occ.date_fin %}text-danger{% else %}text-ok{% endif %}">{{ occ.date_fin or '—' }}</span></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px;align-items:start">
+
+<div class="card" id="decl-container">
+  <div class="card-header"><h3>⏱️ Périodes Non Payées</h3></div>
+  <div class="card-body">
+    
+    <div class="mode-switch">
+      <label><input type="radio" name="mode_paiement" value="trimestre" checked onchange="changeMode()"> <span>Par Trimestre</span></label>
+      <label><input type="radio" name="mode_paiement" value="annee" onchange="changeMode()"> <span>Par Année</span></label>
+    </div>
+
+    {% if non_payes_by_year %}
+    <form method="post" action="{{ url_for('odp.odp_declarer', id=occ.id) }}" id="declForm">
+      <input type="hidden" name="mode_paiement_hidden" id="mph" value="trimestre">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div><label style="font-size:.72rem;font-weight:700">N° Bulletin Versement *</label><input type="text" name="numero_bulletin" required placeholder="N° BV..." style="border:2px solid var(--accent);font-weight:700;padding:7px;width:100%"></div>
+        <div><label style="font-size:.72rem;font-weight:700">Date déclaration</label><input type="date" name="date_declaration" value="{{ today }}" required style="padding:7px;width:100%"></div>
+      </div>
+
+      {% for annee, trims in non_payes_by_year.items() %}
+      <div class="year-block" id="yb-{{ annee }}">
+        <div class="year-head" onclick="toggleYear({{ annee }})">
+          <span class="year-label">📅 {{ annee }}</span>
+        </div>
+        <div class="year-content" id="yc-{{ annee }}">
+          <!-- Par trimestre -->
+          <div class="trims-row">
+            {% for t in trims %}
+            <div class="tc {% if t.en_retard %}retard{% endif %}" id="tc-{{ annee }}-{{ t.trimestre }}" onclick="toggleTrim(this, '{{ annee }}_{{ t.trimestre }}')">
+              <input type="checkbox" name="trims" value="{{ annee }}_{{ t.trimestre }}" onclick="event.stopPropagation()">
+              <div class="tc-num">T{{ t.trimestre }}</div>
+              <div class="tc-label">{{ t.label }}</div>
+              <div class="tc-calc" id="calc-{{ annee }}-{{ t.trimestre }}">
+                <div>Rôle: <span id="p-{{ annee }}-{{ t.trimestre }}">0.00</span> DH</div>
+                <div class="tot-line">Total: <span id="tot-{{ annee }}-{{ t.trimestre }}">0.00</span> DH</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <!-- Par année -->
+          <div class="an-block">
+             <div class="tc {% if trims[0].en_retard %}retard{% endif %}" id="tc-{{ annee }}-0" onclick="toggleTrim(this, '{{ annee }}_0')">
+                <input type="checkbox" name="trims" value="{{ annee }}_0" onclick="event.stopPropagation()">
+                <div class="tc-num">Année entière {{ annee }}</div>
+                <div class="tc-calc" id="calc-{{ annee }}-0">
+                  <div>Rôle: <span id="p-{{ annee }}-0">0.00</span> DH</div>
+                  <div class="tot-line">Total: <span id="tot-{{ annee }}-0">0.00</span> DH</div>
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="grand-bar" id="grand-bar">
+        <div><div style="font-weight:700">TOTAL</div></div>
+        <span style="font-size:1.2rem;font-weight:900" id="grand-total">0.00 DH</span>
+      </div>
+
+      <div class="action-bar" id="action-bar">
+        <button type="submit" class="btn btn-primary" style="flex:2">📤 Valider & Créer Bulletin</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="empty-state"><span class="ei">✅</span>Toutes les périodes sont déclarées.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>📄 Historique</h3></div>
+  {% if declarations %}
+  <div class="table-responsive">
+    <table style="font-size:.78rem">
+      <thead><tr><th>An</th><th>Période</th><th>Total</th><th>Statut</th><th>Quitt.</th></tr></thead>
+      <tbody>
+        {% for d in declarations %}
+        <tr>
+          <td><strong>{{ d.annee }}</strong></td>
+          <td>{% if d.trimestre == 0 %}<span class="badge b-primary">Année Complète</span>{% else %}<span class="badge b-info">T{{ d.trimestre }}</span>{% endif %}</td>
+          <td><strong>{{ "%.2f"|format(d.montant_total) }} DH</strong></td>
+          <td><span class="badge {% if d.statut=='paye' %}b-ok{% else %}b-warn{% endif %}">{{ d.statut }}</span></td>
+          <td>{{ d.numero_quittance or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">Aucune déclaration.</div>
+  {% endif %}
+</div>
+</div>
+
+<!-- Modal Renouvellement -->
+<div class="modal-overlay" id="renouvModal">
+  <div class="modal">
+    <div class="modal-header"><h3>🔄 Renouveler l'Occupation</h3><button class="modal-close" onclick="closeModal('renouvModal')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="{{ url_for('odp.odp_renouveler', id=occ.id) }}">
+        <div class="form-group mb-3"><label>A partir de la date fin : <strong>{{ occ.date_fin }}</strong></label></div>
+        <div class="form-group mb-3">
+            <label>Durée du renouvellement *</label>
+            <select name="duree" required class="form-select">
+                <option value="1_trimestre">+ 1 Trimestre (3 mois)</option>
+                <option value="2_trimestres">+ 2 Trimestres (6 mois)</option>
+                <option value="1_an" selected>+ 1 Année</option>
+            </select>
+        </div>
+        <div class="alert alert-info">La date de fin sera recalculée automatiquement.</div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('renouvModal')">Annuler</button><button type="submit" class="btn btn-primary">🔄 Confirmer le renouvellement</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPERFICIE = {{ occ.superficie or 0 }};
+const TARIF_AN = {{ tarifs[0].valeur if tarifs else 50 }};
+let totaux = {};
+
+function changeMode() {
+    const isAnnee = document.querySelector('input[name="mode_paiement"]:checked').value === 'annee';
+    document.getElementById('mph').value = isAnnee ? 'annee' : 'trimestre';
+    if(isAnnee){
+        document.getElementById('decl-container').classList.add('mode-annee');
+    } else {
+        document.getElementById('decl-container').classList.remove('mode-annee');
+    }
+    // reset selection
+    document.querySelectorAll('input[name="trims"]').forEach(c => { c.checked = false; c.closest('.tc')?.classList.remove('sel'); });
+    totaux = {};
+    refreshUI();
+}
+
+function toggleTrim(card, key) {
+  const chk = card.querySelector('input[type=checkbox]');
+  chk.checked = !chk.checked;
+  
+  if (chk.checked) {
+    card.classList.add('sel');
+    let isAnnee = key.endsWith('_0');
+    let p = isAnnee ? (SUPERFICIE * TARIF_AN) : (SUPERFICIE * TARIF_AN / 4);
+    p = Math.round(p * 100) / 100;
+    totaux[key] = p;
+    document.getElementById('p-'+key).textContent = p.toFixed(2);
+    document.getElementById('tot-'+key).textContent = p.toFixed(2);
+  } else {
+    card.classList.remove('sel');
+    delete totaux[key];
+  }
+  refreshUI();
+}
+
+function refreshUI() {
+  const checked = [...document.querySelectorAll('input[name="trims"]:checked')];
+  let grand = 0;
+  checked.forEach(c => { grand += totaux[c.value] || 0; });
+  document.getElementById('grand-total').textContent = grand.toFixed(2) + ' DH';
+  const grandBar = document.getElementById('grand-bar');
+  const actionBar = document.getElementById('action-bar');
+  [grandBar, actionBar].forEach(el => { if (el) el.classList.toggle('vis', checked.length > 0); });
+}
+
+function toggleYear(annee) { document.getElementById(`yc-${annee}`).classList.toggle('collapsed'); }
+
+window.addEventListener('DOMContentLoaded', () => { changeMode(); });
+</script>
+{% endblock %}

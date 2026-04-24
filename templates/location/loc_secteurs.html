@@ -1,0 +1,816 @@
+{% extends 'base.html' %}
+{% block title %}Configuration Secteurs — Location Locaux{% endblock %}
+{% block page_title %}🏢 Secteurs & Tarifs — Location Locaux Commerciaux{% endblock %}
+{% block extra_head %}
+<style>
+/* ══ Layout ══ */
+.sec-layout{display:grid;grid-template-columns:1fr;gap:16px}
+
+/* ══ Hero ══ */
+.hero-sec{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 60%,#1d4ed8 100%);
+  color:#fff;border-radius:16px;padding:20px 24px;margin-bottom:16px;
+  display:flex;align-items:center;gap:16px;box-shadow:0 4px 20px rgba(37,99,235,.4)}
+.hero-sec-icon{font-size:2.4rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.hero-sec h2{margin:0;font-size:1.05rem;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.hero-sub{font-size:.72rem;opacity:.8;margin-top:3px;line-height:1.5}
+.hero-actions{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+
+/* ══ KPIs ══ */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:18px}
+.kpi-c{background:var(--card);border-radius:12px;padding:14px;text-align:center;
+  box-shadow:var(--shadow);border-top:3px solid var(--primary);transition:transform .15s}
+.kpi-c:hover{transform:translateY(-2px)}
+.kpi-c.green{border-top-color:#10b981}.kpi-c.orange{border-top-color:#f59e0b}
+.kpi-c.purple{border-top-color:#7c3aed}.kpi-c.red{border-top-color:#ef4444}
+.kpi-c.teal{border-top-color:#0d9488}
+.kpi-v{font-size:1.6rem;font-weight:900;color:var(--primary)}
+.kpi-c.green .kpi-v{color:#10b981}.kpi-c.orange .kpi-v{color:#f59e0b}
+.kpi-c.purple .kpi-v{color:#7c3aed}.kpi-c.red .kpi-v{color:#ef4444}
+.kpi-c.teal .kpi-v{color:#0d9488}
+.kpi-l{font-size:.58rem;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:4px}
+
+/* ══ Tabs ══ */
+.sec-tabs{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border)}
+.sec-tab{padding:9px 18px;font-size:.78rem;font-weight:700;cursor:pointer;
+  border:none;background:none;color:var(--muted);position:relative;top:2px;
+  border-bottom:2px solid transparent;transition:all .15s;border-radius:8px 8px 0 0}
+.sec-tab:hover{color:var(--primary);background:rgba(37,99,235,.05)}
+.sec-tab.active{color:var(--primary);border-bottom-color:var(--primary);background:var(--card)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+/* ══ Workflow Steps ══ */
+.workflow-bar{display:flex;align-items:center;gap:0;margin-bottom:18px;overflow-x:auto;
+  background:var(--card);border-radius:12px;padding:14px 18px;box-shadow:var(--shadow)}
+.wf-step{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;
+  font-size:.75rem;font-weight:700;color:var(--muted);white-space:nowrap;transition:all .2s;
+  cursor:default}
+.wf-step.done{color:#065f46;background:#d1fae5}
+.wf-step.active-step{color:#1e40af;background:#dbeafe;box-shadow:0 2px 8px rgba(37,99,235,.2)}
+.wf-arrow{color:var(--muted);font-size:.9rem;margin:0 2px;flex-shrink:0}
+
+/* ══ Secteur card ══ */
+.tree-secteur{margin-bottom:14px;border:1.5px solid var(--border);border-radius:14px;
+  overflow:hidden;box-shadow:var(--shadow);transition:box-shadow .2s}
+.tree-secteur:hover{box-shadow:0 4px 20px rgba(0,0,0,.1)}
+.tree-sec-header{display:flex;align-items:center;gap:10px;padding:13px 18px;
+  background:linear-gradient(90deg,rgba(37,99,235,.08),var(--card));
+  border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.tree-sec-header:hover{background:linear-gradient(90deg,rgba(37,99,235,.15),var(--bg))}
+.tree-sec-code{font-family:monospace;font-size:.72rem;background:var(--primary);color:#fff;
+  border-radius:6px;padding:3px 9px;font-weight:800;letter-spacing:.5px}
+.tree-sec-label{font-weight:800;font-size:.92rem;flex:1;color:var(--text)}
+.sec-badge{font-size:.62rem;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:2px 8px;color:var(--muted);font-weight:700}
+.tree-sec-body{background:var(--card)}
+
+/* ══ Tarif card ══ */
+.tree-tarif{margin:10px 14px;border:1.5px solid var(--border);border-radius:10px;
+  overflow:hidden;background:var(--bg);transition:box-shadow .15s}
+.tree-tarif:hover{box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.tarif-header-row{display:flex;align-items:center;gap:8px;padding:10px 14px;
+  border-bottom:1px solid var(--border);background:var(--card);cursor:pointer}
+.tarif-header-row:hover{background:var(--bg)}
+.tarif-name{font-weight:800;font-size:.84rem;flex:1}
+.tarif-valeur{font-size:1.05rem;font-weight:900;color:var(--primary)}
+.tarif-arrete-val{font-size:.8rem;font-weight:900;color:#10b981}
+.tarif-unite{font-size:.65rem;color:var(--muted);font-weight:700}
+.badge-fixe{background:#dbeafe;color:#1e40af;border-radius:12px;padding:2px 8px;font-size:.6rem;font-weight:800}
+.badge-m2{background:#fce7f3;color:#9d174d;border-radius:12px;padding:2px 8px;font-size:.6rem;font-weight:800}
+.badge-inactif{background:#f3f4f6;color:#6b7280;border-radius:12px;padding:2px 8px;font-size:.6rem;font-weight:800}
+.sync-ok{background:#d1fae5;color:#065f46;border-radius:12px;padding:2px 8px;font-size:.6rem;font-weight:800}
+.sync-warn{background:#fef3c7;color:#92400e;border-radius:12px;padding:2px 8px;font-size:.6rem;font-weight:800}
+.sync-none{background:#fee2e2;color:#dc2626;border-radius:12px;padding:2px 8px;font-size:.6rem;font-weight:800}
+
+/* ══ Boutiques ══ */
+.boutiques-grid{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px}
+.boutique-chip{display:flex;align-items:center;gap:5px;border-radius:8px;padding:5px 10px;
+  font-size:.72rem;font-weight:700;border:1.5px solid;cursor:default;
+  position:relative;transition:all .15s}
+.boutique-chip:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.bc-disponible{background:#d1fae5;border-color:#6ee7b7;color:#065f46}
+.bc-exploitee{background:#dbeafe;border-color:#93c5fd;color:#1e40af}
+.bc-reservee{background:#fef3c7;border-color:#fcd34d;color:#78350f}
+.bc-num{font-family:monospace;font-weight:900;font-size:.78rem}
+.bc-sup{font-size:.6rem;opacity:.75}
+.bc-tenant{font-size:.6rem;color:#1e40af;font-weight:700}
+.bc-actions{display:none;position:absolute;top:-2px;right:-2px;gap:2px}
+.boutique-chip:hover .bc-actions{display:flex}
+.stat-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+
+/* ══ Empty ══ */
+.empty-tree{padding:20px;text-align:center;color:var(--muted);font-size:.78rem;font-style:italic}
+
+/* ══ BNE Table ══ */
+.bne-table th{font-size:.68rem;font-weight:800;text-transform:uppercase;color:var(--muted)}
+.bne-table td{font-size:.78rem;vertical-align:middle;padding:8px 10px}
+.bne-table tr:hover td{background:rgba(37,99,235,.04)}
+
+/* ══ Modal ══ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;
+  align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.modal-overlay.open{display:flex!important}
+.modal-box{background:var(--card);border-radius:16px;width:min(500px,95vw);
+  max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.35);
+  animation:slideUp .2s ease}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-head{padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;background:var(--bg);
+  border-radius:16px 16px 0 0}
+.modal-head h3{margin:0;font-size:.9rem;font-weight:900}
+.modal-body{padding:16px 18px}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--border);
+  display:flex;justify-content:flex-end;gap:8px;background:var(--bg);border-radius:0 0 16px 16px}
+.type-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.type-opt{border:2px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;
+  text-align:center;font-size:.75rem;font-weight:700;transition:all .15s}
+.type-opt.sel{border-color:var(--primary);background:rgba(37,99,235,.07);color:var(--primary)}
+.type-opt:hover{border-color:var(--primary-l)}
+
+/* ══ Sync banner ══ */
+.sync-banner{background:linear-gradient(90deg,#fffbeb,#fef3c7);border:1.5px solid #fcd34d;
+  border-radius:10px;padding:10px 14px;margin:10px 14px;font-size:.75rem;color:#92400e;
+  display:flex;align-items:center;gap:8px}
+.sync-banner.ok{background:linear-gradient(90deg,#f0fdf4,#dcfce7);border-color:#86efac;color:#166534}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<div class="hero-sec">
+  <div class="hero-sec-icon">🏢</div>
+  <div style="flex:1">
+    <h2>Configuration Secteurs & Tarifs — Location Locaux Commerciaux</h2>
+    <div class="hero-sub">
+      Workflow : <strong>Secteur</strong> → <strong>Groupe Tarif</strong> → <strong>Boutiques</strong> → <strong>Affecter Locataire</strong> → <strong>Arrêté Fiscal</strong>
+    </div>
+  </div>
+  <div class="hero-actions">
+    <a href="{{ url_for('loc.loc_liste') }}" class="btn btn-outline btn-sm"
+       style="color:#fff;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)">
+      📋 Baux
+    </a>
+    {% if user.peut_config %}
+    <form method="post" action="{{ url_for('loc.loc_sync_tarifs_fiscal') }}" style="display:inline">
+      <button type="submit" class="btn btn-sm"
+              style="background:rgba(16,185,129,.3);color:#fff;border:1px solid rgba(16,185,129,.5)">
+        🔄 Sync Global
+      </button>
+    </form>
+    <button onclick="openModal('modalAddSec')" class="btn btn-sm"
+            style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)">
+      ➕ Secteur
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Workflow bar -->
+{% set ns = namespace(nb_tarifs=0, nb_bout=0, nb_baux=0, nb_nosync=0) %}
+{% for d in data %}
+  {% set ns.nb_tarifs = ns.nb_tarifs + d.tarifs|length %}
+  {% for td in d.tarifs %}
+    {% set ns.nb_bout = ns.nb_bout + td.boutiques|length %}
+    {% set ns.nb_baux = ns.nb_baux + td.nb_baux %}
+    {% if not td.tarif.synchro_ok %}{% set ns.nb_nosync = ns.nb_nosync + 1 %}{% endif %}
+  {% endfor %}
+{% endfor %}
+
+<div class="workflow-bar">
+  <div class="wf-step {{ 'done' if data|length > 0 else '' }}">
+    <span>🏢</span> {{ data|length }} Secteur(s)
+  </div>
+  <span class="wf-arrow">→</span>
+  <div class="wf-step {{ 'done' if ns.nb_tarifs > 0 else '' }}">
+    <span>💰</span> {{ ns.nb_tarifs }} Groupe(s) Tarif
+  </div>
+  <span class="wf-arrow">→</span>
+  <div class="wf-step {{ 'done' if ns.nb_bout > 0 else '' }}">
+    <span>🏪</span> {{ ns.nb_bout }} Boutique(s)
+  </div>
+  <span class="wf-arrow">→</span>
+  <div class="wf-step {{ 'done' if ns.nb_baux > 0 else '' }}">
+    <span>📋</span> {{ ns.nb_baux }} Bail(aux)
+  </div>
+  <span class="wf-arrow">→</span>
+  <div class="wf-step {{ 'done' if arrete_actif and ns.nb_nosync == 0 else ('active-step' if arrete_actif else '') }}">
+    <span>📜</span>
+    {% if arrete_actif %}
+      {{ arrete_actif.numero }}
+      {% if ns.nb_nosync > 0 %}
+        <span style="background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:.6rem">
+          {{ ns.nb_nosync }} non sync
+        </span>
+      {% else %}
+        ✅
+      {% endif %}
+    {% else %}
+      Aucun arrêté actif
+    {% endif %}
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-row">
+  <div class="kpi-c"><div class="kpi-v">{{ data|length }}</div><div class="kpi-l">Secteurs</div></div>
+  <div class="kpi-c purple"><div class="kpi-v">{{ ns.nb_tarifs }}</div><div class="kpi-l">Groupes Tarif</div></div>
+  <div class="kpi-c orange"><div class="kpi-v">{{ ns.nb_bout }}</div><div class="kpi-l">Boutiques</div></div>
+  <div class="kpi-c green"><div class="kpi-v">{{ ns.nb_baux }}</div><div class="kpi-l">Baux actifs</div></div>
+  <div class="kpi-c red"><div class="kpi-v">{{ boutiques_non_exploitees|length }}</div><div class="kpi-l">Disponibles</div></div>
+  {% if ns.nb_nosync > 0 %}
+  <div class="kpi-c" style="border-top-color:#f59e0b">
+    <div class="kpi-v" style="color:#f59e0b">{{ ns.nb_nosync }}</div>
+    <div class="kpi-l">Non sync arrêté</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tabs -->
+<div class="sec-tabs">
+  <button class="sec-tab active" onclick="showSecTab('cfg',this)">⚙️ Configuration</button>
+  <button class="sec-tab" onclick="showSecTab('bne',this)">
+    🔴 Disponibles
+    {% if boutiques_non_exploitees %}<span class="badge b-danger ml-1">{{ boutiques_non_exploitees|length }}</span>{% endif %}
+  </button>
+  {% if arrete_actif %}
+  <button class="sec-tab" onclick="showSecTab('fiscal',this)">
+    📜 Arrêté Fiscal
+    {% if ns.nb_nosync > 0 %}<span class="badge b-warn ml-1">{{ ns.nb_nosync }}</span>{% endif %}
+  </button>
+  {% endif %}
+</div>
+
+<!-- ══ TAB : Configuration ══════════════════════════════════ -->
+<div class="tab-pane active" id="tab-cfg">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span style="font-size:.78rem;color:var(--muted);font-weight:700">{{ data|length }} secteur(s) configuré(s)</span>
+  </div>
+
+  {% for d in data %}
+  {% set s = d.secteur %}
+  <div class="tree-secteur">
+
+    <!-- En-tête secteur -->
+    <div class="tree-sec-header" onclick="toggleTree('sec-{{ s.id }}')">
+      <span class="tree-sec-code">{{ s.code }}</span>
+      <span class="tree-sec-label">{{ s.libelle }}</span>
+      {% if s.description %}
+      <span style="font-size:.68rem;color:#94a3b8;font-style:italic;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.description }}</span>
+      {% endif %}
+      <span class="sec-badge">{{ d.tarifs|length }} tarif(s)</span>
+      <span class="sec-badge" style="{{ 'background:#d1fae5;color:#065f46;border-color:#6ee7b7' if d.nb_baux > 0 else '' }}">{{ d.nb_baux }} bail(aux)</span>
+      {% if user.peut_config %}
+      <button class="btn btn-outline btn-xs"
+              onclick="event.stopPropagation();openEditSec({{ s.id }},'{{ s.code }}','{{ s.libelle }}','{{ s.description|default('') }}',{{ s.ordre or 0 }})">✏️</button>
+      <form method="post" action="{{ url_for('loc.loc_secteur_supprimer', id=s.id) }}"
+            onsubmit="event.stopPropagation();return confirm('Supprimer ce secteur et tous ses tarifs/boutiques ?')">
+        <button class="btn btn-xs" style="background:#fee2e2;color:#dc2626;border:none">🗑️</button>
+      </form>
+      {% endif %}
+      <span id="chev-sec-{{ s.id }}">▼</span>
+    </div>
+
+    <!-- Corps secteur -->
+    <div class="tree-sec-body" id="sec-{{ s.id }}">
+
+      {% for td in d.tarifs %}
+      {% set t = td.tarif %}
+      <div class="tree-tarif">
+        <!-- Header tarif -->
+        <div class="tarif-header-row" onclick="toggleTree('tarif-{{ t.id }}')">
+          <span style="font-size:.9rem">💰</span>
+          <span class="tarif-name">{{ t.libelle }}</span>
+
+          <!-- Valeur loc_tarif (base) -->
+          <div style="text-align:right;min-width:80px">
+            <div style="font-size:.62rem;color:var(--muted);font-weight:700">Base</div>
+            <span class="tarif-valeur">{{ "%.2f"|format(t.valeur) }}</span>
+            <span class="tarif-unite">{{ t.unite }}</span>
+          </div>
+
+          <!-- Valeur arrêté fiscal -->
+          {% if t.valeur_arrete is not none %}
+          <div style="text-align:right;min-width:90px;border-left:1.5px solid var(--border);padding-left:10px">
+            <div style="font-size:.62rem;color:#065f46;font-weight:700">Arrêté</div>
+            <span class="tarif-arrete-val">{{ "%.2f"|format(t.valeur_arrete) }}</span>
+            <span class="tarif-unite">DH</span>
+          </div>
+          {% endif %}
+
+          <!-- Badges -->
+          <span class="{{ 'badge-m2' if t.type_tarif=='m2' else 'badge-fixe' }}">
+            {{ 'Au m²' if t.type_tarif=='m2' else 'Forfait' }}
+          </span>
+          {% if not t.actif %}<span class="badge-inactif">Inactif</span>{% endif %}
+
+          <!-- Synchro indicator -->
+          {% if t.tarif_fiscal_id %}
+            {% if t.synchro_ok %}
+            <span class="sync-ok" title="Synchronisé avec l'arrêté fiscal">✅ Sync</span>
+            {% else %}
+            <span class="sync-warn" title="Valeur locale différente de l'arrêté fiscal">⚠️ Diff.</span>
+            {% endif %}
+          {% else %}
+          <span class="sync-none" title="Pas encore dans l'arrêté fiscal">⭕ Non sync</span>
+          {% endif %}
+
+          <span style="font-size:.65rem;color:var(--muted)">{{ td.boutiques|length }} 🏪</span>
+
+          {% if user.peut_config %}
+          <button class="btn btn-outline btn-xs"
+                  onclick="event.stopPropagation();openEditTarif({{ t.id }},'{{ t.libelle }}','{{ t.type_tarif }}',{{ t.valeur }},{{ 1 if t.actif else 0 }})">✏️</button>
+          {% if t.tarif_fiscal_id is none %}
+          <form method="post" action="{{ url_for('loc.loc_sync_tarif_un', id=t.id) }}" style="display:inline"
+                onclick="event.stopPropagation()">
+            <button class="btn btn-xs" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d"
+                    title="Synchroniser ce tarif avec l'arrêté fiscal">🔄</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{{ url_for('loc.loc_tarif_supprimer', id=t.id) }}"
+                onsubmit="event.stopPropagation();return confirm('Supprimer ce tarif et ses boutiques ?')">
+            <button class="btn btn-xs" style="background:#fee2e2;color:#dc2626;border:none">🗑️</button>
+          </form>
+          {% endif %}
+          <span id="chev-tarif-{{ t.id }}">▾</span>
+        </div>
+
+        <!-- Boutiques -->
+        <div id="tarif-{{ t.id }}" style="">
+          {% if t.valeur_arrete is not none and not t.synchro_ok %}
+          <div class="sync-banner">
+            ⚠️ La valeur locale ({{ "%.2f"|format(t.valeur) }} DH) diffère de l'arrêté fiscal ({{ "%.2f"|format(t.valeur_arrete) }} DH).
+            Le calcul des loyers utilisera la valeur de l'arrêté.
+          </div>
+          {% endif %}
+          {% if t.tarif_fiscal_id and t.synchro_ok %}
+          <div class="sync-banner ok">
+            ✅ Synchronisé avec l'arrêté fiscal. Loyer appliqué : <strong>{{ "%.2f"|format(t.valeur_arrete) }} DH</strong>
+            {% if t.date_arrete %} depuis le {{ t.date_arrete[:10] }}{% endif %}
+          </div>
+          {% endif %}
+
+          <div class="boutiques-grid">
+            {% for b in td.boutiques %}
+            <div class="boutique-chip bc-{{ b.statut }}"
+                 title="{{ b.libelle or b.numero }}{% if b.superficie %} — {{ b.superficie }}m²{% endif %}{% if b.statut=='exploitee' %} — Exploitée{% endif %}">
+              <span class="bc-num">N°{{ b.numero }}</span>
+              {% if b.superficie %}<span class="bc-sup">{{ b.superficie }}m²</span>{% endif %}
+              {% if b.statut == 'exploitee' %}<span class="bc-tenant">🔵</span>{% endif %}
+              {% if b.statut == 'disponible' %}<span class="bc-tenant" style="color:#065f46">✅</span>{% endif %}
+              <span class="bc-actions">
+                {% if user.peut_config %}
+                <button class="btn btn-xs" style="padding:1px 5px;font-size:.6rem"
+                        onclick="openEditBoutique({{ b.id }},'{{ b.numero }}','{{ b.libelle|default('') }}',{{ b.superficie or 0 }},'{{ b.statut }}')">✏️</button>
+                {% if b.statut == 'disponible' %}
+                <a href="{{ url_for('loc.loc_liste') }}?preboutique={{ b.id }}"
+                   class="btn btn-xs" style="padding:1px 5px;font-size:.6rem;background:#d1fae5;color:#065f46;border:none"
+                   title="Affecter un locataire">📋</a>
+                {% endif %}
+                <form method="post" action="{{ url_for('loc.loc_boutique_supprimer', id=b.id) }}"
+                      onsubmit="return confirm('Supprimer boutique N°{{ b.numero }} ?')">
+                  <button class="btn btn-xs" style="padding:1px 5px;background:#fee2e2;color:#dc2626;border:none;font-size:.6rem">✕</button>
+                </form>
+                {% endif %}
+              </span>
+            </div>
+            {% else %}
+            <div class="empty-tree">Aucune boutique — ajoutez-en ci-dessous</div>
+            {% endfor %}
+          </div>
+
+          <!-- Légende -->
+          <div style="padding:0 14px 6px;display:flex;gap:12px;font-size:.62rem;color:var(--muted)">
+            <span><span class="stat-dot" style="background:#10b981"></span>Disponible</span>
+            <span><span class="stat-dot" style="background:#3b82f6"></span>Exploitée</span>
+            <span><span class="stat-dot" style="background:#f59e0b"></span>Réservée</span>
+          </div>
+
+          {% if user.peut_config %}
+          <div style="padding:6px 14px 12px">
+            <button onclick="openAddBoutique({{ t.id }},'{{ t.libelle }}')"
+                    class="btn btn-outline btn-xs" style="width:100%;justify-content:center">
+              ➕ Ajouter boutique(s) au tarif « {{ t.libelle }} »
+            </button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Ajouter un tarif -->
+      {% if user.peut_config %}
+      <div style="display:flex;gap:6px;padding:10px 14px 14px;justify-content:flex-end">
+        <button onclick="openAddTarif({{ s.id }},'{{ s.libelle }}')"
+                class="btn btn-outline btn-sm">
+          ➕ Nouveau groupe de tarif
+        </button>
+      </div>
+      {% endif %}
+      {% if not d.tarifs %}
+      <div class="empty-tree">
+        Aucun tarif configuré dans ce secteur.<br>
+        <button onclick="openAddTarif({{ s.id }},'{{ s.libelle }}')" class="btn btn-primary btn-sm" style="margin-top:8px">➕ Créer le premier tarif</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="empty-state"><span class="ei">🏢</span>Aucun secteur configuré. Commencez par créer un secteur.</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ══ TAB : Boutiques Disponibles ════════════════════════ -->
+<div class="tab-pane" id="tab-bne">
+  <div class="card">
+    <div class="card-header">
+      <h3>🏪 Boutiques Disponibles / Non Exploitées</h3>
+      <span class="badge b-danger">{{ boutiques_non_exploitees|length }}</span>
+    </div>
+    {% if boutiques_non_exploitees %}
+    <div class="table-responsive">
+      <table class="bne-table">
+        <thead><tr>
+          <th>N° Boutique</th><th>Secteur</th><th>Groupe Tarif</th><th>Loyer/mois</th>
+          <th>Superficie</th><th>Action</th>
+        </tr></thead>
+        <tbody>
+        {% for b in boutiques_non_exploitees %}
+        <tr>
+          <td><span style="font-family:monospace;font-weight:900;color:var(--primary)">N°{{ b.numero }}</span>
+            {% if b.libelle %}<br><small class="text-muted">{{ b.libelle }}</small>{% endif %}</td>
+          <td><span class="badge b-info" style="font-size:.62rem">{{ b.secteur_code }}</span>
+            <div style="font-size:.68rem;color:var(--muted);margin-top:2px">{{ b.secteur_libelle }}</div></td>
+          <td style="font-size:.75rem">{{ b.tarif_libelle }}</td>
+          <td>
+            <strong style="color:var(--primary)">{{ "%.2f"|format(b.tarif_valeur) }}</strong>
+            <span style="font-size:.6rem;color:var(--muted)">
+              {% if b.type_tarif=='m2' %}DH/m²/mois{% else %}DH/mois{% endif %}
+            </span>
+          </td>
+          <td style="font-size:.78rem">{{ b.superficie or '—' }}{% if b.superficie %} m²{% endif %}</td>
+          <td>
+            <a href="{{ url_for('loc.loc_liste') }}" class="btn btn-accent btn-xs" title="Créer un bail pour cette boutique">
+              📋 Affecter
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><span class="ei">✅</span>Toutes les boutiques sont exploitées !</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══ TAB : Arrêté Fiscal ════════════════════════════════ -->
+{% if arrete_actif %}
+<div class="tab-pane" id="tab-fiscal">
+  <div class="card">
+    <div class="card-header" style="background:linear-gradient(90deg,#f0fdf4,var(--card))">
+      <h3>📜 État Synchronisation — {{ arrete_actif.numero }} ({{ arrete_actif.titre }})</h3>
+      <span style="font-size:.72rem;color:var(--muted)">Date effet : {{ arrete_actif.date_effet }}</span>
+    </div>
+    <div style="padding:14px">
+      {% if ns.nb_nosync > 0 %}
+      <div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:.78rem;color:#92400e">
+        ⚠️ <strong>{{ ns.nb_nosync }} tarif(s)</strong> ne sont pas encore synchronisés avec l'arrêté fiscal.
+        <form method="post" action="{{ url_for('loc.loc_sync_tarifs_fiscal') }}" style="display:inline;margin-left:10px">
+          <button type="submit" class="btn btn-sm btn-primary">🔄 Synchroniser tout</button>
+        </form>
+      </div>
+      {% else %}
+      <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:.78rem;color:#166534">
+        ✅ Tous les tarifs sont synchronisés avec l'arrêté fiscal actif.
+      </div>
+      {% endif %}
+
+      <table class="bne-table" style="width:100%">
+        <thead><tr>
+          <th>Secteur</th><th>Groupe Tarif</th><th>Type</th>
+          <th>Valeur Base</th><th>Valeur Arrêté</th><th>Statut</th><th>Action</th>
+        </tr></thead>
+        <tbody>
+        {% for d in data %}
+        {% set s = d.secteur %}
+        {% for td in d.tarifs %}
+        {% set t = td.tarif %}
+        <tr>
+          <td><span class="sec-badge">{{ s.code }}</span> {{ s.libelle }}</td>
+          <td style="font-weight:700">{{ t.libelle }}</td>
+          <td><span class="{{ 'badge-m2' if t.type_tarif=='m2' else 'badge-fixe' }}">{{ 'm²' if t.type_tarif=='m2' else 'Fixe' }}</span></td>
+          <td><strong>{{ "%.2f"|format(t.valeur) }}</strong> <span class="tarif-unite">{{ t.unite }}</span></td>
+          <td>
+            {% if t.valeur_arrete is not none %}
+            <strong style="color:#10b981">{{ "%.2f"|format(t.valeur_arrete) }}</strong> DH
+            {% if t.date_arrete %}<br><small style="color:var(--muted)">depuis {{ t.date_arrete[:10] }}</small>{% endif %}
+            {% else %}
+            <span style="color:var(--muted);font-style:italic">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if t.tarif_fiscal_id %}
+              {% if t.synchro_ok %}
+              <span class="sync-ok">✅ OK</span>
+              {% else %}
+              <span class="sync-warn">⚠️ Différent</span>
+              {% endif %}
+            {% else %}
+            <span class="sync-none">⭕ Non sync</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user.peut_config and not t.tarif_fiscal_id %}
+            <form method="post" action="{{ url_for('loc.loc_sync_tarif_un', id=t.id) }}">
+              <button class="btn btn-xs btn-primary">🔄 Sync</button>
+            </form>
+            {% elif user.peut_config and not t.synchro_ok %}
+            <form method="post" action="{{ url_for('loc.loc_sync_tarif_un', id=t.id) }}">
+              <button class="btn btn-xs" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d">🔄 Resync</button>
+            </form>
+            {% else %}
+            <span style="font-size:.7rem;color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ══ MODALS ══════════════════════════════════════════════ -->
+
+<!-- Modal : Ajouter Secteur -->
+<div class="modal-overlay" id="modalAddSec" onclick="if(event.target===this)closeModal('modalAddSec')">
+  <div class="modal-box">
+    <div class="modal-head"><h3>🏢 Nouveau Secteur</h3>
+      <button class="btn btn-outline btn-xs" onclick="closeModal('modalAddSec')">✕</button></div>
+    <form method="post" action="{{ url_for('loc.loc_secteur_ajouter') }}">
+      <div class="modal-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div class="form-group"><label>Code *</label>
+            <input name="code" required placeholder="SEC-A" style="font-family:monospace;text-transform:uppercase"></div>
+          <div class="form-group"><label>Ordre</label>
+            <input type="number" name="ordre" value="{{ data|length + 1 }}" min="0"></div>
+        </div>
+        <div class="form-group mb-3"><label>Libellé *</label>
+          <input name="libelle" required placeholder="ex: Zone Artisanale, Marché Central..."></div>
+        <div class="form-group"><label>Description / Localisation</label>
+          <textarea name="description" rows="2" placeholder="Emplacement, type de commerce..."></textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modalAddSec')">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 Créer le Secteur</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal : Modifier Secteur -->
+<div class="modal-overlay" id="modalEditSec" onclick="if(event.target===this)closeModal('modalEditSec')">
+  <div class="modal-box">
+    <div class="modal-head"><h3>✏️ Modifier Secteur</h3>
+      <button class="btn btn-outline btn-xs" onclick="closeModal('modalEditSec')">✕</button></div>
+    <form method="post" id="editSecForm">
+      <div class="modal-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div class="form-group"><label>Code</label>
+            <input id="editSecCode" readonly style="opacity:.5;font-family:monospace"></div>
+          <div class="form-group"><label>Ordre</label>
+            <input type="number" name="ordre" id="editSecOrdre" min="0"></div>
+        </div>
+        <div class="form-group mb-3"><label>Libellé *</label>
+          <input name="libelle" id="editSecLabel" required></div>
+        <div class="form-group"><label>Description</label>
+          <textarea name="description" id="editSecDesc" rows="2"></textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modalEditSec')">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 Enregistrer</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal : Ajouter Tarif -->
+<div class="modal-overlay" id="modalAddTarif" onclick="if(event.target===this)closeModal('modalAddTarif')">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>💰 Nouveau Groupe de Tarif — <span id="addTarifSecLabel" style="color:var(--primary)"></span></h3>
+      <button class="btn btn-outline btn-xs" onclick="closeModal('modalAddTarif')">✕</button></div>
+    <form method="post" action="{{ url_for('loc.loc_tarif_ajouter') }}">
+      <div class="modal-body">
+        <input type="hidden" name="secteur_id" id="addTarifSecId">
+        <div class="form-group mb-3">
+          <label>Nom du groupe de tarif *</label>
+          <input name="libelle" required placeholder="ex: Standard, Grande boutique, VIP...">
+          <div style="font-size:.68rem;color:var(--muted);margin-top:3px">Ce libellé identifiera le groupe dans l'arrêté fiscal.</div>
+        </div>
+        <div style="font-size:.72rem;font-weight:800;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Type de tarification</div>
+        <div class="type-row" id="addTarifTypeRow">
+          <div class="type-opt sel" data-val="fixe" onclick="selectTarifType('add','fixe')">
+            💰 Forfait mensuel fixe<br><small style="font-weight:400;color:var(--muted)">Même loyer pour toutes les boutiques</small>
+          </div>
+          <div class="type-opt" data-val="m2" onclick="selectTarifType('add','m2')">
+            📐 Tarif au m²<br><small style="font-weight:400;color:var(--muted)">Loyer = prix/m² × superficie boutique</small>
+          </div>
+        </div>
+        <input type="hidden" name="type_tarif" id="addTarifType" value="fixe">
+        <div class="form-group">
+          <label id="addTarifValLabel">Valeur (DH/mois) *</label>
+          <input type="number" name="valeur" required step="0.01" min="0" placeholder="0.00">
+          <div style="font-size:.68rem;color:var(--muted);margin-top:3px">Cette valeur sera proposée à l'arrêté fiscal. Elle peut être modifiée dans l'arrêté.</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modalAddTarif')">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 Créer le Groupe Tarif</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal : Modifier Tarif -->
+<div class="modal-overlay" id="modalEditTarif" onclick="if(event.target===this)closeModal('modalEditTarif')">
+  <div class="modal-box">
+    <div class="modal-head"><h3>✏️ Modifier Groupe Tarif</h3>
+      <button class="btn btn-outline btn-xs" onclick="closeModal('modalEditTarif')">✕</button></div>
+    <form method="post" id="editTarifForm">
+      <div class="modal-body">
+        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.72rem;color:#92400e">
+          ⚠️ Modifier la valeur ici met à jour le tarif de base local. Pour affecter l'arrêté fiscal, utilisez 🔄 Sync.
+        </div>
+        <div class="form-group mb-3"><label>Libellé *</label>
+          <input name="libelle" id="editTarifLabel" required></div>
+        <div class="type-row" id="editTarifTypeRow">
+          <div class="type-opt" data-val="fixe" onclick="selectTarifType('edit','fixe')">💰 Forfait fixe</div>
+          <div class="type-opt" data-val="m2" onclick="selectTarifType('edit','m2')">📐 Au m²</div>
+        </div>
+        <input type="hidden" name="type_tarif" id="editTarifType" value="fixe">
+        <div class="form-group mb-3"><label id="editTarifValLabel">Valeur *</label>
+          <input type="number" name="valeur" id="editTarifVal" step="0.01" min="0"></div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="actif" id="editTarifActif" value="1">
+            <span>Tarif actif</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modalEditTarif')">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 Enregistrer</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal : Ajouter Boutique(s) -->
+<div class="modal-overlay" id="modalAddBoutique" onclick="if(event.target===this)closeModal('modalAddBoutique')">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>🏪 Ajouter Boutique(s) — <span id="addBoutTarifLabel" style="color:var(--primary)"></span></h3>
+      <button class="btn btn-outline btn-xs" onclick="closeModal('modalAddBoutique')">✕</button></div>
+    <form method="post" action="{{ url_for('loc.loc_boutique_ajouter') }}">
+      <div class="modal-body">
+        <input type="hidden" name="tarif_id" id="addBoutTarifId">
+        <div class="form-group mb-3">
+          <label>Numéros de boutique * <small style="font-weight:400;color:var(--muted)">(séparés par virgule pour créer plusieurs)</small></label>
+          <input name="numeros" required placeholder="ex: 101, 102, 103  ou  A-01">
+          <div style="font-size:.68rem;color:var(--muted);margin-top:3px">💡 Astuce : « 101, 102, 103 » pour créer 3 boutiques en une fois.</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div class="form-group"><label>Superficie (m²)</label>
+            <input type="number" name="superficie" step="0.1" min="0" placeholder="0.0"></div>
+          <div class="form-group"><label>Statut initial</label>
+            <select name="statut">
+              <option value="disponible">✅ Disponible</option>
+              <option value="reservee">⚠️ Réservée</option>
+            </select></div>
+        </div>
+        <div class="form-group mb-3"><label>Désignation (optionnel)</label>
+          <input name="libelle" placeholder="ex: Local commercial, Atelier..."></div>
+        <div class="form-group"><label>Notes</label>
+          <textarea name="notes" rows="2" placeholder="Observations, emplacement..."></textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modalAddBoutique')">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 Créer les Boutiques</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal : Modifier Boutique -->
+<div class="modal-overlay" id="modalEditBoutique" onclick="if(event.target===this)closeModal('modalEditBoutique')">
+  <div class="modal-box">
+    <div class="modal-head"><h3>✏️ Modifier Boutique</h3>
+      <button class="btn btn-outline btn-xs" onclick="closeModal('modalEditBoutique')">✕</button></div>
+    <form method="post" id="editBoutiqueForm">
+      <div class="modal-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div class="form-group"><label>N° Boutique *</label>
+            <input name="numero" id="editBoutiqueNum" required></div>
+          <div class="form-group"><label>Superficie (m²)</label>
+            <input type="number" name="superficie" id="editBoutiqueSup" step="0.1" min="0"></div>
+        </div>
+        <div class="form-group mb-3"><label>Désignation</label>
+          <input name="libelle" id="editBoutiqueLib"></div>
+        <div class="form-group">
+          <label>Statut</label>
+          <select name="statut" id="editBoutiqueStatut">
+            <option value="disponible">✅ Disponible</option>
+            <option value="exploitee">🔵 Exploitée</option>
+            <option value="reservee">⚠️ Réservée</option>
+          </select></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modalEditBoutique')">Annuler</button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 Enregistrer</button></div>
+    </form>
+  </div>
+</div>
+
+
+<script>
+/* ── Tabs ── */
+function showSecTab(name, btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sec-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ── Accordion ── */
+function toggleTree(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : '';
+}
+
+/* ── Secteur edit ── */
+function openEditSec(id, code, libelle, desc, ordre){
+  document.getElementById('editSecForm').action = `/location-locaux/secteurs/${id}/modifier`;
+  document.getElementById('editSecCode').value  = code;
+  document.getElementById('editSecLabel').value = libelle;
+  document.getElementById('editSecDesc').value  = desc || '';
+  document.getElementById('editSecOrdre').value = ordre;
+  openModal('modalEditSec');
+}
+
+/* ── Tarif type selector ── */
+function selectTarifType(prefix, val){
+  document.getElementById(prefix+'TarifType').value = val;
+  document.querySelectorAll('#'+prefix+'TarifTypeRow .type-opt').forEach(o=>{
+    o.classList.toggle('sel', o.dataset.val===val);
+  });
+  const lbl = document.getElementById(prefix+'TarifValLabel');
+  if(lbl) lbl.textContent = val==='m2' ? 'Valeur (DH/m²/mois) *' : 'Valeur (DH/mois) *';
+}
+
+/* ── Add Tarif ── */
+function openAddTarif(secId, secLabel){
+  document.getElementById('addTarifSecId').value           = secId;
+  document.getElementById('addTarifSecLabel').textContent  = secLabel;
+  selectTarifType('add','fixe');
+  openModal('modalAddTarif');
+}
+
+/* ── Edit Tarif ── */
+function openEditTarif(id, libelle, type_tarif, valeur, actif){
+  document.getElementById('editTarifForm').action   = `/location-locaux/tarifs/${id}/modifier`;
+  document.getElementById('editTarifLabel').value   = libelle;
+  document.getElementById('editTarifVal').value     = valeur;
+  document.getElementById('editTarifActif').checked = actif==1;
+  selectTarifType('edit', type_tarif);
+  openModal('modalEditTarif');
+}
+
+/* ── Add Boutique ── */
+function openAddBoutique(tarifId, tarifLabel){
+  document.getElementById('addBoutTarifId').value          = tarifId;
+  document.getElementById('addBoutTarifLabel').textContent = tarifLabel;
+  openModal('modalAddBoutique');
+  const el = document.getElementById('tarif-'+tarifId);
+  if(el) el.style.display = '';
+}
+
+/* ── Edit Boutique ── */
+function openEditBoutique(id, numero, libelle, superficie, statut){
+  document.getElementById('editBoutiqueForm').action      = `/location-locaux/boutiques/${id}/modifier`;
+  document.getElementById('editBoutiqueNum').value        = numero;
+  document.getElementById('editBoutiqueLib').value        = libelle || '';
+  document.getElementById('editBoutiqueSup').value        = superficie || 0;
+  document.getElementById('editBoutiqueStatut').value     = statut;
+  openModal('modalEditBoutique');
+}
+
+// Ouvrir les secteurs par défaut
+document.querySelectorAll('[id^="sec-"]').forEach(el => el.style.display = '');
+</script>
+
+{% endblock %}

@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% block title %}TNB — Recensement{% endblock %}
+{% block page_title %}📋 Recensement TNB — Terrains sans dossier{% endblock %}
+{% block extra_head %}
+<style>
+.rec-card {
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  background: var(--card);
+  transition: .2s;
+}
+.rec-card:hover { border-color: var(--primary); box-shadow: 0 2px 16px rgba(37,99,235,.1); }
+.rec-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 18px;
+  background: linear-gradient(90deg, rgba(245,158,11,.07), transparent);
+  border-bottom: 1px solid var(--border);
+}
+.rec-nom { font-weight: 800; font-size: .97rem; color: var(--text); }
+.rec-sub { font-size: .75rem; color: var(--muted); margin-top: 2px; display: flex; gap: 12px; flex-wrap: wrap; }
+.rec-body { padding: 14px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px 16px; font-size: .83rem; }
+.rec-field span { font-size: .68rem; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 2px; }
+.rec-field strong { font-size: .88rem; }
+.rec-actions { display: flex; gap: 8px; padding: 10px 18px; border-top: 1px solid var(--border); background: var(--bg); justify-content: flex-end; }
+.badge-rec { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; border-radius: 6px; padding: 2px 10px; font-size: .72rem; font-weight: 700; }
+.stat-bar { display: flex; gap: 6px; align-items: center; padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--border); font-size: .83rem; }
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Barre de stats -->
+<div class="stat-bar">
+  <span>📋 <strong>{{ total }}</strong> terrain(s) en recensement</span>
+  <span style="margin-left:auto;display:flex;gap:8px">
+    <a href="{{ url_for('tnb.tnb_liste') }}" class="btn btn-outline btn-sm">← Liste principale TNB</a>
+    <button onclick="openModal('addRecensement')" class="btn btn-sm" style="background:#d97706;color:#fff">➕ Ajouter au recensement</button>
+  </span>
+</div>
+
+<!-- Info -->
+<div class="alert alert-warning" style="margin-bottom:12px">
+  ⚠️ <strong>Liste de Recensement</strong> — Ces terrains sont enregistrés mais n'ont pas encore de dossier TNB officiel.
+  Utilisez le bouton <strong>↗ Transférer</strong> pour les intégrer à la liste principale et leur attribuer un dossier automatiquement.
+</div>
+
+<!-- Barre de recherche -->
+<div class="card" style="margin-bottom:12px">
+  <div style="padding:12px 16px;display:flex;gap:8px;align-items:center">
+    <input type="text" id="q-input" value="{{ q }}"
+           placeholder="🔍 Nom, CIN, Titre Foncier, Parcelle..."
+           oninput="filterRec(this.value)"
+           style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem">
+    {% if q %}<a href="{{ url_for('tnb.tnb_recensement') }}" class="btn btn-outline btn-sm">✕ Effacer</a>{% endif %}
+  </div>
+</div>
+
+<!-- Liste -->
+{% if terrains %}
+<div id="rec-list">
+{% for t in terrains %}
+<div class="rec-card" data-search="{{ t.nom|lower }} {{ (t.prenom or '')|lower }} {{ (t.raison_sociale or '')|lower }} {{ (t.cin or '')|lower }} {{ (t.titre_foncier or '')|lower }} {{ (t.num_parcelle or '')|lower }} {{ (t.adresse or '')|lower }}">
+
+  <!-- Header redevable -->
+  <div class="rec-header">
+    <span class="badge-rec">📋 RECENSEMENT</span>
+    <div style="flex:1">
+      <div class="rec-nom">👤 {{ t.nom }} {{ t.prenom or t.raison_sociale or '' }}</div>
+      <div class="rec-sub">
+        {% if t.cin %}<span>🪪 {{ t.cin }}</span>{% endif %}
+        {% if t.rc %}<span>RC {{ t.rc }}</span>{% endif %}
+        {% if t.ctb_adresse %}<span>📍 {{ t.ctb_adresse }}</span>{% endif %}
+        {% if t.telephone %}<span>☎ {{ t.telephone }}</span>{% endif %}
+        {% if t.email %}<span>✉ {{ t.email }}</span>{% endif %}
+      </div>
+    </div>
+    <span style="background:#fef3c7;color:#92400e;border-radius:8px;padding:4px 10px;font-size:.75rem;font-weight:700">
+      N° {{ t.numero_terrain }}
+    </span>
+  </div>
+
+  <!-- Détails terrain -->
+  <div class="rec-body">
+    <div class="rec-field">
+      <span>Titre Foncier</span>
+      <strong>{{ t.titre_foncier or '—' }}</strong>
+    </div>
+    <div class="rec-field">
+      <span>N° Parcelle</span>
+      <strong>{{ t.num_parcelle or '—' }}</strong>
+    </div>
+    <div class="rec-field">
+      <span>Lotissement</span>
+      <strong>{{ t.lotissement or '—' }}</strong>
+    </div>
+    <div class="rec-field">
+      <span>Zone</span>
+      <strong><span class="badge b-primary">Zone {{ t.zone }}</span></strong>
+    </div>
+    <div class="rec-field">
+      <span>Superficie</span>
+      <strong>{{ t.superficie }} m²</strong>
+    </div>
+    <div class="rec-field">
+      <span>Statut</span>
+      {% if t.statut == 'non_bati' %}<span class="badge b-warn" style="font-size:.72rem">🏗️ Non bâti</span>
+      {% elif t.statut == 'en_construction' %}<span class="badge b-info" style="font-size:.72rem">🚧 En construction</span>
+      {% elif t.statut == 'construit' %}<span class="badge b-ok" style="font-size:.72rem">🏠 Bâti</span>
+      {% else %}<span class="badge b-sec" style="font-size:.72rem">{{ t.statut }}</span>{% endif %}
+    </div>
+    <div class="rec-field">
+      <span>Adresse terrain</span>
+      <strong>{{ t.adresse or '—' }}</strong>
+    </div>
+    <div class="rec-field">
+      <span>Date acquisition</span>
+      <strong>{{ t.date_acquisition or '—' }}</strong>
+    </div>
+    <div class="rec-field">
+      <span>Enregistré le</span>
+      <strong>{{ t.date_creation[:10] if t.date_creation else '—' }}</strong>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="rec-actions">
+    <!-- Transférer vers liste principale -->
+    <form method="post" action="{{ url_for('tnb.tnb_recensement_transferer', id=t.id) }}"
+          onsubmit="return confirmForm(this, {
+            title: 'Transférer vers la liste principale',
+            msg: 'Ce terrain sera transféré à la liste TNB officielle et un dossier lui sera automatiquement attribué.',
+            type: 'info',
+            confirmText: '↗ Transférer',
+            icon: '📂'
+          })">
+      <button type="submit" class="btn btn-primary btn-sm">
+        ↗ Transférer → Liste principale
+      </button>
+    </form>
+
+    <!-- Supprimer du recensement -->
+    <form method="post" action="{{ url_for('tnb.tnb_recensement_supprimer', id=t.id) }}"
+          onsubmit="return confirmForm(this, {
+            title: 'Supprimer du recensement',
+            msg: 'Ce terrain sera supprimé définitivement du recensement.',
+            type: 'danger',
+            confirmText: '🗑️ Supprimer',
+            icon: '🗑️'
+          })">
+      <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5">
+        🗑️ Supprimer
+      </button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state" style="padding:60px 0">
+  <span class="ei">📋</span>
+  <p>Aucun terrain en recensement</p>
+  <p style="color:var(--muted);font-size:.85rem;margin-top:8px">
+    Cliquez sur <strong>➕ Ajouter au recensement</strong> pour enregistrer un terrain sans lui assigner de dossier.
+  </p>
+  <a href="{{ url_for('tnb.tnb_liste') }}" class="btn btn-outline" style="margin-top:16px">← Retour à la liste principale</a>
+</div>
+{% endif %}
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Modal Ajouter au recensement -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="addRecensement">
+  <div class="modal" style="max-width:660px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#d97706,#b45309)">
+      <h3 style="color:#fff">📋 Ajouter un Terrain au Recensement</h3>
+      <button class="modal-close" onclick="closeModal('addRecensement')" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-warning" style="margin-bottom:16px;font-size:.83rem">
+        ℹ️ Ce terrain sera enregistré en <strong>liste de recensement</strong> sans dossier TNB officiel.
+        Vous pourrez le transférer ultérieurement vers la liste principale.
+      </div>
+      <form method="post" action="{{ url_for('tnb.tnb_recensement_ajouter') }}">
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Redevable / Contribuable *</label>
+          <select name="contribuable_id" required>
+            <option value="">— Sélectionner —</option>
+            {% for c in contribuables %}
+            <option value="{{ c.id }}">{{ c.numero }} — {{ c.nom }} {{ c.prenom or c.raison_sociale or '' }}{% if c.cin %} ({{ c.cin }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Adresse terrain *</label><input name="adresse" required></div>
+          <div class="form-group"><label>العنوان</label><input name="adresse_ar" dir="rtl"></div>
+          <div class="form-group"><label>Lotissement</label><input name="lotissement" placeholder="Nom du lotissement"></div>
+          <div class="form-group"><label>Quartier</label><input name="quartier"></div>
+          <div class="form-group"><label>Superficie (m²) *</label><input type="number" name="superficie" step="0.01" required></div>
+          <div class="form-group">
+            <label>Zone</label>
+            <select name="zone">
+              {% if tarifs %}{% for t in tarifs %}
+              <option value="{{ t.libelle[-1] if t.libelle[-1] in 'ABCDE' else loop.index }}">{{ t.libelle }} — {{ t.valeur }} {{ t.unite }}</option>
+              {% endfor %}{% else %}
+              <option value="A">Zone A</option><option value="B">Zone B</option><option value="C">Zone C</option>
+              {% endif %}
+            </select>
+          </div>
+          <div class="form-group"><label>Titre Foncier</label><input name="titre_foncier"></div>
+          <div class="form-group"><label>N° Parcelle</label><input name="num_parcelle"></div>
+          <div class="form-group">
+            <label>Statut terrain</label>
+            <select name="statut">
+              <option value="non_bati">🏗️ Non bâti</option>
+              <option value="en_construction">🚧 En construction</option>
+              <option value="construit">🏠 Construit</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Date acquisition</label><input type="date" name="date_acquisition"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('addRecensement')">Annuler</button>
+          <button type="submit" class="btn" style="background:#d97706;color:#fff">📋 Ajouter au recensement</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function filterRec(q) {
+  const ql = q.toLowerCase();
+  document.querySelectorAll('.rec-card').forEach(card => {
+    card.style.display = !ql || card.dataset.search.includes(ql) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
