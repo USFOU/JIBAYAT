@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>إقرار الإحداث — {{ etab.nom_etablissement if etab else 'إقرار جديد' }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 portrait; margin: 15mm 18mm 20mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Cairo', sans-serif; font-size: 13pt; color: #111; direction: rtl; line-height: 2; background: #fff; }
+  .no-print { text-align: center; margin-bottom: 16px; }
+  .btn-print { background: linear-gradient(135deg, #1e3a5f, #2a5298); color: #fff; border: none;
+    border-radius: 8px; padding: 10px 28px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+  @media print { .no-print { display: none; } }
+
+  /* En-tête */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+  .box-right { width: 33%; font-size: 12pt; font-weight: 700; color: #222; line-height: 1.8; }
+  .box-center { width: 34%; text-align: center; font-size: 15pt; font-weight: 900; color: #111; display:flex; align-items:center; justify-content:center; }
+  .box-left { width: 33%; font-size: 11pt; font-weight: 600; line-height: 1.8; }
+
+  /* Titre */
+  .main-title { text-align: center; margin: 30px 0 40px; }
+  .main-title h1 { font-size: 22pt; font-weight: 900; color: #111; display: inline-block; }
+
+  /* Formulaire */
+  .form-container { padding: 0 10px; }
+  .form-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 20px; }
+  .form-label { font-size: 13pt; font-weight: 600; white-space: nowrap; }
+  .form-line { flex: 1; border-bottom: 1px dotted #333; min-height: 24px; padding: 0 10px; font-weight: 700; font-size: 13pt; color: #1e3a5f; }
+  
+  .checkbox-group { display: flex; gap: 40px; margin: 10px 0 5px 0; align-items: center; justify-content: center; }
+  .checkbox-item { font-size: 13pt; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .checkbox-box { width: 22px; height: 22px; border: 2px solid #111; display: inline-block; }
+
+  /* Declaration */
+  .declaration-text { margin-top: 50px; font-size: 13pt; text-align: center; font-weight: 600; }
+  .date-row { text-align: left; margin-top: 30px; font-size: 13pt; padding-left: 40px; }
+  
+  /* Footer */
+  .footer-note { border-top: 2px solid #333; margin-top: 60px; padding-top: 15px; font-size: 11pt; color: #333; text-align: justify; line-height: 1.8; font-weight: 600; }
+</style>
+</head>
+<body>
+<script>window.onload = function(){ {% if request.args.get('print') %}window.print();{% endif %} };</script>
+
+<div class="no-print">
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+</div>
+
+<!-- En-tête -->
+<div class="header">
+  <div class="box-right">
+    <div>المملكة المغربية</div>
+    <div>عمالة إقليم {{ province or '..................' }}</div>
+    <div>جماعة {{ commune }}</div>
+  </div>
+  <div class="box-center">
+    الرسم على محال<br>بيع المشروبات
+  </div>
+  <div class="box-left">
+    <div>ملحق رقم : ................</div>
+    <div>يتم من طرف المصلحة الجماعية</div>
+    <div style="display:flex;justify-content:space-between;margin-top:5px;">
+      <span>رقم الاقرار: ............</span>
+      <span>سلم ب: ............</span>
+    </div>
+    <div style="margin-top:10px;">عن الامر بالصرف :</div>
+    <div>التوقيع :</div>
+  </div>
+</div>
+
+<!-- Titre -->
+<div class="main-title">
+  <h1>اقرار الاحداث</h1>
+</div>
+
+<!-- Formulaire -->
+<div class="form-container">
+  <div class="form-row">
+    <span class="form-label">الاسم العائلي و الشخصي للمستغل :</span>
+    <span class="form-line">{% if etab %}{{ etab.nom or etab.raison_sociale or '' }} {{ etab.prenom or '' }}{% endif %}</span>
+  </div>
+  <div class="form-row">
+    <span class="form-label">العنوان المراسلة :</span>
+    <span class="form-line">{% if etab %}{{ etab.ctb_adresse or '' }}{% endif %}</span>
+  </div>
+  
+  <div class="form-row">
+    <span class="form-label">رقم بطاقة التعريف الوطنية :</span>
+    <span class="form-line">{% if etab %}{{ etab.cin or '' }}{% endif %}</span>
+  </div>
+  <div class="form-row">
+    <span class="form-label">رقم الهاتف :</span>
+    <span class="form-line" style="text-align:left;direction:ltr">{% if etab %}{{ etab.telephone or '' }}{% endif %}</span>
+  </div>
+
+  <div class="form-row" style="margin-top:30px;">
+    <span class="form-label">صفة المستغل :</span>
+    <div class="checkbox-group" style="flex:1;">
+      <div class="checkbox-item"><span class="form-label">المالك</span> <div class="checkbox-box"></div></div>
+      <div class="checkbox-item"><span class="form-label">المدير</span> <div class="checkbox-box"></div></div>
+      <div class="checkbox-item"><span class="form-label">المسير</span> <div class="checkbox-box"></div></div>
+    </div>
+  </div>
+  <div style="text-align:center; font-size:11pt; color:#555; margin-bottom:30px;">
+    ضع علامة (*) في الخانة المناسبة
+  </div>
+
+  <div class="form-row">
+    <span class="form-label">الاسم التجاري :</span>
+    <span class="form-line">{% if etab %}{{ etab.nom_etablissement or '' }}{% endif %}</span>
+  </div>
+  <div class="form-row">
+    <span class="form-label">تاريخ بداية مزاولة النشاط :</span>
+    <span class="form-line">{% if etab %}{{ etab.date_ouverture or etab.date_autorisation or '' }}{% endif %}</span>
+  </div>
+  <div class="form-row">
+    <span class="form-label">عنوان المؤسسة :</span>
+    <span class="form-line">{% if etab %}{{ etab.adresse or '' }}{% endif %}</span>
+  </div>
+  <div class="form-row">
+    <span class="form-label">طبيعة النشاط الممارس :</span>
+    <span class="form-line">{% if etab %}{{ etab.type_etablissement or '' }}{% endif %}</span>
+  </div>
+</div>
+
+<div class="declaration-text">
+  انا الموقع اسفله ، اشهد بصحة البيانات الواردة بهذا الاقرار.
+</div>
+
+<div class="date-row">
+  في {{ commune }} بتاريخ: .......................................
+</div>
+
+<!-- Footer -->
+<div class="footer-note">
+  طبقا للمادة 67 من القانون يتعين وضع اقرار احداث محال بيع المشروبات لدى مصلحة الوعاء داخل اجل اقصاه 30 يوما الموالية لتاريخ الشروع في مزاولة النشاط.
+</div>
+
+</body>
+</html>

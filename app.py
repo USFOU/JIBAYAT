@@ -4,7 +4,7 @@ Toutes les routes métier sont dans modules/
 """
 from flask import (Flask, render_template, request, jsonify,
                    redirect, url_for, session, send_file, flash)
-import hashlib, io, json, os, shutil, threading, base64, urllib.request as _urllib_req
+import sys, hashlib, io, json, os, shutil, threading, base64, urllib.request as _urllib_req
 from datetime import datetime, date, timedelta
 from functools import wraps
 
@@ -26,9 +26,18 @@ from modules.location       import bp as loc_bp
 from modules.souks          import bp as sou_bp
 from modules.regie          import bp as regie_bp
 from modules.emission       import bp as emission_bp
+from modules.registre       import bp as registre_bp
 
 # ── Application ──────────────────────────────────────────────
-app = Flask(__name__)
+if getattr(sys, 'frozen', False):
+    # En mode PyInstaller, sys._MEIPASS pointe vers le dossier _internal
+    base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    template_dir = os.path.join(base_dir, 'templates')
+    static_dir = os.path.join(base_dir, 'static')
+    app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+else:
+    app = Flask(__name__)
+
 app.secret_key = 'super_secret_key_jibayat'
 app.permanent_session_lifetime = timedelta(days=7)
 
@@ -46,6 +55,11 @@ def _read_version():
     return "1.0.0"
 
 UPDATE_AVAILABLE = False
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    return f"<h1>Internal Server Error</h1><pre>{traceback.format_exc()}</pre>", 500
 
 def _check_update_startup():
     global UPDATE_AVAILABLE
@@ -83,6 +97,7 @@ def inject_global_vars():
     """Inject variables into all Jinja templates automatically."""
     user = get_current_user()
     user_modules = get_all_user_modules(user) if user else {}
+    
     return {
         'sys_version': _read_version(),
         'sys_has_update': UPDATE_AVAILABLE,
@@ -93,6 +108,7 @@ for bp in (config_bp, ctb_bp, tnb_bp, tdb_bp, sta_bp, fou_bp, odp_bp, loc_bp, so
     app.register_blueprint(bp)
 
 app.register_blueprint(emission_bp, url_prefix='/emission')
+app.register_blueprint(registre_bp)
 
 DB = 'fiscalite.db'
 
@@ -1168,20 +1184,16 @@ def modifier_commune():
     file = request.files.get('logo')
     logo_path = None
     if file and file.filename != '':
-        import os
-        ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in ['.png', '.jpg', '.jpeg', '.webp']: 
-            ext = '.png'
-        filename = 'logo' + ext
-        os.makedirs('static/img', exist_ok=True)
-        # Delete old logo if it exists (like logo.png or logo.jpg)
-        for old_ext in ['.png', '.jpg', '.jpeg', '.webp']:
-            old_path = os.path.join('static/img', 'logo' + old_ext)
-            if os.path.exists(old_path):
-                try: os.remove(old_path)
-                except: pass
-        file.save(os.path.join('static/img', filename))
-        logo_path = 'img/' + filename
+        target_dir = os.path.join(app.static_folder, 'img')
+        os.makedirs(target_dir, exist_ok=True)
+        try:
+            from PIL import Image
+            img = Image.open(file.stream)
+            img.save(os.path.join(target_dir, 'logo.png'), format='PNG')
+        except Exception:
+            file.seek(0)
+            file.save(os.path.join(target_dir, 'logo.png'))
+        logo_path = 'img/logo.png'
 
     conn = get_db()
     c = conn.execute('SELECT id, logo FROM communes LIMIT 1').fetchone()
@@ -1213,7 +1225,10 @@ def modifier_commune():
             'nom':      f.get('nom', ''),
             'nom_ar':   f.get('nom_ar', ''),
             'region':   f.get('region', ''),
+            'region_ar':f.get('region_ar', ''),
             'province': f.get('province', ''),
+            'province_ar':f.get('province_ar', ''),
+            'logo':     logo_path,
         }
         _save_sys_config(cfg)
     except Exception:
@@ -1382,17 +1397,34 @@ def setup():
         if not nom:
             error = "Le nom de la commune est obligatoire."
         else:
+            logo_path = None
+            file = request.files.get('logo')
+            if file and file.filename != '':
+                target_dir = os.path.join(app.static_folder, 'img')
+                os.makedirs(target_dir, exist_ok=True)
+                try:
+                    from PIL import Image
+                    img = Image.open(file.stream)
+                    img.save(os.path.join(target_dir, 'logo.png'), format='PNG')
+                except Exception:
+                    file.seek(0)
+                    file.save(os.path.join(target_dir, 'logo.png'))
+                logo_path = 'img/logo.png'
+
             cfg = {
                 'commune': {
                     'nom':      nom,
                     'nom_ar':   request.form.get('nom_ar', '').strip(),
                     'region':   request.form.get('region', '').strip(),
+                    'region_ar':request.form.get('region_ar', '').strip(),
                     'province': request.form.get('province', '').strip(),
-                    'code':     request.form.get('code', '').strip(),
+                    'province_ar':request.form.get('province_ar', '').strip(),
                 },
                 'modules': request.form.getlist('modules') or list(ALL_MODULES.keys()),
                 'auto_backup': True,
             }
+            if logo_path:
+                cfg['commune']['logo'] = logo_path
             _save_sys_config(cfg)
             try:
                 init_db()
@@ -1461,8 +1493,9 @@ def api_systeme_commune():
         'nom':      nom,
         'nom_ar':   request.form.get('nom_ar', '').strip(),
         'region':   request.form.get('region', '').strip(),
+        'region_ar':request.form.get('region_ar', '').strip(),
         'province': request.form.get('province', '').strip(),
-        'code':     request.form.get('code', '').strip(),
+        'province_ar':request.form.get('province_ar', '').strip(),
     }
     _save_sys_config(cfg)
     return jsonify({'ok': True, 'msg': 'Informations commune sauvegardées.'})
@@ -1719,6 +1752,86 @@ def api_systeme_check_update():
             return jsonify({'ok': False, 'error': "Dépôt privé ou introuvable (404). Configurez un Token GitHub."})
         else:
             return jsonify({'ok': False, 'error': f'Erreur GitHub (HTTP {r.status_code})'})
+    except Exception as ex:
+        return jsonify({'ok': False, 'error': str(ex)})
+
+
+@app.route('/api/systeme/do-update', methods=['POST'])
+@login_required
+def api_systeme_do_update():
+    user = get_current_user()
+    if not user['peut_config']:
+        return jsonify({'ok': False, 'error': 'Accès refusé'}), 403
+    
+    try:
+        import subprocess, sys, os
+        import urllib.request
+        
+        # Détecter si on est dans un .exe compilé par PyInstaller
+        is_exe = getattr(sys, 'frozen', False)
+        executable = sys.executable if is_exe else 'LANCER.bat'
+        
+        if is_exe:
+            # Mode EXE : Télécharger l'archive ZIP depuis la dernière Release GitHub
+            zip_url = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/latest/download/JIBAYAT-update.zip"
+            zip_path = "JIBAYAT-update.zip"
+            
+            try:
+                # Téléchargement bloquant (l'UI montre le loading)
+                urllib.request.urlretrieve(zip_url, zip_path)
+            except Exception as e:
+                return jsonify({'ok': False, 'error': f"Impossible de télécharger la mise à jour (Release introuvable sur GitHub). Assurez-vous d'avoir publié une Release avec le fichier JIBAYAT-update.zip. Détails: {str(e)}"})
+            
+            # Script BATCH pour le mode EXE
+            bat_content = f"""@echo off
+:: Attendre 3 secondes pour que l'application actuelle se ferme complètement
+ping 127.0.0.1 -n 4 > nul
+
+:: Extraire le ZIP téléchargé en écrasant les fichiers existants
+powershell -command "Expand-Archive -Path '{zip_path}' -DestinationPath '.' -Force"
+
+:: Supprimer l'archive
+del "{zip_path}"
+
+:: Relancer l'application
+start "" "{executable}"
+
+:: Supprimer ce script temporaire
+del "%~f0"
+"""
+        else:
+            # Mode Source : Utiliser git pull
+            bat_content = f"""@echo off
+:: Attendre 3 secondes pour que l'application actuelle se ferme
+ping 127.0.0.1 -n 4 > nul
+
+:: Faire le git pull
+git pull origin main
+
+:: Relancer l'application
+start "" "{executable}"
+
+:: Supprimer ce script temporaire
+del "%~f0"
+"""
+
+        with open('update_temp.bat', 'w', encoding='utf-8') as f:
+            f.write(bat_content)
+
+        # Lancer le script de mise à jour de façon cachée
+        startupinfo = None
+        if os.name == 'nt':
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+            
+        subprocess.Popen(['update_temp.bat'], startupinfo=startupinfo)
+        
+        # Quitter immédiatement l'application pour libérer les fichiers
+        import threading
+        threading.Thread(target=lambda: os._exit(0)).start()
+        
+        return jsonify({'ok': True, 'msg': 'Mise à jour téléchargée avec succès. L\'application va redémarrer...'})
     except Exception as ex:
         return jsonify({'ok': False, 'error': str(ex)})
 

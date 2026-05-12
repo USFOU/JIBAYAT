@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>إقرار بالمداخيل — {{ etab.nom_etablissement }} — {{ annee }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 portrait; margin: 15mm 18mm 20mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Cairo', sans-serif; font-size: 11pt; color: #111; direction: rtl; line-height: 1.8; background: #fff; }
+  .no-print { text-align: center; margin-bottom: 16px; padding:10px; background:#f1f5f9; }
+  .btn-print { background: linear-gradient(135deg, #1e3a5f, #2a5298); color: #fff; border: none;
+    border-radius: 8px; padding: 10px 28px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+  @media print { .no-print { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+
+  /* En-tête */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    margin-bottom: 14px; padding-bottom: 12px; border-bottom: 2px solid #1e3a5f; }
+  .box-left { width: 35%; font-size: 10pt; font-weight: 700; color: #1e3a5f; line-height: 1.9; }
+  .box-center { width: 25%; text-align: center; }
+  .box-right { width: 35%; font-size: 10.5pt; font-weight: 800; text-align: center; }
+  .seal { width: 64px; height: 64px; border: 3px double #1e3a5f; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 22pt; margin: 0 auto 4px; }
+  .ref-box { border: 2px solid #1e3a5f; border-radius: 8px; padding: 8px 12px; background: #f8f9fc;
+    font-size: 9.5pt; line-height: 2; text-align: right; }
+  .ref-val { font-weight: 800; color: #1e3a5f; border-bottom: 1px dotted #aaa; display: inline-block; min-width: 80px; text-align:center; direction:ltr; }
+
+  /* Titre */
+  .main-title { text-align: center; margin: 14px 0 10px; }
+  .main-title h1 { font-size: 17pt; font-weight: 900; color: #1e3a5f; margin-bottom: 4px; }
+  .main-title h2 { font-size: 13pt; font-weight: 700; color: #333;
+    border-bottom: 2px solid #c8a84b; display: inline-block; padding: 2px 30px; }
+
+  /* Infos contribuable */
+  .info-grid { border: 1.5px solid #c0c8dc; border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+  .info-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .info-label { color: #444; font-size: 10pt; white-space: nowrap; }
+  .info-line { flex: 1; border-bottom: 1px solid #999; min-height: 20px; padding: 0 6px; font-weight: 700; color: #111; }
+
+  /* Tableau déclaration */
+  .decl-table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  .decl-table th { background: #1e3a5f; color: #fff; padding: 8px 12px; text-align: center; font-size: 10pt; }
+  .decl-table td { border: 1px solid #c0c8dc; padding: 10px 12px; min-height: 32px; }
+  .decl-table td.label { background: #f0f4ff; font-weight: 700; font-size: 10pt; }
+  .decl-table td.amount { text-align: center; font-size: 10.5pt; font-weight: 700; direction: ltr; }
+  .total-row td { background: #e8eeff; font-weight: 900; font-size: 11pt; }
+
+  /* Mention légale */
+  .legal { margin-top: 14px; font-size: 9.5pt; color: #444; text-align: justify; line-height: 1.7;
+    border: 1px solid #c0c8dc; border-radius: 6px; padding: 10px 14px; background: #f8f9fc; }
+
+  /* Signature */
+  .sig-section { margin-top: 20px; display: flex; justify-content: space-between; gap: 20px; }
+  .sig-block { text-align: center; flex: 1; }
+  .sig-block .sig-title { font-weight: 800; font-size: 10.5pt; color: #1e3a5f; margin-bottom: 4px; }
+  .sig-block .sig-place , .sig-block .sig-date { font-size: 9pt; color: #666; }
+  .sig-block .sig-area { border-top: 1px dashed #999; margin-top: 60px; padding-top: 6px; font-size: 9pt; color: #888; }
+
+  /* Footer */
+  .footnote { border-top: 1px solid #c0c8dc; margin-top: 20px; padding-top: 6px;
+    font-size: 8pt; color: #666; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<script>window.onload = function(){ window.print(); };</script>
+
+<div class="no-print">
+  <button class="btn-print" onclick="window.print()">🖨️ طباعة الإقرار</button>
+</div>
+
+<!-- En-tête -->
+<div class="header">
+  <div class="box-left">
+    <div>المملكة المغربية</div>
+    <div>وزارة الداخلية</div>
+    <div>إقليم {{ province or '..................' }}</div>
+    <div>جماعة <strong style="color:#c8a84b">{{ commune }}</strong></div>
+    <div style="font-size:9pt">مكتب الوعاء الضريبي</div>
+  </div>
+  <div class="box-center">
+    <div class="seal">🏛️</div>
+    <div style="font-size:8pt;color:#666">نموذج رقم : 6</div>
+  </div>
+  <div class="box-right">
+    <div class="ref-box">
+      <div style="color:#666;font-size:9pt">يتم من طرف مصلحة الوعاء الجماعية</div>
+      <div>رقم الإقرار : <span class="ref-val">{{ n_decl }}</span></div>
+      <div>عدد الأرباع المؤداة : <span class="ref-val" style="min-width:40px">{{ nb_payes }}/4</span></div>
+      <div style="font-size:9pt">تأشيرة المصلحة :</div>
+    </div>
+  </div>
+</div>
+
+<!-- Titre -->
+<div class="main-title">
+  <h1>الرسم على محال بيع المشروبات</h1>
+  <h2>حصیلة المداخيل المحققة خلال سنة {{ annee }}</h2>
+</div>
+
+<!-- Infos contribuable -->
+<div class="info-grid">
+  <div class="info-row">
+    <span class="info-label">- الاسم الشخصي والعائلي أو الاسم التجاري :</span>
+    <span class="info-line">{{ etab.prenom or '' }} {{ etab.nom or etab.raison_sociale or '' }}</span>
+  </div>
+  <div class="info-row">
+    <span class="info-label">- عنوان السكنى الاعتيادي أو المؤسسة الرئيسية :</span>
+    <span class="info-line">{{ etab.ctb_adresse or '' }}</span>
+  </div>
+  <div class="info-row">
+    <span class="info-label">- رقم بطاقة التعريف الوطنية :</span>
+    <span class="info-line" style="direction:ltr;text-align:right">{{ etab.cin or etab.rc or '' }}</span>
+    <span class="info-label">رقم الهاتف :</span>
+    <span class="info-line" style="direction:ltr;text-align:right">{{ etab.telephone or '' }}</span>
+  </div>
+  <div class="info-row">
+    <span class="info-label">- اسم المحل/المؤسسة :</span>
+    <span class="info-line">{{ etab.nom_etablissement or '' }}</span>
+    <span class="info-label">رقم الرخصة :</span>
+    <span class="info-line" style="direction:ltr;text-align:right">{{ etab.numero_autorisation or '' }}</span>
+  </div>
+</div>
+
+<!-- Tableau déclaration CA -->
+<table class="decl-table">
+  <thead>
+    <tr>
+      <th style="width:20%">الربع سنة</th>
+      <th style="width:22%">المداخيل المحققة</th>
+      <th style="width:20%">مبلغ الرسم</th>
+      <th style="width:20%">الذعائر والغرامات</th>
+      <th style="width:18%">المجموع المؤدى</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% set TRIM_LABELS = {1:'الربع الأول', 2:'الربع الثاني', 3:'الربع الثالث', 4:'الربع الرابع'} %}
+    {% set totals = namespace(base=0, principal=0, pen=0, total=0) %}
+    {% for t in range(1, 5) %}
+      {% if t in decls_trim %}
+        {% set d = decls_trim[t] %}
+        {% set totals.base = totals.base + (d.base_calcul or 0) %}
+        {% set totals.principal = totals.principal + (d.montant_principal or 0) %}
+        {% set pen = (d.penalite_retard or 0) + (d.majoration or 0) + (d.amende_non_declaration or 0) %}
+        {% set totals.pen = totals.pen + pen %}
+        {% set totals.total = totals.total + (d.montant_total or 0) %}
+        <tr>
+          <td class="label">{{ TRIM_LABELS[t] }}</td>
+          <td class="amount">{{ "%.2f"|format(d.base_calcul or 0) }}</td>
+          <td class="amount">{{ "%.2f"|format(d.montant_principal or 0) }}</td>
+          <td class="amount">{{ "%.2f"|format(pen) }}</td>
+          <td class="amount" style="color: {% if d.statut == 'paye' %}#166534{% else %}#b91c1c{% endif %}">
+            {{ "%.2f"|format(d.montant_total or 0) }}
+            <br>
+            <span style="font-size:7.5pt; font-weight:normal;">{% if d.statut == 'paye' %}مؤدى{% else %}غير مؤدى{% endif %}</span>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td class="label" style="color:#888">{{ TRIM_LABELS[t] }}</td>
+          <td colspan="4" class="amount" style="color:#888;font-weight:normal;font-size:9.5pt">— غير مصرح به —</td>
+        </tr>
+      {% endif %}
+    {% endfor %}
+    <tr class="total-row">
+      <td class="label" style="text-align:center">المجمـوع</td>
+      <td class="amount">{{ "%.2f"|format(totals.base) }}</td>
+      <td class="amount">{{ "%.2f"|format(totals.principal) }}</td>
+      <td class="amount">{{ "%.2f"|format(totals.pen) }}</td>
+      <td class="amount" style="color:#1e3a5f">{{ "%.2f"|format(totals.total) }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="font-size:10pt;color:#333;margin:10px 0;text-align:right">
+  🔹 نسبة الرسم المطبقة : <strong style="color:#1e3a5f">{{ "%.0f"|format(taux) }}%</strong>
+</div>
+
+<!-- Mention légale -->
+<div class="legal">
+  <strong>هذه الوثيقة عبارة عن ملخص سنوي للإقرارات الربع سنوية المدخلة في النظام المعلوماتي برسم سنة {{ annee }}.</strong>
+</div>
+
+<!-- Signature -->
+<div class="sig-section" style="margin-top:24px">
+  <div class="sig-block">
+    <div class="sig-title">المصرح (للاطلاع)</div>
+    <div class="sig-area">توقيع</div>
+  </div>
+  <div style="flex:1;text-align:center;font-size:9.5pt;color:#555;padding-top:8px">
+    {{ commune }} في {{ today }}
+  </div>
+  <div class="sig-block">
+    <div class="sig-title">مصلحة الوعاء الجبائي</div>
+    <div class="sig-area">تأشيرة وختم</div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footnote">
+  <span>(*) المادة 67 من القانون رقم 47.06 المتعلق بجبايات الجماعات الترابية</span>
+  <span>ملحوظة : هذا الملخص لا يعوض الإقرار السنوي الأصلي (نموذج رقم 6) الموقع من طرف الملزم.</span>
+</div>
+
+</body>
+</html>

@@ -1,76 +1,125 @@
 {% extends 'base.html' %}
 {% block title %}{{ etab.nom_etablissement }}{% endblock %}
 {% block page_title %}🍺 {{ etab.nom_etablissement }}{% endblock %}
+{% block extra_head %}
+<style>
+.ctb-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto }
+.ctb-tab-btn {
+  padding: 10px 20px; font-size: .8rem; font-weight: 700;
+  cursor: pointer; border: none; background: none;
+  color: var(--muted); border-bottom: 3px solid transparent;
+  margin-bottom: -2px; transition: all .15s; white-space: nowrap;
+}
+.ctb-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(30,58,95,.04) }
+.ctb-tab-pane { display: none !important }
+.ctb-tab-pane.active { display: block !important }
+.tab-badge { border-radius:10px;padding:0 5px;font-size:.6rem;margin-left:4px;color:#fff }
+.bg-accent { background:var(--accent) }
+</style>
+{% endblock %}
 {% block content %}
 <div class="df gap-2 mb-3" style="flex-wrap:wrap;align-items:center">
   <a href="{{ url_for('tdb.tdb_liste') }}" class="btn btn-outline btn-sm">← Liste</a>
-  <a href="{{ url_for('tdb.tdb_paiement', id=etab.id) }}" class="btn btn-accent">💳 Paiement & Déclarations</a>
+  <a href="{{ url_for('tdb.tdb_paiement', id=etab.id) }}" class="btn btn-accent btn-sm">💳 Paiement & Déclarations</a>
   <button onclick="openModal('editEtab')" class="btn btn-primary btn-sm">✏️ Modifier</button>
-  <form method="post" action="{{ url_for('tdb.tdb_supprimer', id=etab.id) }}" style="margin-left:auto"
-        onsubmit="return confirmForm(this, {title:'Supprimer l\'\u00e9tablissement',msg:'Archiver <strong>{{ etab.nom_etablissement }}</strong> ? Les déclarations non payées seront conservées.',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
-    <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5">🗑️ Supprimer</button>
-  </form>
+  <a href="{{ url_for('tdb.tdb_pdf_creation_cessation', type_decl='creation', id=etab.id) }}" target="_blank" class="btn btn-info btn-sm">🖨️ Décl. Création</a>
+  <a href="{{ url_for('tdb.tdb_pdf_creation_cessation', type_decl='cessation', id=etab.id) }}" target="_blank" class="btn btn-outline btn-sm" style="border-color:var(--danger);color:var(--danger)">🖨️ Décl. Cessation</a>
+  
+  <div style="margin-left:auto; display:flex; gap:8px">
+    {% if etab.statut == 'actif' %}
+    <form method="post" action="{{ url_for('tdb.tdb_cessation', id=etab.id) }}"
+          onsubmit="return confirmForm(this, {title:'Cessation d\'activité',msg:'Marquer <strong>{{ etab.nom_etablissement }}</strong> comme cessé ?',type:'warning',confirmText:'⚠️ Cessation',icon:'⚠️'})">
+      <button type="submit" class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b">⚠️ Cessation</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('tdb.tdb_supprimer', id=etab.id) }}"
+          onsubmit="return confirmForm(this, {title:'Supprimer l\'\u00e9tablissement',msg:'Archiver <strong>{{ etab.nom_etablissement }}</strong> ?',type:'danger',confirmText:'🗑️ Supprimer',icon:'🗑️'})">
+      <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5">🗑️ Supprimer</button>
+    </form>
+  </div>
 </div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-  <div class="card">
-    <div class="card-header"><h3>🍺 Informations Établissement</h3></div>
-    <div class="card-body" style="font-size:.84rem">
-      <div style="display:grid;gap:8px">
-        <div><span class="text-muted" style="font-size:.7rem">N°</span><div><strong style="color:var(--primary)">{{ etab.numero }}</strong></div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Nom</span><div><strong>{{ etab.nom_etablissement }}</strong></div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Type</span><div><span class="badge b-info">{{ etab.type_etablissement }}</span></div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Adresse</span><div>{{ etab.adresse or '—' }}</div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Superficie</span><div>{{ etab.superficie or '—' }} {% if etab.superficie %}m²{% endif %}</div></div>
-        <div><span class="text-muted" style="font-size:.7rem">N° Autorisation</span><div>{{ etab.numero_autorisation or '—' }}</div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Date Autorisation</span><div>{{ etab.date_autorisation or '—' }}</div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Statut</span><div><span class="badge {{ 'b-ok' if etab.statut=='actif' else 'b-danger' }}">{{ etab.statut }}</span></div></div>
+
+<!-- ─── TABS ─── -->
+<div class="ctb-tabs" id="tdbTabs">
+  <button class="ctb-tab-btn active" data-tab="paneInfo">📋 Infos & Propriétaire</button>
+  <button class="ctb-tab-btn" data-tab="paneDecls">💳 Déclarations
+    {% if declarations %}<span class="tab-badge bg-accent">{{ declarations|length }}</span>{% endif %}
+  </button>
+</div>
+
+<!-- ─── PANE : INFOS ─── -->
+<div id="paneInfo" class="ctb-tab-pane active">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-header"><h3>🍺 Informations Établissement</h3></div>
+      <div class="card-body" style="font-size:.84rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><span class="text-muted" style="font-size:.7rem">N°</span><div><strong style="color:var(--primary);font-size:1.1rem">{{ etab.numero }}</strong></div></div>
+          <div><span class="text-muted" style="font-size:.7rem">Nom</span><div><strong>{{ etab.nom_etablissement }}</strong></div></div>
+          <div><span class="text-muted" style="font-size:.7rem">Type</span><div><span class="badge b-info">{{ etab.type_etablissement }}</span></div></div>
+          <div><span class="text-muted" style="font-size:.7rem">Superficie</span><div>{{ etab.superficie or '—' }} {% if etab.superficie %}m²{% endif %}</div></div>
+          <div><span class="text-muted" style="font-size:.7rem">N° Autorisation</span><div>{{ etab.numero_autorisation or '—' }}</div></div>
+          <div><span class="text-muted" style="font-size:.7rem">Date Autorisation</span><div>{{ etab.date_autorisation or '—' }}</div></div>
+          <div><span class="text-muted" style="font-size:.7rem">Statut</span><div>
+            {% if etab.statut == 'actif' %}<span class="badge b-ok">Actif</span>
+            {% elif etab.statut == 'cesse' %}<span class="badge b-danger">Cessé</span>
+            {% else %}<span class="badge b-sec">{{ etab.statut }}</span>{% endif %}
+          </div></div>
+          <div style="grid-column:1/-1"><span class="text-muted" style="font-size:.7rem">Adresse</span><div>{{ etab.adresse or '—' }}</div></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header"><h3>👤 Propriétaire</h3></div>
+      <div class="card-body" style="font-size:.84rem">
+        <div style="display:grid;gap:8px">
+          <div><span class="text-muted" style="font-size:.7rem">N° Contribuable</span><div><strong style="color:var(--primary)">{{ etab.ctb_num }}</strong></div></div>
+          <div><span class="text-muted" style="font-size:.7rem">Nom complet / Raison sociale</span><div><strong>{{ etab.nom }} {{ etab.prenom or etab.raison_sociale or '' }}</strong></div></div>
+          <div><span class="text-muted" style="font-size:.7rem">CIN / RC</span><div>{{ etab.cin or etab.rc or '—' }}</div></div>
+          <div><span class="text-muted" style="font-size:.7rem">Téléphone</span><div>{{ etab.telephone or '—' }}</div></div>
+        </div>
+        {% if trimestres_non_payes %}
+        <div style="margin-top:12px;background:var(--warn-bg);border-radius:8px;padding:10px;border-left:4px solid var(--warn-bd)">
+          <div style="font-size:.72rem;font-weight:700;color:#856404">⚠️ {{ trimestres_non_payes|length }} Trimestres en retard</div>
+          <a href="{{ url_for('tdb.tdb_paiement', id=etab.id) }}" class="btn btn-accent btn-xs mt-2">Régulariser →</a>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
+</div>
+
+<!-- ─── PANE : DECLARATIONS ─── -->
+<div id="paneDecls" class="ctb-tab-pane">
   <div class="card">
-    <div class="card-header"><h3>👤 Propriétaire</h3></div>
-    <div class="card-body" style="font-size:.84rem">
-      <div style="display:grid;gap:8px">
-        <div><span class="text-muted" style="font-size:.7rem">N° Contribuable</span><div><strong style="color:var(--primary)">{{ etab.ctb_num }}</strong></div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Nom</span><div><strong>{{ etab.nom }} {{ etab.prenom or etab.raison_sociale or '' }}</strong></div></div>
-        <div><span class="text-muted" style="font-size:.7rem">CIN</span><div>{{ etab.cin or '—' }}</div></div>
-        <div><span class="text-muted" style="font-size:.7rem">Téléphone</span><div>{{ etab.telephone or '—' }}</div></div>
-      </div>
-      {% if annees_manquantes %}
-      <div style="margin-top:12px;background:var(--warn-bg);border-radius:8px;padding:10px;border-left:4px solid var(--warn-bd)">
-        <div style="font-size:.72rem;font-weight:700;color:#856404">⚠️ Trimestres sans déclaration — Années: {% for a in annees_manquantes %}<span class="badge b-warn">{{ a }}</span> {% endfor %}</div>
-        <a href="{{ url_for('tdb.tdb_paiement', id=etab.id) }}" class="btn btn-accent btn-xs mt-2">Régulariser →</a>
-      </div>
-      {% endif %}
+    <div class="card-header"><h3>📄 Historique Déclarations</h3><a href="{{ url_for('tdb.tdb_paiement', id=etab.id) }}" class="btn btn-accent btn-sm">+ Déclaration</a></div>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>N° Décl.</th><th>Année</th><th>Trim.</th><th>Recettes HT</th><th>Taux</th><th>Principal</th><th>Pénalité</th><th>Total</th><th>Bulletin</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for d in declarations %}
+          <tr>
+            <td><small style="color:var(--primary)">{{ d.numero }}</small></td>
+            <td><strong>{{ d.annee }}</strong></td>
+            <td><span class="badge b-info">T{{ d.trimestre }}</span></td>
+            <td>{{ "%.2f"|format(d.base_calcul) }}</td>
+            <td>{{ d.taux }}%</td>
+            <td>{{ "%.2f"|format(d.montant_principal) }}</td>
+            <td>{% if d.penalite_retard>0 %}<span class="text-danger">{{ "%.2f"|format(d.penalite_retard) }}</span>{% else %}—{% endif %}</td>
+            <td><strong>{{ "%.2f"|format(d.montant_total) }} DH</strong></td>
+            <td><small>{{ d.numero_bulletin or '—' }}</small></td>
+            <td><span class="badge {% if d.statut=='paye' %}b-ok{% elif d.statut=='emis' %}b-warn{% else %}b-sec{% endif %}">{{ d.statut }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="empty-state">Aucune déclaration</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
-<div class="card">
-  <div class="card-header"><h3>📄 Historique Déclarations</h3><a href="{{ url_for('tdb.tdb_paiement', id=etab.id) }}" class="btn btn-accent btn-sm">+ Déclaration</a></div>
-  <div class="table-responsive">
-    <table>
-      <thead><tr><th>N° Décl.</th><th>Année</th><th>Trim.</th><th>Recettes HT</th><th>Taux</th><th>Principal</th><th>Pénalité</th><th>Total</th><th>Bulletin</th><th>Statut</th></tr></thead>
-      <tbody>
-        {% for d in declarations %}
-        <tr>
-          <td><small style="color:var(--primary)">{{ d.numero }}</small></td>
-          <td><strong>{{ d.annee }}</strong></td>
-          <td><span class="badge b-info">T{{ d.trimestre }}</span></td>
-          <td>{{ "%.2f"|format(d.base_calcul) }}</td>
-          <td>{{ d.taux }}%</td>
-          <td>{{ "%.2f"|format(d.montant_principal) }}</td>
-          <td>{% if d.penalite_retard>0 %}<span class="text-danger">{{ "%.2f"|format(d.penalite_retard) }}</span>{% else %}—{% endif %}</td>
-          <td><strong>{{ "%.2f"|format(d.montant_total) }} DH</strong></td>
-          <td><small>{{ d.numero_bulletin or '—' }}</small></td>
-          <td><span class="badge {% if d.statut=='paye' %}b-ok{% elif d.statut=='emis' %}b-warn{% else %}b-sec{% endif %}">{{ d.statut }}</span></td>
-        </tr>
-        {% else %}
-        <tr><td colspan="10" class="empty-state">Aucune déclaration</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+
 <!-- Modal modifier -->
 <div class="modal-overlay" id="editEtab">
   <div class="modal">
@@ -87,7 +136,10 @@
           <div class="form-group"><label>Adresse</label><input name="adresse" value="{{ etab.adresse or '' }}"></div>
           <div class="form-group"><label>N° Autorisation</label><input name="numero_autorisation" value="{{ etab.numero_autorisation or '' }}"></div>
           <div class="form-group"><label>Statut</label>
-            <select name="statut"><option value="actif" {{ 'selected' if etab.statut=='actif' }}>Actif</option><option value="ferme" {{ 'selected' if etab.statut=='ferme' }}>Fermé</option><option value="suspendu" {{ 'selected' if etab.statut=='suspendu' }}>Suspendu</option></select>
+            <select name="statut">
+              <option value="actif" {{ 'selected' if etab.statut=='actif' }}>Actif</option>
+              <option value="cesse" {{ 'selected' if etab.statut=='cesse' }}>Cessé</option>
+            </select>
           </div>
         </div>
         <div class="modal-footer">
@@ -98,4 +150,28 @@
     </div>
   </div>
 </div>
+
+<script>
+(function() {
+  var TABS = ['paneInfo','paneDecls'];
+  function activateTab(tabId) {
+    TABS.forEach(function(id) {
+      var el = document.getElementById(id);
+      if(el) el.classList.remove('active');
+    });
+    document.querySelectorAll('.ctb-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    var pane = document.getElementById(tabId);
+    if(pane) pane.classList.add('active');
+    var btn = document.querySelector('.ctb-tab-btn[data-tab="' + tabId + '"]');
+    if(btn) btn.classList.add('active');
+    try { sessionStorage.setItem('tdbActiveTab', tabId); } catch(e) {}
+  }
+  document.querySelectorAll('.ctb-tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { activateTab(this.getAttribute('data-tab')); });
+  });
+  var saved = '';
+  try { saved = sessionStorage.getItem('tdbActiveTab') || ''; } catch(e) {}
+  activateTab((saved && document.getElementById(saved)) ? saved : 'paneInfo');
+})();
+</script>
 {% endblock %}

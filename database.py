@@ -27,6 +27,23 @@ CREATE TABLE IF NOT EXISTS roles (
         peut_valider_paiement INTEGER DEFAULT 0, peut_config INTEGER DEFAULT 0,
         peut_creer_bulletin INTEGER DEFAULT 0
     );
+CREATE TABLE IF NOT EXISTS app_modules (
+        code TEXT PRIMARY KEY,
+        nom TEXT,
+        description TEXT,
+        actif INTEGER DEFAULT 1,
+        ordre INTEGER DEFAULT 10
+    );
+CREATE TABLE IF NOT EXISTS role_module_permissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+        module_code TEXT REFERENCES app_modules(code) ON DELETE CASCADE,
+        peut_voir INTEGER DEFAULT 1,
+        peut_ajouter INTEGER DEFAULT 0,
+        peut_modifier INTEGER DEFAULT 0,
+        peut_supprimer INTEGER DEFAULT 0,
+        UNIQUE(role_id, module_code)
+    );
 CREATE TABLE IF NOT EXISTS utilisateurs (
         id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT,
         email TEXT UNIQUE, mot_de_passe TEXT, role_id INTEGER,
@@ -569,16 +586,32 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
             VALUES (?,?,?,?,?,?,?,?)''', r)
     conn.commit()
 
+    # App Modules par défaut
+    app_modules_default = [
+        ('TNB', 'Taxe sur les Terrains Urbains Non Bâtis', '', 1, 10),
+        ('DEBITS_BOISSONS', 'Taxe sur les Débits de Boissons', '', 1, 20),
+        ('STATIONNEMENT', 'Taxe de Stationnement / TPV', '', 1, 30),
+        ('OCCUPATION_DOMAINE', 'Occupation du Domaine Public', '', 1, 40),
+        ('FOURRIERE', 'Droits de Fourrière', '', 1, 50),
+        ('LOCATION_LOCAUX', 'Location des Locaux Commerciaux', '', 1, 60),
+        ('AFFERMAGE_SOUKS', 'Affermage des Souks', '', 1, 70),
+        ('REGIE', 'Régie & État Civil', '', 1, 80)
+    ]
+    for m in app_modules_default:
+        c.execute('INSERT OR IGNORE INTO app_modules (code, nom, description, actif, ordre) VALUES (?,?,?,?,?)', m)
+    conn.commit()
+
     # Commune depuis config.json
     if cfg and cfg.get('commune'):
         cm = cfg['commune']
-        c.execute('''INSERT OR IGNORE INTO communes (nom,nom_ar,region,province,code)
-            VALUES (?,?,?,?,?)''',
+        c.execute('''INSERT OR IGNORE INTO communes (nom,nom_ar,region,region_ar,province,province_ar,logo)
+            VALUES (?,?,?,?,?,?,?)''',
             (cm.get('nom','Commune'), cm.get('nom_ar',''), cm.get('region',''),
-             cm.get('province',''), cm.get('code','GEN-001')))
+             cm.get('region_ar',''), cm.get('province',''), cm.get('province_ar',''),
+             cm.get('logo', '')))
         conn.commit()
     else:
-        c.execute("INSERT OR IGNORE INTO communes (nom,code) VALUES ('Ma Commune','GEN-001')")
+        c.execute("INSERT OR IGNORE INTO communes (nom) VALUES ('Ma Commune')")
         conn.commit()
 
     # Admin par défaut
@@ -637,6 +670,73 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
     for p in params:
         c.execute('INSERT OR IGNORE INTO parametres_calcul (module,code,libelle,valeur,unite,description) VALUES (?,?,?,?,?,?)', p)
     conn.commit()
+
+    # ── Migrations TNB v3 ────────────────────────────────────────
+    # Table dossiers_tnb (1 dossier par contribuable)
+    c.execute('''CREATE TABLE IF NOT EXISTS dossiers_tnb (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero_dossier INTEGER UNIQUE NOT NULL,
+        contribuable_id INTEGER NOT NULL REFERENCES contribuables(id),
+        archive INTEGER DEFAULT 0,
+        date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
+
+    # Table tnb_documents (pièces jointes terrain)
+    c.execute('''CREATE TABLE IF NOT EXISTS tnb_documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        terrain_id INTEGER NOT NULL REFERENCES terrains(id),
+        nom_fichier TEXT,
+        chemin TEXT,
+        type_doc TEXT DEFAULT "autre",
+        taille INTEGER,
+        date_upload TEXT DEFAULT CURRENT_TIMESTAMP,
+        agent_id INTEGER
+    )''')
+    conn.commit()
+
+    # Table terrain_coproprietaires
+    c.execute('''CREATE TABLE IF NOT EXISTS terrain_coproprietaires (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        terrain_id INTEGER NOT NULL REFERENCES terrains(id),
+        contribuable_id INTEGER NOT NULL REFERENCES contribuables(id),
+        part_indivision REAL DEFAULT 0,
+        date_ajout TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(terrain_id, contribuable_id)
+    )''')
+    conn.commit()
+
+    # Colonnes manquantes sur terrains
+    for _col, _typ in [
+        ('lotissement', 'TEXT DEFAULT ""'),
+        ('archive',     'INTEGER DEFAULT 0'),
+    ]:
+        try:
+            c.execute(f'ALTER TABLE terrains ADD COLUMN {_col} {_typ}')
+            conn.commit()
+        except Exception:
+            pass
+
+    # Colonnes manquantes sur permis
+    for _col, _typ in [
+        ('date_autorisation',      'TEXT'),
+        ('annee_debut_exoneration','INTEGER'),
+        ('annee_fin_exoneration',  'INTEGER'),
+    ]:
+        try:
+            c.execute(f'ALTER TABLE permis ADD COLUMN {_col} {_typ}')
+            conn.commit()
+        except Exception:
+            pass
+
+    # Paramètre AMENDE_NON_DECLARATION pour TNB
+    c.execute('''INSERT OR IGNORE INTO parametres_calcul
+        (module, code, libelle, valeur, unite, description)
+        VALUES ("TNB","AMENDE_NON_DECLARATION",
+                "Amende non-déclaration (%)","15","%",
+                "Pourcentage amende pour non-déclaration dans les délais")''')
+    conn.commit()
+    # ── Fin migrations TNB v3 ────────────────────────────────────
     # ---- Regie modules setup ----
     if c.execute('SELECT COUNT(*) FROM regie_valeurs').fetchone()[0] == 0:
         c.execute("INSERT INTO regie_valeurs (type_valeur, designation, valeur_unitaire, nb_unites_carnet) VALUES ('timbre', 'Timbre État Civil', 2, 500)")

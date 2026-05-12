@@ -252,11 +252,7 @@
       <div>المصالح البلدية</div>
     </div>
     <div class="col-logo">
-      {% if commune_logo %}
-      <img src="{{ url_for('static', filename='uploads/' + commune_logo) }}" alt="Logo Commune">
-      {% else %}
-      <div class="logo-fallback">🏛️</div>
-      {% endif %}
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Commune">
       <div style="font-size:7pt;font-weight:700;color:#1e3a5f;text-align:center;font-family:'Cairo',sans-serif">{{ user.commune_nom or 'جماعة' }}</div>
     </div>
     <div class="col-fr">

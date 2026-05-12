@@ -13,13 +13,18 @@
   <div class="search-bar">
     <form method="get" style="display:flex;gap:8px;flex:1">
       <input name="q" value="{{ q }}" placeholder="Chercher établissement, contribuable...">
-      <button type="submit" class="btn btn-primary btn-sm">🔍</button>
-      {% if q %}<a href="{{ url_for('tdb.tdb_liste') }}" class="btn btn-outline btn-sm">✕</a>{% endif %}
+      <select name="statut" class="form-control" style="width:150px">
+        <option value="">Tous les statuts</option>
+        <option value="actif" {{ 'selected' if request.args.get('statut') == 'actif' }}>Actif</option>
+        <option value="cesse" {{ 'selected' if request.args.get('statut') == 'cesse' }}>Cessé</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">🔍 Filtrer</button>
+      {% if q or request.args.get('statut') %}<a href="{{ url_for('tdb.tdb_liste') }}" class="btn btn-outline btn-sm">✕</a>{% endif %}
     </form>
   </div>
   <div class="table-responsive">
     <table>
-      <thead><tr><th>N°</th><th>Établissement</th><th>Propriétaire</th><th>Type</th><th>Adresse</th><th>N° Autorisation</th><th>Statut</th><th>Actions</th></tr></thead>
+      <thead><tr><th>N°</th><th>Établissement</th><th>Propriétaire</th><th>Type</th><th>Statut</th><th>Retard / Dette estimée</th><th>Actions</th></tr></thead>
       <tbody>
         {% for e in items %}
         <tr>
@@ -32,9 +37,21 @@
             <br><small class="text-muted">{{ e.ctb_num }}</small>
           </td>
           <td><span class="badge b-info">{{ e.type_etablissement }}</span></td>
-          <td style="font-size:.78rem">{{ e.adresse or '—' }}</td>
-          <td style="font-size:.78rem">{{ e.numero_autorisation or '—' }}</td>
-          <td><span class="badge {{ 'b-ok' if e.statut=='actif' else 'b-danger' }}">{{ e.statut }}</span></td>
+          <td>
+            {% if e.statut == 'actif' %}<span class="badge b-ok">Actif</span>
+            {% elif e.statut == 'cesse' %}<span class="badge b-danger">Cessé</span>
+            {% else %}<span class="badge b-sec">{{ e.statut }}</span>{% endif %}
+          </td>
+          <td>
+            {% if e.statut != 'cesse' and e.dernier_trimestre_non_paye %}
+            <div style="font-size:.75rem;color:var(--danger);font-weight:bold">
+              ⏳ Depuis: {{ e.dernier_trimestre_non_paye }}<br>
+              ⚠️ Est: {{ "%.2f"|format(e.montant_estime_retard) }} DH
+            </div>
+            {% else %}
+            <span class="badge b-ok">À jour</span>
+            {% endif %}
+          </td>
           <td>
             <div class="df gap-2">
               <a href="{{ url_for('tdb.tdb_detail', id=e.id) }}" class="btn btn-primary btn-xs">🔍</a>
@@ -52,7 +69,11 @@
 <!-- Modal ajout -->
 <div class="modal-overlay" id="addEtab">
   <div class="modal">
-    <div class="modal-header"><h3>🍺 Nouvel Établissement</h3><button class="modal-close" onclick="closeModal('addEtab')">✕</button></div>
+    <div class="modal-header">
+      <h3>🍺 Nouvel Établissement</h3>
+      <a href="{{ url_for('tdb.tdb_pdf_creation_cessation', type_decl='creation') }}" target="_blank" class="btn btn-outline btn-sm" style="margin-left:auto;margin-right:10px">🖨️ Formulaire Vierge</a>
+      <button class="modal-close" onclick="closeModal('addEtab')">✕</button>
+    </div>
     <div class="modal-body">
       <form method="post" action="{{ url_for('tdb.tdb_ajouter') }}">
         <div class="form-group mb-3"><label>Contribuable / Propriétaire *</label>

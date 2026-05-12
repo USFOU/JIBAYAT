@@ -65,22 +65,27 @@ if not exist "dist\JIBAYAT\JIBAYAT.exe" (
 
 REM ── Résultat ─────────────────────────────────
 echo.
-echo [3/3] Calcul de la taille...
-for /f %%s in ('powershell -command "(Get-ChildItem -Recurse dist\JIBAYAT | Measure-Object -Property Length -Sum).Sum / 1MB"') do set SIZE=%%s
+echo [4/4] Création de l'archive de mise à jour (JIBAYAT-update.zip)...
+if exist "dist\JIBAYAT-update.zip" del "dist\JIBAYAT-update.zip"
+powershell -command "Compress-Archive -Path 'dist\JIBAYAT\*' -DestinationPath 'dist\JIBAYAT-update.zip' -Force"
 
 echo.
 echo  ╔══════════════════════════════════════════╗
 echo  ║   ✅ BUILD RÉUSSI — Version %VERSION%       
-echo  ║   📁 dist\JIBAYAT\JIBAYAT.exe            ║
+echo  ║   📁 Exécutable : dist\JIBAYAT\JIBAYAT.exe  
+echo  ║   📦 Archive Maj: dist\JIBAYAT-update.zip   
 echo  ║   💾 Taille : ~%SIZE% MB                 
 echo  ╚══════════════════════════════════════════╝
 echo.
-echo  Pour distribuer : copiez le dossier dist\JIBAYAT\ entier.
-echo  N'oubliez pas d'y ajouter : fiscalite.db + config.json
+echo  Pour distribuer : copiez le dossier dist\JIBAYAT\ entier, ou utilisez l'archive ZIP.
+echo  N'oubliez pas d'y ajouter : fiscalite.db + config.json pour une nouvelle installation.
+echo.
+echo  ⚠️ Pour activer la mise à jour chez vos clients : 
+echo  Uploadez le fichier 'dist\JIBAYAT-update.zip' dans une nouvelle "Release" sur GitHub !
 echo.
 
 REM ── Ouvrir le dossier dist ───────────────────
 set /p OPEN="Ouvrir le dossier dist\ maintenant ? (O/N) : "
-if /i "%OPEN%"=="O" explorer "dist\JIBAYAT"
+if /i "%OPEN%"=="O" explorer "dist"
 
 pause

@@ -16,14 +16,19 @@ def login_required(f):
 def get_current_user():
     if 'user_id' not in session: return None
     conn = get_db()
-    user = conn.execute('''SELECT u.*, r.nom as role_nom,
-        r.peut_ajouter, r.peut_modifier, r.peut_supprimer, r.peut_voir,
-        r.peut_valider_paiement, r.peut_config, r.peut_creer_bulletin,
-        com.nom as commune_nom
-        FROM utilisateurs u JOIN roles r ON u.role_id=r.id
-        LEFT JOIN communes com ON u.commune_id=com.id WHERE u.id=?''',
-        (session['user_id'],)).fetchone()
-    conn.close()
+    try:
+        user = conn.execute('''SELECT u.*, r.nom as role_nom,
+            r.peut_ajouter, r.peut_modifier, r.peut_supprimer, r.peut_voir,
+            r.peut_valider_paiement, r.peut_config, r.peut_creer_bulletin,
+            com.nom as commune_nom
+            FROM utilisateurs u JOIN roles r ON u.role_id=r.id
+            LEFT JOIN communes com ON u.commune_id=com.id WHERE u.id=?''',
+            (session['user_id'],)).fetchone()
+    except Exception:
+        session.pop('user_id', None)
+        user = None
+    finally:
+        conn.close()
     return user
 
 def get_user_module_permissions(user, module_code):
@@ -58,11 +63,15 @@ def get_all_user_modules(user):
     if user is None:
         return {}
     conn = get_db()
-    modules = conn.execute('SELECT * FROM app_modules WHERE actif=1 ORDER BY ordre').fetchall()
-    result = {}
-    for m in modules:
-        result[m['code']] = get_user_module_permissions(user, m['code'])
-    conn.close()
+    try:
+        modules = conn.execute('SELECT * FROM app_modules WHERE actif=1 ORDER BY ordre').fetchall()
+        result = {}
+        for m in modules:
+            result[m['code']] = get_user_module_permissions(user, m['code'])
+    except Exception:
+        result = {}
+    finally:
+        conn.close()
     return result
 
 def module_required(module_code, perm='peut_voir'):

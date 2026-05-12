@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Registre {{ module_name }} - JIBAYAT{% endblock %}
+{% block page_title %}Registre: {{ module_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+@media print {
+  @page { margin: 1cm; }
+  body { background: #fff !important; color: #000 !important; }
+  .sidebar, .topbar, .no-print, .registre-header { display: none !important; }
+  .main { margin-left: 0 !important; }
+  .content { padding: 0 !important; }
+  .card, .registre-item, .card-body, .registre-container { 
+    border: none !important; 
+    box-shadow: none !important; 
+    margin: 0 !important; 
+    padding: 0 !important; 
+    background: transparent !important;
+  }
+  .registre-body { display: block !important; padding: 0 !important; }
+  
+  .print-area { 
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    direction: rtl; 
+    font-family: 'Cairo', sans-serif;
+    page-break-inside: avoid;
+    page-break-after: always;
+    margin-bottom: 2cm;
+  }
+  
+  .hide-for-print { display: none !important; }
+
+  .print-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+  .print-table th, .print-table td { border: 2px solid #000; padding: 8px; text-align: center; color: #000; }
+  .print-table th { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+  .print-header { display: flex; justify-content: space-between; border: 2px solid #000; padding: 15px; margin-bottom: 20px; page-break-inside: avoid; }
+  .print-info-row { display: flex; margin-bottom: 8px; font-size: 16px; color: #000; }
+  .print-info-label { font-weight: bold; width: 150px; }
+  .print-info-value { border-bottom: 1px dotted #000; flex: 1; margin-right: 10px; }
+}
+
+.registre-container { margin-top: 20px; }
+.registre-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; background: #fff; overflow: hidden; }
+.registre-header { padding: 15px; background: var(--bg); display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.registre-header:hover { background: #e2e8f0; }
+.registre-body { padding: 15px; display: none; }
+.registre-item.active .registre-body { display: block; }
+.registre-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+.registre-table th, .registre-table td { border: 1px solid var(--border); padding: 8px; text-align: center; }
+.registre-table th { background: var(--primary); color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card no-print-border">
+  <div class="card-header no-print">
+    <h3>📒 Registre des Redevables - {{ module_name }}</h3>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <input type="text" id="search-ctb" placeholder="🔍 Chercher un contribuable..." style="padding: 8px; border-radius: 6px; border: 1px solid var(--border); width: 250px;">
+      <button class="btn btn-primary" onclick="printAllRegistres()">🖨️ Imprimer Tous</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="registre-container">
+      {% for ctb in contribuables %}
+      <div class="registre-item" data-name="{{ (ctb.nom ~ ' ' ~ ctb.prenom ~ ' ' ~ (ctb.raison_sociale or ''))|lower }}">
+        <div class="registre-header no-print" onclick="this.parentElement.classList.toggle('active')">
+          <div>
+            <strong>{{ ctb.nom }} {{ ctb.prenom }}</strong>
+            {% if ctb.raison_sociale %} <span class="badge b-info">{{ ctb.raison_sociale }}</span> {% endif %}
+            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 5px;">CIN/ICE: {{ ctb.cin or ctb.ice or 'N/A' }} | Tél: {{ ctb.telephone or 'N/A' }}</div>
+          </div>
+          <button class="btn btn-outline btn-sm no-print" onclick="printRegistre('print-area-{{ ctb.id }}'); event.stopPropagation();">🖨️ Imprimer ce redevable</button>
+        </div>
+        <div class="registre-body">
+          <!-- Zone d'impression -->
+          <div id="print-area-{{ ctb.id }}" class="print-area ar" dir="rtl">
+            <div class="print-header" dir="rtl">
+              <div style="flex: 2;">
+                <div class="print-info-row">
+                  <div class="print-info-label">الاسم الكامل</div>
+                  <div class="print-info-value">{{ ctb.nom }} {{ ctb.prenom }} {% if ctb.raison_sociale %} ({{ ctb.raison_sociale }}) {% endif %}</div>
+                </div>
+                <div class="print-info-row">
+                  <div class="print-info-label">رقم البطاقة الوطنية / ICE</div>
+                  <div class="print-info-value">{{ ctb.cin or ctb.ice or '...' }}</div>
+                </div>
+                <div class="print-info-row">
+                  <div class="print-info-label">العنوان</div>
+                  <div class="print-info-value">{{ ctb.adresse or '...' }}</div>
+                </div>
+                <div class="print-info-row">
+                  <div class="print-info-label">رقم الهاتف</div>
+                  <div class="print-info-value">{{ ctb.telephone or '...' }}</div>
+                </div>
+              </div>
+              <div style="flex: 1; border-right: 1px solid #000; padding-right: 15px; margin-right: 15px;">
+                <div style="font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 18px; text-decoration: underline;">
+                  سجل {{ module_name }}
+                </div>
+                <div class="print-info-row">
+                  <div class="print-info-label" style="width: auto; margin-left: 10px;">ملاحظات :</div>
+                  <div class="print-info-value"></div>
+                </div>
+              </div>
+            </div>
+
+            <table class="print-table registre-table" dir="rtl">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">السنة</th>
+                  <th style="width: 80px;">الربع</th>
+                  <th>المبلغ المصرح به</th>
+                  <th>المبلغ المؤدى</th>
+                  <th>رقم الوصل</th>
+                  <th>تاريخ الوصل</th>
+                  <th>ملاحظات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set ops = ops_by_ctb.get(ctb.id, []) %}
+                {% if ops %}
+                  {% for op in ops %}
+                  <tr>
+                    <td>{{ op.annee }}</td>
+                    <td>{{ op.trimestre if op.trimestre > 0 else '-' }}</td>
+                    <td style="font-weight: bold;">{{ op.montant_declare|round(2) }}</td>
+                    <td style="color: green; font-weight: bold;">{{ op.montant_paye|round(2) if op.montant_paye else '' }}</td>
+                    <td>{{ op.numero_quittance or '' }}</td>
+                    <td>{{ op.date_quittance or '' }}</td>
+                    <td style="font-size: 0.8rem;">{{ op.notes or '' }}</td>
+                  </tr>
+                  {% endfor %}
+                  <!-- Lignes vides supplémentaires pour l'impression -->
+                  {% for i in range(5) %}
+                  <tr>
+                    <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="7">Aucune opération trouvée.</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+          <!-- Fin zone d'impression -->
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('search-ctb').addEventListener('input', function(e) {
+  const val = e.target.value.toLowerCase();
+  document.querySelectorAll('.registre-item').forEach(item => {
+    if (item.dataset.name.includes(val)) {
+      item.style.display = 'block';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+});
+
+function printRegistre(areaId) {
+  // Hide all other print areas
+  document.querySelectorAll('.print-area').forEach(el => {
+    if (el.id !== areaId) {
+      el.classList.add('hide-for-print');
+    }
+  });
+  
+  window.print();
+  
+  // Restore
+  document.querySelectorAll('.print-area').forEach(el => {
+    el.classList.remove('hide-for-print');
+  });
+}
+
+function printAllRegistres() {
+  // Ensure no hide-for-print is present
+  document.querySelectorAll('.print-area').forEach(el => {
+    el.classList.remove('hide-for-print');
+  });
+  window.print();
+}
+</script>
+{% endblock %}

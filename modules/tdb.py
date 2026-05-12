@@ -66,16 +66,41 @@ def tdb_liste():
     sql = '''SELECT e.*, c.nom, c.prenom, c.raison_sociale, c.numero as ctb_num, c.cin, c.rc
         FROM etablissements_boissons e JOIN contribuables c ON e.contribuable_id=c.id WHERE e.actif=1'''
     params = []
+    
+    statut = request.args.get('statut')
+    if statut in ['actif', 'cesse']:
+        sql += ' AND e.statut = ?'
+        params.append(statut)
+        
     if q:
         sql += ' AND (c.nom LIKE ? OR e.numero LIKE ? OR e.nom_etablissement LIKE ? OR c.cin LIKE ?)'
-        params = [f'%{q}%'] * 4
+        params.extend([f'%{q}%'] * 4)
+        
     items_raw = conn.execute(sql + ' ORDER BY e.date_creation DESC', params).fetchall()
+    tarifs = get_tarifs_module('DEBITS_BOISSONS')
+    taux = float(tarifs[0]['valeur']) if tarifs else 10.0
     items = []
     for etab in items_raw:
         item = dict(etab)
         non_payes = trimestres_non_payes(etab['id'], 2022)
         item['nb_non_paye'] = len(non_payes)
         item['annees_non_payees'] = sorted(set(t['annee'] for t in non_payes))
+        
+        # Dernier CA et estimation retard
+        last_decl = conn.execute(
+            'SELECT base_calcul FROM declarations WHERE module="DEBITS_BOISSONS" AND reference_id=? AND statut!="annule" ORDER BY annee DESC, trimestre DESC LIMIT 1',
+            (etab['id'],)
+        ).fetchone()
+        last_base = last_decl['base_calcul'] if last_decl else 0
+        item['dernier_ca_declare'] = last_base
+        
+        if non_payes:
+            item['dernier_trimestre_non_paye'] = f"T{non_payes[0]['trimestre']} {non_payes[0]['annee']}"
+            item['montant_estime_retard'] = round(last_base * (taux / 100) * len(non_payes), 2) if last_base > 0 else 0
+        else:
+            item['dernier_trimestre_non_paye'] = None
+            item['montant_estime_retard'] = 0
+            
         items.append(item)
     contribuables = conn.execute(
         'SELECT id,numero,nom,prenom,raison_sociale,cin,rc,telephone,email,adresse FROM contribuables WHERE actif=1'
@@ -353,16 +378,17 @@ def tdb_declaration_annuelle(id):
     commune = commune_row['nom'] if commune_row else ''
     province = (commune_row['province'] if commune_row and 'province' in commune_row.keys() else '')
     n_decl = f"DA-{annee_decl}-{id:04d}"
+    nb_payes = sum(1 for d in decls_trim.values() if d['statut'] == 'paye')
 
-    if request.args.get('pdf'):
+    if request.args.get('pdf') or request.args.get('print'):
         return render_template('tdb/tdb_declaration_annuelle_pdf.html',
                                etab=etab, annee=annee_decl, decls_trim=decls_trim,
                                taux=taux, commune=commune, province=province,
-                               today=date.today().isoformat(), n_decl=n_decl)
+                               today=date.today().isoformat(), n_decl=n_decl, nb_payes=nb_payes)
     return render_template('tdb/tdb_declaration_annuelle.html',
                            user=user, etab=etab, annee=annee_decl, decls_trim=decls_trim,
                            taux=taux, commune=commune, province=province,
-                           today=date.today().isoformat(), n_decl=n_decl)
+                           today=date.today().isoformat(), n_decl=n_decl, nb_payes=nb_payes)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -433,6 +459,52 @@ def tdb_avis(id):
                            commune=commune, province=province,
                            today=date.today().isoformat(), n_avis=n_avis,
                            TRIMESTRES=TRIMESTRES)
+
+
+# ═══════════════════════════════════════════════════════════
+# CESSATION D'ACTIVITÉ
+# ═══════════════════════════════════════════════════════════
+@bp.route('/debits-boissons/<int:id>/cessation', methods=['POST'])
+@login_required
+def tdb_cessation(id):
+    conn = get_db()
+    conn.execute("UPDATE etablissements_boissons SET statut='cesse' WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash("Établissement marqué en cessation d'activité ✅", 'success')
+    return redirect(url_for('tdb.tdb_detail', id=id))
+
+# ═══════════════════════════════════════════════════════════
+# PDF DÉCLARATION DE CRÉATION ET CESSATION
+# ═══════════════════════════════════════════════════════════
+@bp.route('/debits-boissons/pdf-declaration-<type_decl>')
+@login_required
+def tdb_pdf_creation_cessation(type_decl):
+    """Génère le PDF de déclaration (création ou cessation) vierge ou pré-rempli."""
+    if type_decl not in ['creation', 'cessation']:
+        return "Type invalide", 400
+        
+    id = request.args.get('id', type=int)
+    etab = None
+    if id:
+        conn = get_db()
+        etab = conn.execute(
+            '''SELECT e.*, c.nom, c.prenom, c.raison_sociale, c.cin, c.rc,
+               c.adresse as ctb_adresse, c.telephone, c.email
+               FROM etablissements_boissons e JOIN contribuables c ON e.contribuable_id=c.id WHERE e.id=?''',
+            (id,)).fetchone()
+        commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
+        conn.close()
+    else:
+        conn = get_db()
+        commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
+        conn.close()
+        
+    commune = commune_row['nom'] if commune_row else ''
+    province = (commune_row['province'] if commune_row and 'province' in commune_row.keys() else '')
+    
+    return render_template(f'tdb/tdb_declaration_{type_decl}_pdf.html',
+                           etab=etab, commune=commune, province=province,
+                           today=date.today().isoformat())
 
 
 # ═══════════════════════════════════════════════════════════

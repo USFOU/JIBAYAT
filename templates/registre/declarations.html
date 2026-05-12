@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Registre des Déclarations {{ module_name }} - JIBAYAT{% endblock %}
+{% block page_title %}Registre des Déclarations: {{ module_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; direction: rtl; font-family: 'Cairo', sans-serif; }
+  .sidebar, .topbar, .no-print { display: none !important; }
+  .card { box-shadow: none !important; border: none !important; }
+  .print-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+  .print-table th, .print-table td { border: 2px solid #000; padding: 6px; text-align: center; }
+  .print-table th { background-color: #f0f0f0; font-weight: bold; }
+  h2.print-title { text-align: center; border: 2px solid #000; padding: 10px; margin-bottom: 20px; font-size: 20px; }
+}
+
+.table-responsive { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header no-print">
+    <h3>📝 Registre des Déclarations - {{ module_name }}</h3>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimer le Registre</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="print-area ar" dir="rtl">
+      <h2 class="print-title" dir="rtl">سجل التصاريح - {{ module_name }}</h2>
+      
+      <div class="table-responsive">
+        <table class="print-table" dir="rtl" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th>تاريخ التصريح</th>
+              <th>الاسم الكامل / الشركة</th>
+              <th>رقم البطاقة / ICE</th>
+              <th>السنة</th>
+              <th>الربع</th>
+              <th>أساس الاحتساب</th>
+              <th>المبلغ المصرح به</th>
+              <th>المبلغ الإجمالي</th>
+              <th>الوضعية</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in declarations %}
+            <tr>
+              <td>{{ d.date_declaration }}</td>
+              <td>{{ d.nom }} {{ d.prenom }} {% if d.raison_sociale %} ({{ d.raison_sociale }}) {% endif %}</td>
+              <td>{{ d.cin or d.ice or '-' }}</td>
+              <td>{{ d.annee }}</td>
+              <td>{{ d.trimestre if d.trimestre > 0 else '-' }}</td>
+              <td>{{ d.base_calcul|round(2) }}</td>
+              <td>{{ d.montant_principal|round(2) }}</td>
+              <td style="font-weight: bold;">{{ d.montant_total|round(2) }}</td>
+              <td>
+                {% if d.statut == 'paye' %}
+                  <span class="badge b-ok no-print">مؤدى</span>
+                  <span style="display: none;" class="print-only">مؤدى</span>
+                {% elif d.statut == 'emis' %}
+                  <span class="badge b-warn no-print">غير مؤدى</span>
+                  <span style="display: none;" class="print-only">غير مؤدى</span>
+                {% else %}
+                  <span class="badge b-sec no-print">{{ d.statut }}</span>
+                  <span style="display: none;" class="print-only">{{ d.statut }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" style="text-align: center;">لا توجد تصاريح</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Ajouter une classe pour l'impression afin de cacher les badges bootstrap
+const style = document.createElement('style');
+style.innerHTML = `
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: inline !important; }
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

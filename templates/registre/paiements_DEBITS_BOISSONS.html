@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Registre TDB - JIBAYAT{% endblock %}
+{% block page_title %}Registre des Recettes : Débits de Boissons{% endblock %}
+
+{% block extra_head %}
+<style>
+@media print {
+  @page { margin: 1cm; size: A4 landscape; }
+  body { background: #fff !important; color: #000 !important; }
+  .sidebar, .topbar, .no-print { display: none !important; }
+  .main { margin-left: 0 !important; }
+  .content { padding: 0 !important; }
+  .card, .card-body { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
+  
+  .page-garde {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    page-break-after: always;
+    text-align: center;
+    font-family: 'Cairo', sans-serif;
+  }
+  .page-garde h1 { font-size: 4rem; margin-bottom: 20px; text-decoration: underline; }
+  .page-garde h2 { font-size: 2.5rem; margin-bottom: 40px; color: #333; }
+  .page-garde .annee { font-size: 3rem; font-weight: bold; border: 4px solid #000; padding: 20px 40px; border-radius: 15px; }
+  
+  .print-area { display: block !important; direction: rtl; font-family: 'Cairo', sans-serif; }
+  
+  .print-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+  .print-table th, .print-table td { border: 1.5px solid #000; padding: 8px; text-align: center; color: #000; }
+  .print-table th { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+  .print-table tr.fallback { background-color: #fcf8e3 !important; -webkit-print-color-adjust: exact; }
+}
+
+.table-responsive { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card no-print">
+  <div class="card-header" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <h3>📒 Registre de Recouvrement - {{ module_name }}</h3>
+    
+    <form method="GET" style="display:flex; gap:10px; align-items:center;">
+      <label><strong>Année :</strong></label>
+      <select name="annee" class="form-control" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border);" onchange="this.form.submit()">
+        {% for a in annees_dispo %}
+        <option value="{{ a }}" {% if a == annee_selected %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Imprimer le Registre</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <!-- Page de garde pour l'impression -->
+    <div class="page-garde" style="display:none;" class="print-only">
+      <h1>سجل المداخيل</h1>
+      <h2>الرسم على محال بيع المشروبات (TDB)</h2>
+      <div class="annee">سنة {{ annee_selected }}</div>
+      <div style="margin-top: 50px; font-size: 1.5rem;">جماعة ...</div>
+    </div>
+    
+    <!-- Zone du tableau -->
+    <div class="print-area ar" dir="rtl">
+      <h3 style="text-align: center; margin-bottom: 20px;" class="print-only" style="display:none;">
+        سجل التحصيل - الرسم على محال بيع المشروبات - سنة {{ annee_selected }}
+      </h3>
+      
+      <div class="table-responsive">
+        <table class="print-table" dir="rtl">
+          <thead>
+            <tr>
+              <th>ر.ت</th>
+              <th>الاسم الكامل للملزم / المقهى</th>
+              <th>رقم البطاقة / ICE</th>
+              <th>السنة</th>
+              <th>الربع</th>
+              <th>المبلغ المصرح به</th>
+              <th>المبلغ المؤدى</th>
+              <th>رقم الوصل</th>
+              <th>تاريخ الوصل</th>
+              <th>ملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ligne in lignes_registre %}
+            {% set ctb = ligne.contribuable %}
+            {% set op = ligne.operation %}
+            <tr class="{% if ligne.is_last_fallback %}fallback{% endif %}">
+              <td>{{ loop.index }}</td>
+              <td style="font-weight: bold;">
+                {{ ctb.nom }} {{ ctb.prenom }}
+                {% if ctb.raison_sociale %} <br><small>({{ ctb.raison_sociale }})</small> {% endif %}
+              </td>
+              <td>{{ ctb.cin or ctb.ice or '-' }}</td>
+              <td>
+                {{ op.annee }}
+                {% if ligne.is_last_fallback %}
+                  <br><small style="color:red;">(آخر أداء)</small>
+                {% endif %}
+              </td>
+              <td>{{ op.trimestre if op.trimestre > 0 else '-' }}</td>
+              <td>{{ op.montant_declare|round(2) }}</td>
+              <td style="color: green; font-weight: bold;">
+                {% if op.statut == 'paye' %}
+                  {{ op.montant_paye|round(2) if op.montant_paye else '-' }}
+                {% else %}
+                  <span style="color:red;">غير مؤدى</span>
+                {% endif %}
+              </td>
+              <td>{{ op.numero_quittance or '-' }}</td>
+              <td>{{ op.date_quittance or '-' }}</td>
+              <td style="font-size: 0.8rem;">
+                {% if ligne.is_last_fallback %}
+                  لم يؤد سنة {{ annee_selected }}
+                {% endif %}
+                {{ op.notes or '' }}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="10" style="text-align: center;">لا توجد معطيات لهذه السنة</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const style = document.createElement('style');
+style.innerHTML = `
+@media print {
+  .page-garde, .print-only { display: flex !important; }
+  h3.print-only { display: block !important; }
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

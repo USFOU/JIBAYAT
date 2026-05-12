@@ -30,11 +30,13 @@ def _statut_badge(statut, nb_jours):
 
 def _get_tarif(conn, code_type):
     """Retourne le tarif journalier pour un type de véhicule."""
-    row = conn.execute(
-        'SELECT tarif_journalier FROM fou_types_vehicule WHERE code=? AND actif=1',
-        (code_type,)
-    ).fetchone()
-    return float(row['tarif_journalier']) if row else 0.0
+    row = conn.execute('''
+        SELECT t.valeur FROM tarifs t
+        JOIN rubriques r ON t.rubrique_id = r.id
+        WHERE r.module='FOURRIERE' AND t.libelle=? AND t.actif=1
+    ''', (code_type,)).fetchone()
+    return float(row['valeur']) if row else 0.0
+
 
 def _enrichir_dossier(d):
     """Ajoute nb_jours, montant_du, plus365 à un dossier (dict)."""
@@ -73,7 +75,13 @@ def fou_liste():
     raw = conn.execute(sql, params).fetchall()
     items = [_enrichir_dossier(r) for r in raw]
 
-    types_vh   = conn.execute('SELECT * FROM fou_types_vehicule WHERE actif=1 ORDER BY libelle').fetchall()
+    types_vh   = conn.execute('''
+        SELECT MIN(t.id) as id, t.libelle as code, t.libelle, MAX(t.valeur) as tarif_journalier FROM tarifs t
+        JOIN rubriques r ON t.rubrique_id = r.id
+        WHERE r.module='FOURRIERE' AND t.actif=1 AND t.libelle NOT LIKE '%remorquage%'
+        GROUP BY t.libelle
+        ORDER BY t.libelle
+    ''').fetchall()
     deposants  = conn.execute("SELECT * FROM fou_parametres WHERE categorie='deposant' AND actif=1 ORDER BY ordre").fetchall()
 
     stats = {
@@ -144,7 +152,13 @@ def fou_detail(id):
         return redirect(url_for('fou.fou_liste'))
     dossier = _enrichir_dossier(raw)
 
-    types_vh   = conn.execute('SELECT * FROM fou_types_vehicule WHERE actif=1 ORDER BY libelle').fetchall()
+    types_vh   = conn.execute('''
+        SELECT MIN(t.id) as id, t.libelle as code, t.libelle, MAX(t.valeur) as tarif_journalier FROM tarifs t
+        JOIN rubriques r ON t.rubrique_id = r.id
+        WHERE r.module='FOURRIERE' AND t.actif=1 AND t.libelle NOT LIKE '%remorquage%'
+        GROUP BY t.libelle
+        ORDER BY t.libelle
+    ''').fetchall()
     deposants  = conn.execute("SELECT * FROM fou_parametres WHERE categorie='deposant' AND actif=1 ORDER BY ordre").fetchall()
     motifs     = conn.execute("SELECT * FROM fou_parametres WHERE categorie='motif' AND actif=1 ORDER BY ordre").fetchall()
 
@@ -200,7 +214,13 @@ def fou_paiement(id):
         conn.close()
         return redirect(url_for('fou.fou_liste'))
     dossier = _enrichir_dossier(raw)
-    types_vh = conn.execute('SELECT * FROM fou_types_vehicule WHERE actif=1').fetchall()
+    types_vh   = conn.execute('''
+        SELECT MIN(t.id) as id, t.libelle as code, t.libelle, MAX(t.valeur) as tarif_journalier FROM tarifs t
+        JOIN rubriques r ON t.rubrique_id = r.id
+        WHERE r.module='FOURRIERE' AND t.actif=1 AND t.libelle NOT LIKE '%remorquage%'
+        GROUP BY t.libelle
+        ORDER BY t.libelle
+    ''').fetchall()
     conn.close()
     return render_template('fourriere/fou_paiement.html',
                            user=user, dossier=dossier, types_vh=types_vh,
@@ -343,7 +363,13 @@ def fou_encheres():
         vehs_list = [dict(v) for v in vehs]
         groupes_detail.append({**dict(g), 'vehicules': vehs_list, 'nb_veh': len(vehs_list)})
 
-    types_vh  = conn.execute('SELECT * FROM fou_types_vehicule WHERE actif=1 ORDER BY libelle').fetchall()
+    types_vh   = conn.execute('''
+        SELECT MIN(t.id) as id, t.libelle as code, t.libelle, MAX(t.valeur) as tarif_journalier FROM tarifs t
+        JOIN rubriques r ON t.rubrique_id = r.id
+        WHERE r.module='FOURRIERE' AND t.actif=1 AND t.libelle NOT LIKE '%remorquage%'
+        GROUP BY t.libelle
+        ORDER BY t.libelle
+    ''').fetchall()
     etats_vh  = conn.execute("SELECT * FROM fou_parametres WHERE categorie='etat_vehicule' AND actif=1 ORDER BY ordre").fetchall()
     conn.close()
 
@@ -506,26 +532,7 @@ def fou_parametres():
     if request.method == 'POST':
         action = request.form.get('action', '')
 
-        if action == 'add_type':
-            code  = request.form.get('code','').strip().upper()
-            libelle = request.form.get('libelle','').strip()
-            tarif   = float(request.form.get('tarif_journalier', 0) or 0)
-            if code and libelle:
-                conn.execute('INSERT OR REPLACE INTO fou_types_vehicule(code,libelle,tarif_journalier) VALUES(?,?,?)',
-                             (code, libelle, tarif))
-                conn.commit()
-                flash(f'Type {code} ajouté ✅', 'success')
-
-        elif action == 'update_type':
-            tid   = int(request.form.get('tid', 0))
-            tarif = float(request.form.get('tarif_journalier', 0) or 0)
-            lib   = request.form.get('libelle', '').strip()
-            conn.execute('UPDATE fou_types_vehicule SET libelle=?, tarif_journalier=? WHERE id=?',
-                         (lib, tarif, tid))
-            conn.commit()
-            flash('Tarif mis à jour ✅', 'success')
-
-        elif action == 'add_param':
+        if action == 'add_param':
             cat  = request.form.get('categorie','')
             code = request.form.get('code','').strip().upper()
             lib  = request.form.get('libelle','').strip()
@@ -539,7 +546,13 @@ def fou_parametres():
         conn.close()
         return redirect(url_for('fou.fou_parametres'))
 
-    types_vh  = conn.execute('SELECT * FROM fou_types_vehicule ORDER BY libelle').fetchall()
+    types_vh = conn.execute('''
+        SELECT MIN(t.id) as id, t.libelle as code, t.libelle, MAX(t.valeur) as tarif_journalier FROM tarifs t
+        JOIN rubriques r ON t.rubrique_id = r.id
+        WHERE r.module='FOURRIERE' AND t.actif=1 AND t.libelle NOT LIKE '%remorquage%'
+        GROUP BY t.libelle
+        ORDER BY t.libelle
+    ''').fetchall()
     deposants = conn.execute("SELECT * FROM fou_parametres WHERE categorie='deposant' ORDER BY ordre").fetchall()
     etats_vh  = conn.execute("SELECT * FROM fou_parametres WHERE categorie='etat_vehicule' ORDER BY ordre").fetchall()
     motifs    = conn.execute("SELECT * FROM fou_parametres WHERE categorie='motif' ORDER BY ordre").fetchall()
@@ -556,10 +569,11 @@ def fou_parametres():
 @login_required
 def fou_api_tarif(code):
     conn = get_db()
-    row = conn.execute(
-        'SELECT tarif_journalier, libelle FROM fou_types_vehicule WHERE code=? AND actif=1',
-        (code,)
-    ).fetchone()
+    row = conn.execute('''
+        SELECT t.valeur as tarif_journalier, t.libelle FROM tarifs t
+        JOIN rubriques r ON t.rubrique_id = r.id
+        WHERE r.module='FOURRIERE' AND t.libelle=? AND t.actif=1
+    ''', (code,)).fetchone()
     conn.close()
     if row:
         return jsonify({'tarif': row['tarif_journalier'], 'libelle': row['libelle']})

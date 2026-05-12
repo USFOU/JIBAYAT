@@ -6,11 +6,8 @@ a = Analysis(
     binaries=[],
     datas=[
         ('templates',      'templates'),
-        ('modules',        'modules'),
+        ('static',         'static'),
         ('version.txt',    '.'),
-        ('config.json',    '.'),
-        ('database.py',    '.'),
-        ('app.py',         '.'),
     ],
     hiddenimports=[
         'flask',
@@ -36,9 +33,29 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'torch',
+        'torchvision',
+        'cv2',
+        'scipy',
+        'av',
+        'rembg',
+        'matplotlib',
+        'pyarrow',
+        'llvmlite',
+        'numba',
+        'imageio',
+        'imageio_ffmpeg',
+        'tensorboard',
+        'transformers',
+        'tokenizers',
+        'huggingface_hub',
+        'PyQt5',
+        'PyQt6',
+        'PySide6'
+    ],
     noarchive=False,
-    optimize=0,
+    optimize=1,
 )
 
 pyz = PYZ(a.pure)
@@ -53,7 +70,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,       # Pas de fenêtre console
+    console=False,       # Masquer la console CMD
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

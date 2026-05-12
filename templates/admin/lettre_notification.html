@@ -135,6 +135,7 @@
   <!-- En-tête -->
   <div class="header-block">
     <div class="commune-logo">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" class="commune-logo-img" alt="Logo">
       <div class="commune-logo-text">
         <h1>{{ commune.nom or 'COMMUNE' }}<br>
           <span style="font-size:9pt;font-weight:400;color:#555">{{ commune.region or '' }}{% if commune.province %} — {{ commune.province }}{% endif %}</span>

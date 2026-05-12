@@ -459,6 +459,7 @@
 
       <div class="df gap-2" style="flex-wrap:wrap;">
         <button class="btn btn-primary" onclick="checkUpdate()">🔍 Vérifier les mises à jour</button>
+        <button class="btn btn-success" id="btn-do-update" style="display:none;" onclick="doUpdate()">⬇️ Installer la mise à jour et redémarrer</button>
         <a href="https://github.com/Yomix90/JIBAYAT" target="_blank" class="btn btn-outline">
           🌐 Voir sur GitHub
         </a>
@@ -773,6 +774,8 @@ if (dz) {
 // ── Vérifier mises à jour ────────────────────────────────────
 async function checkUpdate() {
   const status = document.getElementById('update-status');
+  const btnUpdate = document.getElementById('btn-do-update');
+  if (btnUpdate) btnUpdate.style.display = 'none';
   status.textContent = '⏳ Vérification en cours...';
   status.className = 'feedback loading';
   status.style.display = 'block';
@@ -784,6 +787,7 @@ async function checkUpdate() {
       if (res.has_update) {
         status.textContent = `🆕 Nouvelle version ${res.remote} disponible ! (actuelle: ${res.local})`;
         status.className = 'feedback err';
+        if (btnUpdate) btnUpdate.style.display = 'inline-block';
       } else {
         status.textContent = `✅ Vous utilisez la dernière version (${res.local}).`;
         status.className = 'feedback ok';
@@ -796,6 +800,35 @@ async function checkUpdate() {
   } catch(e) {
     status.textContent = '❌ Connexion impossible';
     status.className = 'feedback err';
+  }
+}
+
+async function doUpdate() {
+  if (!confirm("Voulez-vous vraiment installer la mise à jour ? L'application va redémarrer.")) return;
+  const status = document.getElementById('update-status');
+  const btnUpdate = document.getElementById('btn-do-update');
+  if (btnUpdate) btnUpdate.style.display = 'none';
+  status.textContent = '⏳ Téléchargement et installation en cours... (Veuillez patienter)';
+  status.className = 'feedback loading';
+  status.style.display = 'block';
+  
+  try {
+    const res = await apiPost('/api/systeme/do-update', new FormData());
+    if (res.ok) {
+      status.textContent = '✅ ' + res.msg;
+      status.className = 'feedback ok';
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+    } else {
+      status.textContent = '❌ ' + res.error;
+      status.className = 'feedback err';
+      if (btnUpdate) btnUpdate.style.display = 'inline-block';
+    }
+  } catch(e) {
+    status.textContent = '❌ Erreur réseau lors de la mise à jour';
+    status.className = 'feedback err';
+    if (btnUpdate) btnUpdate.style.display = 'inline-block';
   }
 }
 

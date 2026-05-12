@@ -521,6 +521,39 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
     </div>
     {% endif %}
 
+    <!-- ═══ REGISTRES & ARCHIVES ═════════════════════════ -->
+    <div class="nav-sec">Registres &amp; Archives</div>
+    
+    <div class="nav-item {% if 'registre' in (request.endpoint or '') %}open{% endif %}" id="menu-registres">
+      <a href="#" onclick="toggleSubMenu('menu-registres');return false;" class="{{ 'active' if 'registre' in (request.endpoint or '') else '' }}">
+        <span class="ic">🗃️</span><span class="txt">Registres &amp; Archives</span>
+        <span class="menu-arrow">▶</span>
+      </a>
+      <div class="sub-menu">
+        <a href="{{ url_for('registre.index') }}" class="{{ 'active' if request.endpoint=='registre.index' else '' }}">
+          <span class="ic">📊</span> Accueil Registres
+        </a>
+        <a href="{{ url_for('registre.declarations', module_key='TNB') }}" class="{{ 'active' if request.endpoint=='registre.declarations' and request.view_args.get('module_key')=='TNB' else '' }}">
+          <span class="ic">📝</span> Déclarations TNB
+        </a>
+        <a href="{{ url_for('registre.declarations', module_key='DEBITS_BOISSONS') }}" class="{{ 'active' if request.endpoint=='registre.declarations' and request.view_args.get('module_key')=='DEBITS_BOISSONS' else '' }}">
+          <span class="ic">📝</span> Déclarations TDB
+        </a>
+        <a href="{{ url_for('registre.paiements', module_key='TNB') }}" class="{{ 'active' if request.endpoint=='registre.paiements' and request.view_args.get('module_key')=='TNB' else '' }}">
+          <span class="ic">📒</span> Registre TNB
+        </a>
+        <a href="{{ url_for('registre.paiements', module_key='DEBITS_BOISSONS') }}" class="{{ 'active' if request.endpoint=='registre.paiements' and request.view_args.get('module_key')=='DEBITS_BOISSONS' else '' }}">
+          <span class="ic">📒</span> Registre TDB
+        </a>
+        <a href="{{ url_for('registre.paiements', module_key='OCCUPATION_DOMAINE') }}" class="{{ 'active' if request.endpoint=='registre.paiements' and request.view_args.get('module_key')=='OCCUPATION_DOMAINE' else '' }}">
+          <span class="ic">📒</span> Registre ODP
+        </a>
+        <a href="{{ url_for('registre.paiements', module_key='LOCATION_LOCAUX') }}" class="{{ 'active' if request.endpoint=='registre.paiements' and request.view_args.get('module_key')=='LOCATION_LOCAUX' else '' }}">
+          <span class="ic">📒</span> Registre Locaux
+        </a>
+      </div>
+    </div>
+
     <!-- ═══ CONFIGURATION ════════════════════════════════ -->
     {% if user and user.peut_config %}
     <div class="nav-sec">Configuration</div>

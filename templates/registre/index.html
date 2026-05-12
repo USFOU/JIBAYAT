@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Registres &amp; Archives - JIBAYAT{% endblock %}
+{% block page_title %}Registres &amp; Archives{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3>🗃️ Archives et Registres</h3>
+  </div>
+  <div class="card-body">
+    <div class="stats-grid">
+      {% for mod_key, mod_name in modules.items() %}
+      <div class="stat" style="flex-direction:column; align-items:flex-start;">
+        <div style="font-weight:bold; color:var(--primary); margin-bottom:10px;">{{ mod_name }}</div>
+        <div style="display:flex; gap:10px; width:100%;">
+          {% if mod_key in ['TNB', 'DEBITS_BOISSONS'] %}
+          <a href="{{ url_for('registre.declarations', module_key=mod_key) }}" class="btn btn-info btn-sm" style="flex:1; justify-content:center;">📝 Déclarations</a>
+          {% endif %}
+          <a href="{{ url_for('registre.paiements', module_key=mod_key) }}" class="btn btn-primary btn-sm" style="flex:1; justify-content:center;">📒 Registre (Paiements)</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

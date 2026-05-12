@@ -173,17 +173,18 @@
             {% for t in trims %}
             <div class="tc {% if t.en_retard %}retard{% endif %}"
                  id="tc-{{ annee }}-{{ t.trimestre }}"
-                 onclick="toggleTrim(this, '{{ annee }}_{{ t.trimestre }}')">
+                 onclick="if(event.target.tagName !== 'INPUT') { const c = document.getElementById('chk-{{ annee }}-{{ t.trimestre }}'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); }">
               <input type="checkbox" name="trims" value="{{ annee }}_{{ t.trimestre }}"
-                     id="chk-{{ annee }}-{{ t.trimestre }}" onclick="event.stopPropagation()">
+                     id="chk-{{ annee }}-{{ t.trimestre }}" onchange="syncCard('{{ annee }}', '{{ t.trimestre }}')">
               <div class="tc-num">T{{ t.trimestre }}</div>
               <div class="tc-label">{{ t.label }}</div>
               {% if t.en_retard %}
               <span class="tc-badge retard">⚠️ Retard</span>
               {% endif %}
               <!-- Saisie recettes -->
-              <div class="tc-input">
+              <div class="tc-input" onclick="event.stopPropagation()">
                 <input type="number" name="base_{{ annee }}_{{ t.trimestre }}" step="0.01" min="0"
+                       id="inp-{{ annee }}-{{ t.trimestre }}"
                        placeholder="Recettes HT..."
                        oninput="updateCalc('{{ annee }}', {{ t.trimestre }}, this.value, {{ 'true' if t.en_retard else 'false' }})">
                 <div class="tc-calc" id="calc-{{ annee }}-{{ t.trimestre }}" style="display:none">
@@ -297,15 +298,24 @@ function getCheckboxesChrono() {
     .sort((a, b) => a.value.localeCompare(b.value)); // tri chronologique
 }
 
-function toggleTrim(card, key) {
-  const chk = card.querySelector('input[type=checkbox]');
-  chk.checked = !chk.checked;
+function syncCard(annee, trim) {
+  const key = `${annee}_${trim}`;
+  const card = document.getElementById(`tc-${annee}-${trim}`);
+  const chk = document.getElementById(`chk-${annee}-${trim}`);
+  const inp = document.getElementById(`inp-${annee}-${trim}`);
+  
   if (chk.checked) {
     card.classList.add('sel');
+    if (inp) {
+      inp.focus();
+      // Recalculate if there's already a value
+      if (inp.value) {
+        updateCalc(annee, trim, inp.value, card.classList.contains('retard'));
+      }
+    }
   } else {
     card.classList.remove('sel');
     delete totaux[key];
-    // Recalculer les amendes
     recalcAllAmendes();
   }
   refreshUI();
@@ -313,14 +323,12 @@ function toggleTrim(card, key) {
 
 function selectYear(annee, trims) {
   trims.forEach(t => {
-    const card = document.getElementById(`tc-${annee}-${t}`);
     const chk = document.getElementById(`chk-${annee}-${t}`);
-    if (card && chk && !chk.checked) {
+    if (chk && !chk.checked) {
       chk.checked = true;
-      card.classList.add('sel');
+      syncCard(annee, t);
     }
   });
-  refreshUI();
 }
 
 function selectAll() {
@@ -328,10 +336,10 @@ function selectAll() {
   getCheckboxesChrono().forEach(chk => {
     if (!chk.checked) {
       chk.checked = true;
-      chk.closest('.tc').classList.add('sel');
+      const [annee, trim] = chk.value.split('_');
+      syncCard(annee, trim);
     }
   });
-  refreshUI();
 }
 
 function toggleYear(annee) {
@@ -420,10 +428,10 @@ function openPdfCa(annee, trims) {
 window.addEventListener('DOMContentLoaded', () => {
   // Auto-sélectionner le trimestre le plus ancien non payé (suggestion visuelle)
   const first = getCheckboxesChrono()[0];
-  if (first) {
+  if (first && !first.checked) {
     first.checked = true;
-    first.closest('.tc').classList.add('sel');
-    refreshUI();
+    const [annee, trim] = first.value.split('_');
+    syncCard(annee, trim);
   }
 });
 </script>

@@ -11,6 +11,10 @@ import json, os, socket, webbrowser, threading
 from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
 import pystray
+import sys, traceback
+sys.stdout = open('jibayat_debug.log', 'w')
+sys.stderr = sys.stdout
+
 from app import app, init_db
 from werkzeug.serving import make_server
 
@@ -173,6 +177,7 @@ class LauncherApp(tk.Tk):
                 lambda *_: webbrowser.open(f"http://127.0.0.1:{port}/parametres-systeme"),
             ),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("🔄  Redémarrer JIBAYAT", self._restart_from_tray),
             pystray.MenuItem("✖  Quitter JIBAYAT", self._quit_from_tray),
         )
 
@@ -186,6 +191,17 @@ class LauncherApp(tk.Tk):
         if self.server_thread:
             threading.Thread(target=self.server_thread.shutdown, daemon=True).start()
         self.after(0, self.destroy)
+
+    def _restart_from_tray(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        if self._tray_icon:
+            self._tray_icon.stop()
+        if self.server_thread:
+            threading.Thread(target=self.server_thread.shutdown, daemon=True).start()
+        self.after(500, self._do_restart)
+
+    def _do_restart(self) -> None:
+        self.destroy()
+        os.execl(sys.executable, sys.executable, *sys.argv)
 
     def _on_close(self) -> None:
         self._quit_from_tray(None, None)  # type: ignore[arg-type]

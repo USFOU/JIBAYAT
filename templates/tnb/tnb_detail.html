@@ -43,6 +43,21 @@
 .stat-step.done   { background:#d1fae5;color:#065f46;border-color:#6ee7b7; }
 .stat-step.todo   { background:var(--bg);color:var(--muted);border-color:var(--border); }
 .stat-arrow { color:var(--muted);font-size:1rem; }
+.ctb-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto }
+.ctb-tab-btn {
+  padding: 10px 20px; font-size: .8rem; font-weight: 700;
+  cursor: pointer; border: none; background: none;
+  color: var(--muted); border-bottom: 3px solid transparent;
+  margin-bottom: -2px; transition: all .15s; white-space: nowrap;
+}
+.ctb-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(30,58,95,.04) }
+.ctb-tab-pane { display: none !important }
+.ctb-tab-pane.active { display: block !important }
+.tab-badge { border-radius:10px;padding:0 5px;font-size:.6rem;margin-left:4px;color:#fff }
+.bg-accent { background:var(--accent) }
+.bg-info { background:var(--info, #0ea5e9) }
+.bg-purple { background:#6f42c1 }
+.bg-sec { background:var(--muted) }
 </style>
 {% endblock %}
 {% block content %}
@@ -93,6 +108,28 @@
   <span class="stat-arrow">→</span>
   <span class="stat-step {{ 'active' if terrain.statut=='construit' else 'todo' }}">🏠 Bâti</span>
 </div>
+
+<!-- ─── TABS ─── -->
+<div class="ctb-tabs" id="tnbTabs">
+  <button class="ctb-tab-btn active" data-tab="paneInfo">📋 Infos & Propriétaires</button>
+  <button class="ctb-tab-btn" data-tab="paneDecls">💳 Déclarations
+    {% if declarations %}<span class="tab-badge bg-accent">{{ declarations|length }}</span>{% endif %}
+  </button>
+  <button class="ctb-tab-btn" data-tab="panePermis">📄 Permis
+    {% if permis %}<span class="tab-badge bg-info">{{ permis|length }}</span>{% endif %}
+  </button>
+  <button class="ctb-tab-btn" data-tab="paneDocs">📁 Documents
+    {% if documents %}<span class="tab-badge bg-purple">{{ documents|length }}</span>{% endif %}
+  </button>
+  {% if transferts %}
+  <button class="ctb-tab-btn" data-tab="paneTransf">🔄 Transferts
+    <span class="tab-badge bg-sec">{{ transferts|length }}</span>
+  </button>
+  {% endif %}
+</div>
+
+<!-- ─── PANE : INFOS ─── -->
+<div id="paneInfo" class="ctb-tab-pane active">
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
   <!-- Infos terrain -->
@@ -275,7 +312,10 @@
     {% endif %}
   </div>
 </div>
+</div> <!-- Fin paneInfo -->
 
+<!-- ─── PANE : DECLARATIONS ─── -->
+<div id="paneDecls" class="ctb-tab-pane">
 <div class="card">
   <div class="card-header"><h3>📄 Historique des Déclarations TNB</h3>
     <a href="{{ url_for('tnb.tnb_paiement', id=terrain.id) }}" class="btn btn-accent btn-sm">+ Nouvelle Déclaration</a>
@@ -310,7 +350,10 @@
     </table>
   </div>
 </div>
+</div> <!-- Fin paneDecls -->
 
+<!-- ─── PANE : PERMIS ─── -->
+<div id="panePermis" class="ctb-tab-pane">
 <!-- Permis -->
 <div class="card">
   <div class="card-header">
@@ -351,7 +394,10 @@
     </table>
   </div>
 </div>
+</div> <!-- Fin panePermis -->
 
+<!-- ─── PANE : DOCUMENTS ─── -->
+<div id="paneDocs" class="ctb-tab-pane">
 <!-- Documents -->
 <div class="card">
   <div class="card-header">
@@ -395,9 +441,12 @@
     {% endif %}
   </div>
 </div>
+</div> <!-- Fin paneDocs -->
 
 <!-- Transferts -->
 {% if transferts %}
+<!-- ─── PANE : TRANSFERTS ─── -->
+<div id="paneTransf" class="ctb-tab-pane">
 <div class="card">
   <div class="card-header"><h3>🔄 Historique Transferts</h3></div>
   <div class="table-responsive">
@@ -417,6 +466,7 @@
     </table>
   </div>
 </div>
+</div> <!-- Fin paneTransf -->
 {% endif %}
 
 <!-- Zone Dangereuse -->
@@ -760,6 +810,28 @@ function openEditCoproprio(cpId, part, type, dateEntree, acte, notes) {
 }
 // Init
 onTypePermisChange('construction');
+
+(function() {
+  var TABS = ['paneInfo','paneDecls','panePermis','paneDocs','paneTransf'];
+  function activateTab(tabId) {
+    TABS.forEach(function(id) {
+      var el = document.getElementById(id);
+      if(el) el.classList.remove('active');
+    });
+    document.querySelectorAll('.ctb-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    var pane = document.getElementById(tabId);
+    if(pane) pane.classList.add('active');
+    var btn = document.querySelector('.ctb-tab-btn[data-tab="' + tabId + '"]');
+    if(btn) btn.classList.add('active');
+    try { sessionStorage.setItem('tnbActiveTab', tabId); } catch(e) {}
+  }
+  document.querySelectorAll('.ctb-tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { activateTab(this.getAttribute('data-tab')); });
+  });
+  var saved = '';
+  try { saved = sessionStorage.getItem('tnbActiveTab') || ''; } catch(e) {}
+  activateTab((saved && document.getElementById(saved)) ? saved : 'paneInfo');
+})();
 </script>
 {% endblock %}
 

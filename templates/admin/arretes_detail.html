@@ -157,7 +157,11 @@
       </div>
       <table class="tarif-table" style="width:100%;margin-bottom:10px">
         <thead><tr>
-          <th>Libellé</th><th>Valeur</th><th>Unité</th><th>Surface</th><th>Période</th><th>Statut</th>
+          <th>Libellé</th><th>Valeur</th><th>Unité</th>
+          {% if mod in ['TNB', 'OCCUPATION_DOMAINE', 'ODP', 'LOCATION_LOCAUX'] %}
+          <th>Surface</th>
+          {% endif %}
+          <th>Période</th><th>Statut</th>
           {% if user.peut_config %}<th>Actions</th>{% endif %}
         </tr></thead>
         <tbody>
@@ -169,7 +173,11 @@
           </td>
           <td><span class="tarif-val">{{ t.valeur }}</span></td>
           <td style="font-size:.75rem;color:var(--muted)">{{ t.unite }}</td>
-          <td style="font-size:.72rem">{% if t.surface_max %}{{ t.surface_min or 0 }} → {{ t.surface_max }} m²{% else %}{{ t.surface_min or 0 }} ➔ ∞ m²{% endif %}</td>
+          {% if mod in ['TNB', 'OCCUPATION_DOMAINE', 'ODP', 'LOCATION_LOCAUX'] %}
+          <td style="font-size:.72rem">
+            {% if t.surface_max %}{{ t.surface_min or 0 }} → {{ t.surface_max }} m²{% else %}{{ t.surface_min or 0 }} ➔ ∞ m²{% endif %}
+          </td>
+          {% endif %}
           <td style="font-size:.72rem">{{ t.date_debut }} → {{ t.date_fin or '<span style="color:var(--ok)">∞</span>'|safe }}</td>
           <td>{% if t.date_fin %}<span class="badge-expire">Expiré</span>{% else %}<span class="badge-actif">✓ Actif</span>{% endif %}</td>
           {% if user.peut_config %}<td>
@@ -183,6 +191,7 @@
                       data-edit-fin="{{ t.date_fin or "" }}"
                       data-edit-smin="{{ t.surface_min or '' }}"
                       data-edit-smax="{{ t.surface_max or '' }}"
+                      data-edit-mod="{{ mod }}"
                       onclick="openEditModalFromEl(this)">✏️</button>
               <form method="post" action="{{ url_for('config.supprimer_tarif', id=t.id) }}" onsubmit="return confirm('Supprimer ?')">
                 <input type="hidden" name="arrete_id" value="{{ arrete.id }}">
@@ -223,7 +232,9 @@
             <th>Libellé</th>
             <th>Valeur</th>
             <th>Unité</th>
+            {% if mod in ['TNB', 'OCCUPATION_DOMAINE', 'ODP', 'LOCATION_LOCAUX'] %}
             <th>Surface</th>
+            {% endif %}
             <th>Date début</th>
             <th>Date fin</th>
             <th>Statut</th>
@@ -239,7 +250,11 @@
             </td>
             <td><span class="tarif-val">{{ t.valeur }}</span></td>
             <td style="color:var(--muted);font-size:.75rem">{{ t.unite }}</td>
-            <td style="font-size:.75rem">{% if t.surface_max %}{{ t.surface_min or 0 }} → {{ t.surface_max }} m²{% else %}{{ t.surface_min or 0 }} ➔ ∞ m²{% endif %}</td>
+            {% if mod in ['TNB', 'OCCUPATION_DOMAINE', 'ODP', 'LOCATION_LOCAUX'] %}
+            <td style="font-size:.75rem">
+              {% if t.surface_max %}{{ t.surface_min or 0 }} → {{ t.surface_max }} m²{% else %}{{ t.surface_min or 0 }} ➔ ∞ m²{% endif %}
+            </td>
+            {% endif %}
             <td style="font-size:.75rem">{{ t.date_debut }}</td>
             <td style="font-size:.75rem">{{ t.date_fin or '<span style="color:var(--ok)">∞</span>'|safe }}</td>
             <td>
@@ -260,6 +275,7 @@
                         data-edit-fin="{{ t.date_fin or '' }}"
                         data-edit-smin="{{ t.surface_min or '' }}"
                         data-edit-smax="{{ t.surface_max or '' }}"
+                        data-edit-mod="{{ mod }}"
                         onclick="openEditModalFromEl(this)">
                   ✏️
                 </button>
@@ -399,14 +415,14 @@
             {% endfor %}
           </select>
         </div>
-        <div class="form-group">
-          <label>Surface Min</label>
-          <input type="number" name="surface_min" step="0.01" placeholder="0">
-        </div>
-        <div class="form-group">
-          <label>Surface Max</label>
-          <input type="number" name="surface_max" step="0.01" placeholder="∞">
-        </div>
+         <div class="form-group" id="addSurfaceMinGroup">
+           <label>Surface Min</label>
+           <input type="number" name="surface_min" step="0.01" placeholder="0">
+         </div>
+         <div class="form-group" id="addSurfaceMaxGroup">
+           <label>Surface Max</label>
+           <input type="number" name="surface_max" step="0.01" placeholder="∞">
+         </div>
         <div class="form-group">
           <label>Date début *</label>
           <input type="date" name="date_debut" value="{{ arrete.date_effet }}" required>
@@ -449,14 +465,14 @@
             {% endfor %}
           </select>
         </div>
-        <div class="form-group">
-          <label>Surface Min</label>
-          <input type="number" name="surface_min" id="editSMin" step="0.01">
-        </div>
-        <div class="form-group">
-          <label>Surface Max</label>
-          <input type="number" name="surface_max" id="editSMax" step="0.01">
-        </div>
+         <div class="form-group" id="editSMinGroup">
+           <label>Surface Min</label>
+           <input type="number" name="surface_min" id="editSMin" step="0.01">
+         </div>
+         <div class="form-group" id="editSMaxGroup">
+           <label>Surface Max</label>
+           <input type="number" name="surface_max" id="editSMax" step="0.01">
+         </div>
         <div class="form-group">
           <label>Date début *</label>
           <input type="date" name="date_debut" id="editDateDebut" required>
@@ -508,6 +524,12 @@ function openAddModal(modName, rubId) {
   document.getElementById('addRubInfo').innerHTML = rub
     ? '<strong>' + (rub.libelle || modName) + '</strong><div style="font-size:.65rem;color:var(--muted);font-family:monospace">' + (rub.code || '') + '</div>'
     : modName;
+  
+  const modsWithSurface = ['TNB', 'OCCUPATION_DOMAINE', 'ODP', 'LOCATION_LOCAUX'];
+  const hasSurface = modsWithSurface.includes(modName);
+  document.getElementById('addSurfaceMinGroup').style.display = hasSurface ? '' : 'none';
+  document.getElementById('addSurfaceMaxGroup').style.display = hasSurface ? '' : 'none';
+  
   document.getElementById('modalAddTarif').classList.add('open');
 }
 
@@ -516,9 +538,9 @@ function openEditModalFromEl(el){
   openEditModal(el.dataset.editId, el.dataset.editLibelle,
                 parseFloat(el.dataset.editValeur||0),
                 el.dataset.editUnite, el.dataset.editDebut||'', el.dataset.editFin||'',
-                el.dataset.editSmin||'', el.dataset.editSmax||'');
+                el.dataset.editSmin||'', el.dataset.editSmax||'', el.dataset.editMod);
 }
-function openEditModal(id, libelle, valeur, unite, dateDebut, dateFin, sMin, sMax) {
+function openEditModal(id, libelle, valeur, unite, dateDebut, dateFin, sMin, sMax, modName) {
   document.getElementById('editTarifForm').action = '/tarifs/' + id + '/modifier';
   document.getElementById('editTarifInfo').textContent = '📌 ' + libelle;
   document.getElementById('editValeur').value = valeur;
@@ -528,6 +550,12 @@ function openEditModal(id, libelle, valeur, unite, dateDebut, dateFin, sMin, sMa
   document.getElementById('editDateFin').value = dateFin || '';
   document.getElementById('editSMin').value = sMin || '';
   document.getElementById('editSMax').value = sMax || '';
+  
+  const modsWithSurface = ['TNB', 'OCCUPATION_DOMAINE', 'ODP', 'LOCATION_LOCAUX'];
+  const hasSurface = modsWithSurface.includes(modName);
+  document.getElementById('editSMinGroup').style.display = hasSurface ? '' : 'none';
+  document.getElementById('editSMaxGroup').style.display = hasSurface ? '' : 'none';
+
   document.getElementById('modalEditTarif').classList.add('open');
 }
 
