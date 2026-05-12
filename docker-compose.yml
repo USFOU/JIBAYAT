@@ -7,10 +7,9 @@ services:
     restart: unless-stopped
     ports:
       - "5000:5000"
+    networks:
+      - dokploy-network
     volumes:
-      # SQLite db - attention, si le fichier n'existe pas, Docker crée un dossier. 
-      # Il est recommandé de créer le fichier vide avant, ou d'utiliser un dossier de data dédié.
-      # Pour l'instant on garde le nom direct.
       - jibayat_db:/app/fiscalite.db
       - jibayat_uploads:/app/uploads
       - jibayat_exports:/app/static/exports
@@ -21,3 +20,7 @@ volumes:
   jibayat_db:
   jibayat_uploads:
   jibayat_exports:
+
+networks:
+  dokploy-network:
+    external: true
