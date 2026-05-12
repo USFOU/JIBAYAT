@@ -23,5 +23,5 @@ ENV FLASK_ENV=production
 # Expose port
 EXPOSE 5000
 
-# Command to run
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
+# Command to run (Initialize DB then start server)
+CMD python -c "from database import init_db; init_db()" && gunicorn -w 4 -b 0.0.0.0:5000 app:app
