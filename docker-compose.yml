@@ -10,7 +10,7 @@ services:
     networks:
       - dokploy-network
     volumes:
-      - jibayat_db:/app/fiscalite.db
+      - jibayat_db:/app/data
       - jibayat_uploads:/app/uploads
       - jibayat_exports:/app/static/exports
     environment:
