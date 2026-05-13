@@ -57,15 +57,15 @@
         <span style="font-size:.66rem;color:var(--muted);font-weight:400;text-transform:none">Ces champs servent d'identifiants principaux du contribuable</span>
       </div>
       <div class="form-grid mb-3">
-        <div class="form-group">
+        <div class="form-group" id="cin_group">
           <label>CIN <span style="color:var(--danger)">*</span> <span style="font-size:.65rem;color:var(--muted);font-weight:400">(Personne physique)</span></label>
           <input name="cin" placeholder="AB123456" style="border-color:var(--primary)">
         </div>
-        <div class="form-group">
+        <div class="form-group" id="ice_group" style="display:none">
           <label>ICE <span style="font-size:.65rem;color:var(--muted);font-weight:400">(Identifiant Commun Entreprise)</span></label>
           <input name="ice" placeholder="001234567000012">
         </div>
-        <div class="form-group">
+        <div class="form-group" id="rc_group" style="display:none">
           <label>RC <span style="font-size:.65rem;color:var(--muted);font-weight:400">(Registre de Commerce)</span></label>
           <input name="rc" placeholder="N° Registre Commerce">
         </div>
@@ -78,12 +78,6 @@
         <div class="form-group"><label>Code Postal</label><input name="code_postal" placeholder="Code postal"></div>
         <div class="form-group"><label>Téléphone</label><input name="telephone" type="tel" placeholder="0600000000"></div>
         <div class="form-group"><label>Email</label><input name="email" type="email" placeholder="email@exemple.ma"></div>
-        <div class="form-group">
-          <label>Commune</label>
-          <select name="commune_id">
-            {% for c in communes %}<option value="{{ c.id }}">{{ c.nom }}</option>{% endfor %}
-          </select>
-        </div>
       </div>
 
       <div class="form-actions">
@@ -95,8 +89,10 @@
 </div>
 <script>
 function toggleType(v){
-  ['physFr','physAr'].forEach(id=>document.getElementById(id).style.display=v==='physique'?'':'none')
-  ['moralFr','moralAr'].forEach(id=>document.getElementById(id).style.display=v==='morale'?'':'none')
+  ['physFr','physAr'].forEach(id=>document.getElementById(id).style.display=v==='physique'?'':'none');
+  ['moralFr','moralAr'].forEach(id=>document.getElementById(id).style.display=v==='morale'?'':'none');
+  document.getElementById('ice_group').style.display = v==='physique' ? 'none' : '';
+  document.getElementById('rc_group').style.display = v==='physique' ? 'none' : '';
 }
 </script>
 {% endblock %}
