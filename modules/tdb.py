@@ -45,13 +45,24 @@ def calcul_trimestre(base_ht: float, taux: float, annee: int, trim: int,
         ech = date(annee, mois, jour).isoformat()
     except ValueError:
         ech = date(annee, mois, 28).isoformat()
+    
     pen, maj = 0.0, 0.0
     amende = 0.0
+    
+    # 1. Pénalités de retard de PAIEMENT (5% + 0.5% par mois)
     if principal > 0 and date_decl_str > ech:
-        amende = max(round(principal * amende_pct / 100, 2), 500)
         pen, maj = calculer_penalites(principal, ech, date_decl_str, 'DEBITS_BOISSONS')
+    
+    # 2. Défaut de DÉCLARATION ANNUELLE (15% min 500 DH)
+    # S'applique au T4 si la déclaration est faite après le 1er Avril de l'année N+1
+    if trim == 4 and principal > 0:
+        deadline_annuelle = date(annee + 1, 4, 1).isoformat()
+        if date_decl_str >= deadline_annuelle:
+            amende = max(round(principal * amende_pct / 100, 2), 500.0)
+            
     return {'principal': principal, 'penalite': pen, 'majoration': maj,
             'amende': amende, 'total': round(principal + pen + maj + amende, 2), 'echeance': ech}
+
 
 
 # ═══════════════════════════════════════════════════════════
@@ -211,7 +222,7 @@ def tdb_paiement(id):
 
     tarifs = get_tarifs_module('DEBITS_BOISSONS')
     non_payes = trimestres_non_payes(id, 2022)
-    amende_pct = get_param('DEBITS_BOISSONS', 'AMENDE_NON_DECLARATION', 15)
+    amende_pct = get_param('DEBITS_BOISSONS', 'AMENDE_NON_DECLARATION', 10)
     today_str = date.today().isoformat()
 
     # Grouper non-payés par année pour l'affichage
@@ -260,7 +271,7 @@ def tdb_declarer(id):
     date_decl = f.get('date_declaration', date.today().isoformat())
     num_bulletin = f.get('numero_bulletin', '').strip()
     tarifs = get_tarifs_module('DEBITS_BOISSONS')
-    amende_pct = get_param('DEBITS_BOISSONS', 'AMENDE_NON_DECLARATION', 15)
+    amende_pct = get_param('DEBITS_BOISSONS', 'AMENDE_NON_DECLARATION', 10)
     taux = float(tarifs[0]['valeur']) if tarifs else 10.0
 
     # Trier les trimestres sélectionnés par ordre chronologique (anciens en premier)
@@ -301,12 +312,17 @@ def tdb_declarer(id):
 
         pen, maj = 0.0, 0.0
         amende = 0.0
-        if principal > 0 and date_decl > ech:
-            # L'amende (non-déclaration) s'applique UNE SEULE FOIS par année
-            if annee not in annees_amende_appliquee:
-                amende = max(round(principal * amende_pct / 100, 2), 500)
-                annees_amende_appliquee.add(annee)
-            pen, maj = calculer_penalites(principal, ech, date_decl, 'DEBITS_BOISSONS')
+        if principal > 0:
+            if date_decl > ech:
+                # Pénalités de retard de paiement (5% + 0.5% par mois)
+                pen, maj = calculer_penalites(principal, ech, date_decl, 'DEBITS_BOISSONS')
+            
+            # Défaut de déclaration annuelle (10% min 500 DH) au T4
+            if trim == 4:
+                deadline_annuelle = date(annee + 1, 4, 1).isoformat()
+                if date_decl >= deadline_annuelle:
+                    amende = max(round(principal * amende_pct / 100, 2), 500.0)
+
 
         total = round(principal + pen + maj + amende, 2)
         total_global += total
