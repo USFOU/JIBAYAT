@@ -23,10 +23,14 @@ def parse_bordereau_versement(filepath: str) -> dict:
     }
     
     engine = 'openpyxl' if filepath.endswith('.xlsx') else 'xlrd'
+    print(f"DEBUG: Parsing {filepath} with engine {engine}")
     try:
         df = pd.read_excel(filepath, header=None, engine=engine)
+        print(f"DEBUG: Read successful, rows: {len(df)}")
     except Exception as e:
-        print(f"Error reading {filepath}: {e}")
+        print(f"ERROR reading {filepath}: {e}")
+        import traceback
+        traceback.print_exc()
         return result
 
     start_row = -1
@@ -56,8 +60,10 @@ def parse_bordereau_versement(filepath: str) -> dict:
             break
             
     if start_row == -1:
+        print("DEBUG: Could not find 'CODE BUDGETAIRE' header in Excel file.")
         return result
         
+    print(f"DEBUG: Found 'CODE BUDGETAIRE' header at row {start_row}")
     # 3. Extraire les lignes
     for i in range(start_row, len(df)):
         row = df.iloc[i]

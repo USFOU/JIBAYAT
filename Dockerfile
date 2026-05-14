@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create data directory and symlink the database for persistent volumes
-RUN mkdir -p /app/data && ln -s /app/data/fiscalite.db /app/fiscalite.db
+RUN mkdir -p /app/data && ln -sf /app/data/fiscalite.db /app/fiscalite.db
 
 # Set environment variables
 ENV FLASK_APP=app.py
