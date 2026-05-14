@@ -175,7 +175,10 @@
                  id="tc-{{ annee }}-{{ t.trimestre }}"
                  onclick="if(event.target.tagName !== 'INPUT') { const c = document.getElementById('chk-{{ annee }}-{{ t.trimestre }}'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); }">
               <input type="checkbox" name="trims" value="{{ annee }}_{{ t.trimestre }}"
-                     id="chk-{{ annee }}-{{ t.trimestre }}" onchange="syncCard('{{ annee }}', '{{ t.trimestre }}')">
+                     id="chk-{{ annee }}-{{ t.trimestre }}" 
+                     data-echeance="{{ t.echeance }}"
+                     onchange="syncCard('{{ annee }}', '{{ t.trimestre }}')">
+
               <div class="tc-num">T{{ t.trimestre }}</div>
               <div class="tc-label">{{ t.label }}</div>
               {% if t.en_retard %}
@@ -186,7 +189,8 @@
                 <input type="number" name="base_{{ annee }}_{{ t.trimestre }}" step="0.01" min="0"
                        id="inp-{{ annee }}-{{ t.trimestre }}"
                        placeholder="Recettes HT..."
-                       oninput="updateCalc('{{ annee }}', {{ t.trimestre }}, this.value, {{ 'true' if t.en_retard else 'false' }})">
+                       oninput="updateCalc('{{ annee }}', {{ t.trimestre }}, this.value, {{ 'true' if t.en_retard else 'false' }}, '{{ t.echeance }}')">
+
                 <div class="tc-calc" id="calc-{{ annee }}-{{ t.trimestre }}" style="display:none">
                   <div class="p-line">Rôle: <span id="p-{{ annee }}-{{ t.trimestre }}">0.00</span> DH</div>
                   {% if t.en_retard %}
@@ -350,22 +354,42 @@ function toggleYear(annee) {
 }
 
 // === Calcul ===
-function updateCalc(annee, trim, baseStr, enRetard) {
+function updateCalc(annee, trim, baseStr, enRetard, echeanceStr) {
   const key = `${annee}_${trim}`;
   const base = parseFloat(baseStr) || 0;
   const principal = Math.round(base * TAUX / 100 * 100) / 100;
+  const dateDeclStr = document.querySelector('input[name="date_declaration"]').value;
 
-  let amende = 0, pen = 0;
-  if (enRetard && principal > 0) {
-    // Vérifier si l'amende a déjà été appliquée pour cette année
-    if (!amendesParAnnee[annee]) {
-      amende = Math.max(Math.round(principal * AMENDE_PCT / 100 * 100) / 100, 500);
-      amendesParAnnee[annee] = key; // marquer
+  let amende = 0, pen = 0, maj = 0;
+  if (principal > 0) {
+    if (enRetard && echeanceStr) {
+        const dEch = new Date(echeanceStr);
+        const dDecl = new Date(dateDeclStr);
+        
+        if (dDecl > dEch) {
+            // 1. Pénalité fixe 10%
+            pen = Math.round(principal * 0.10 * 100) / 100;
+            
+            // 2. Majoration 5% + 0.5% par mois
+            const diffTime = dDecl - dEch;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const moisComplets = Math.floor(diffDays / 30);
+            const extraMois = Math.max(0, moisComplets - 1);
+            maj = Math.round((principal * 0.05 + principal * 0.005 * extraMois) * 100) / 100;
+        }
     }
-    pen = Math.round(principal * 0.10 * 100) / 100;
+    
+    // 3. Défaut de déclaration annuelle (10% ou 15% min 500 DH) au T4
+    if (trim === 4) {
+        const deadlineAnnuelle = new Date(`${parseInt(annee) + 1}-04-01`);
+        const dDecl = new Date(dateDeclStr);
+        if (dDecl >= deadlineAnnuelle) {
+            amende = Math.max(Math.round(principal * AMENDE_PCT / 100 * 100) / 100, 500.0);
+        }
+    }
   }
 
-  const total = Math.round((principal + pen + amende) * 100) / 100;
+  const total = Math.round((principal + pen + maj + amende) * 100) / 100;
   totaux[key] = total;
 
   const calcDiv = document.getElementById(`calc-${annee}-${trim}`);
@@ -375,11 +399,12 @@ function updateCalc(annee, trim, baseStr, enRetard) {
     const penEl = document.getElementById(`pen-${annee}-${trim}`);
     const totEl = document.getElementById(`tot-${annee}-${trim}`);
     if (pEl) pEl.textContent = principal.toFixed(2);
-    if (penEl) penEl.textContent = (pen + amende).toFixed(2);
+    if (penEl) penEl.textContent = (pen + maj + amende).toFixed(2);
     if (totEl) totEl.textContent = total.toFixed(2);
   }
   refreshUI();
 }
+
 
 function recalcAllAmendes() {
   // Réinitialiser les amendes et recalculer dans l'ordre chronologique
@@ -391,7 +416,10 @@ function recalcAllAmendes() {
       if (inp && inp.value) {
         const card = document.getElementById(`tc-${annee}-${trim}`);
         const enRetard = card && card.classList.contains('retard');
-        updateCalc(annee, trim, inp.value, enRetard);
+        const chk = document.getElementById(`chk-${annee}-${trim}`);
+        const echeance = chk ? chk.dataset.echeance : null;
+        updateCalc(annee, trim, inp.value, enRetard, echeance);
+
       }
     }
   });
