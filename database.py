@@ -528,6 +528,7 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
     bordereau_id INTEGER REFERENCES bordereaux_versement(id) ON DELETE CASCADE,
     numero_bordereau INTEGER,
     rubrique TEXT,
+    code_budgetaire TEXT,
     intitule TEXT,
     montant_present REAL,
     report_anterieurs REAL,
@@ -564,6 +565,13 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
             conn.commit()
         except Exception:
             pass
+
+    # -- Migrations bordereaux_emission
+    try:
+        c.execute('ALTER TABLE bordereaux_emission ADD COLUMN code_budgetaire TEXT')
+        conn.commit()
+    except Exception:
+        pass
 
     # ── Données initiales ──────────────────────────────────────
     import hashlib as _h
