@@ -755,13 +755,17 @@ def tnb_avis_non_paiement(id):
 
     n_avis    = conn.execute("SELECT COUNT(*) as c FROM declarations WHERE module='TNB'").fetchone()['c'] + 1
     avis_num  = f"{n_avis}/{date.today().year}"
-    commune   = commune_row['nom'] if commune_row else ''
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune   = commune_dict.get('nom', '')
     conn.close()
     return render_template('tnb/tnb_avis_non_paiement.html',
         terrain=terrain, annees_detail=annees_detail,
         total_montant=round(total_montant, 2), dossier_num=dossier_num,
         commune=commune, today=today_str, avis_num=avis_num,
-        date_limite=f"{date.today().year}-03-31")
+        date_limite=f"{date.today().year}-03-31",
+        commune_ar=commune_dict.get('nom_ar', ''),
+        province_ar=commune_dict.get('province_ar', ''),
+        region_ar=commune_dict.get('region_ar', ''))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -791,7 +795,8 @@ def tnb_avis_multiple():
     ).fetchall()
     amende_pct  = get_param('TNB', 'AMENDE_NON_DECLARATION', 15)
     commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
-    commune     = commune_row['nom'] if commune_row else ''
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune     = commune_dict.get('nom', '')
     today_str   = date.today().isoformat()
     avis_list   = []
     for tid in terrain_ids:
@@ -824,7 +829,10 @@ def tnb_avis_multiple():
     conn.close()
     return render_template('tnb/tnb_avis_lot.html',
         avis_list=avis_list, commune=commune, today=today_str,
-        date_limite=f"{date.today().year}-03-31")
+        date_limite=f"{date.today().year}-03-31",
+        commune_ar=commune_dict.get('nom_ar', ''),
+        province_ar=commune_dict.get('province_ar', ''),
+        region_ar=commune_dict.get('region_ar', ''))
 
 
 # ═══════════════════════════════════════════════════════════════

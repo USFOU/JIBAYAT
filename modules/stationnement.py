@@ -376,9 +376,9 @@ def sta_avis(id):
     non_payes      = trimestres_non_payes_sta(id, 2020)
     tarif_sta_trim = round(_tarif_pour_type(veh['type_vehicule'], tarifs_sta) / 4, 2)
     tarif_tpv_trim = round(_tarif_pour_type(veh['type_vehicule'], tarifs_tpv) / 4, 2)
-    commune  = commune_row['nom'] if commune_row else ''
-    province = (commune_row['province']
-                if commune_row and 'province' in commune_row.keys() else '')
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune  = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
     n_avis   = f"{id:03d}/{date.today().year}"
 
     return render_template('stationnement/sta_avis.html',
@@ -386,6 +386,9 @@ def sta_avis(id):
                            tarif_sta_trim=tarif_sta_trim,
                            tarif_tpv_trim=tarif_tpv_trim,
                            commune=commune, province=province,
+                           commune_ar=commune_dict.get('nom_ar', ''),
+                           province_ar=commune_dict.get('province_ar', ''),
+                           region_ar=commune_dict.get('region_ar', ''),
                            today=date.today().isoformat(), n_avis=n_avis,
                            TRIMESTRES=TRIMESTRES)
 

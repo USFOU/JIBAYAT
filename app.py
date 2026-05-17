@@ -4,9 +4,16 @@ Toutes les routes métier sont dans modules/
 """
 from flask import (Flask, render_template, request, jsonify,
                    redirect, url_for, session, send_file, flash)
-import sys, hashlib, io, json, os, shutil, threading, base64, urllib.request as _urllib_req
+import sys, hashlib, io, json, os, shutil, threading, base64, logging, urllib.request as _urllib_req
 from datetime import datetime, date, timedelta
 from functools import wraps
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[logging.FileHandler('jibayat.log'), logging.StreamHandler()]
+)
+logger = logging.getLogger('jibayat')
 
 # ── DB & helpers ────────────────────────────────────────────
 from database import get_db, init_db
@@ -38,8 +45,38 @@ if getattr(sys, 'frozen', False):
 else:
     app = Flask(__name__)
 
-app.secret_key = 'super_secret_key_jibayat'
+# ── Clé secrète : env → config.json → fallback ──────────────
+try:
+    _sys_cfg = json.load(open('config.json', encoding='utf-8')) if os.path.exists('config.json') else {}
+except Exception:
+    _sys_cfg = {}
+app.secret_key = os.environ.get('JIBAYAT_SECRET_KEY') or _sys_cfg.get('secret_key', 'super_secret_key_jibayat')
+
 app.permanent_session_lifetime = timedelta(days=7)
+
+# ── CSRF simplifié (sans Flask-WTF) ──────────────────────────
+import secrets as _secrets
+
+@app.before_request
+def _csrf_check():
+    if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        return
+    # Routes exclues du CSRF
+    if request.path.startswith('/api/') or request.path == '/login' or request.path == '/setup':
+        return
+    token = request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token')
+    if not token or token != session.get('_csrf_token'):
+        logger.warning(f"CSRF échec: {request.method} {request.path} depuis {request.remote_addr}")
+        if request.is_json or request.headers.get('Accept') == 'application/json':
+            return jsonify({'ok': False, 'error': 'Token CSRF invalide'}), 403
+        flash('Session expirée ou requête invalide. Veuillez réessayer.', 'danger')
+        return redirect(url_for('index'))
+
+@app.context_processor
+def _inject_csrf():
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = _secrets.token_hex(32)
+    return {'csrf_token': session['_csrf_token']}
 
 GITHUB_USER   = 'Yomix90'
 GITHUB_REPO   = 'JIBAYAT'
@@ -50,8 +87,8 @@ def _read_version():
         if os.path.exists('version.txt'):
             with open('version.txt', 'r', encoding='utf-8') as f:
                 return f.read().strip()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Lecture version: {e}")
     return "1.0.0"
 
 UPDATE_AVAILABLE = False
@@ -86,8 +123,8 @@ def _check_update_startup():
                 except: return (0,)
             if vt(remote) > vt(local):
                 UPDATE_AVAILABLE = True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Vérification mise à jour: {e}")
 
 # Lancement de la vérification en arrière-plan sans bloquer le serveur
 threading.Thread(target=_check_update_startup, daemon=True).start()
@@ -1231,8 +1268,8 @@ def modifier_commune():
             'logo':     logo_path,
         }
         _save_sys_config(cfg)
-    except Exception:
-        pass  # Ne jamais bloquer l'utilisateur pour ça
+    except Exception as e:
+        logger.warning(f"Sync config.json: {e}")
 
     flash('Informations de la commune mises à jour ✅', 'success')
     return redirect(url_for('parametres_systeme'))

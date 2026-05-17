@@ -67,10 +67,12 @@
 
     <div class="header">
       <div class="box-kingdom">
-        <div>المملكة المغربية</div>
+        <div style="font-size:13pt;font-weight:900">المملكة المغربية</div>
+        <hr style="border:none;border-top:1px solid #c8a84b;margin:6px auto;width:60%">
         <div>وزارة الداخلية</div>
-        <div>إقليم {{ province_ar or '....................' }}</div>
-        <div>جماعة <strong style="color:#c8a84b">{{ commune_ar }}</strong></div>
+        <div style="font-size:10pt;color:#444">جهة {{ region_ar or '' }}</div>
+        <div style="font-size:10pt;color:#444">عمالة/إقليم {{ province_ar or '....................' }}</div>
+        <div style="margin-top:4px">جماعة <strong style="color:#c8a84b;font-size:12pt">{{ commune_ar }}</strong></div>
         <div style="font-size:9.5pt">مديرية المصالح المالية</div>
         <div style="font-size:9.5pt">مكتب الوعاء الضريبي</div>
       </div>

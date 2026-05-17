@@ -802,8 +802,9 @@ def sou_avis_non_paiement(id):
         return redirect(url_for('sou.sou_liste'))
     commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
     conn.close()
-    commune = commune_row['nom'] if commune_row else ''
-    province = commune_row['province'] if commune_row and 'province' in commune_row.keys() else ''
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
     rev_mens = float(aff['redevance_mensuelle'] or float(aff['redevance_annuelle'] or 0) / 12)
     duree = int(aff['duree_contrat'] or 1)
     taux = float(aff['taux_augmentation'] or 5.0)
@@ -823,6 +824,9 @@ def sou_avis_non_paiement(id):
         aff=aff, groupes=groupes, mois_non_payes=mois_non_payes,
         total_montant=total_montant,
         commune=commune, province=province,
+        commune_ar=commune_dict.get('nom_ar', ''),
+        province_ar=commune_dict.get('province_ar', ''),
+        region_ar=commune_dict.get('region_ar', ''),
         today=today_str, avis_num=avis_num,
         date_limite=f"{date.today().year}-12-31",
         periodes=periodes

@@ -4,7 +4,22 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from .config import COMMUNE_CONFIG
+
+# Try to register an Arabic-capable font; fall back if unavailable
+_AR_FONT = 'Helvetica'
+for _path, _name in [
+    ('C:\\Windows\\Fonts\\arial.ttf', 'Arial'),
+    ('C:\\Windows\\Fonts\\times.ttf', 'TimesNewRoman'),
+]:
+    if os.path.exists(_path):
+        try:
+            pdfmetrics.registerFont(TTFont(_name, _path))
+            _AR_FONT = _name
+        except Exception:
+            pass
 
 def format_dh(val):
     return f"{val:,.2f}".replace(",", " ")
@@ -24,11 +39,18 @@ def export_bordereau_pdf(be: dict, date_str: str, output_path: str):
     style_center_bold = ParagraphStyle('CenterB', parent=style_center, fontName='Helvetica-Bold')
     style_left = ParagraphStyle('Left', parent=styles['Normal'], alignment=TA_LEFT, fontName='Helvetica', fontSize=10)
     style_left_bold = ParagraphStyle('LeftB', parent=style_left, fontName='Helvetica-Bold')
+    style_left_ar = ParagraphStyle('LeftAr', parent=style_left, fontName=_AR_FONT, fontSize=10)
+    style_left_bold_ar = ParagraphStyle('LeftBAr', parent=style_left, fontName=_AR_FONT, fontSize=10)
     
-    # Header
+    # Header (Arabic then French)
+    elements.append(Paragraph(COMMUNE_CONFIG.get("pays_ar", ""), style_left_bold_ar))
+    elements.append(Paragraph(COMMUNE_CONFIG.get("ministere_ar", ""), style_left_bold_ar))
+    elements.append(Paragraph(COMMUNE_CONFIG.get("region_ar", ""), style_left))
+    elements.append(Paragraph(COMMUNE_CONFIG.get("province_ar", ""), style_left))
+    elements.append(Paragraph(COMMUNE_CONFIG.get("nom_ar", ""), style_left))
+    elements.append(Paragraph("-----------------", style_left_bold))
     elements.append(Paragraph(COMMUNE_CONFIG["pays"], style_left_bold))
     elements.append(Paragraph(COMMUNE_CONFIG["ministere"], style_left_bold))
-    elements.append(Paragraph("-----------------", style_left_bold))
     elements.append(Paragraph(f"{COMMUNE_CONFIG.get('prefecture', 'Préfecture de')}", style_left))
     elements.append(Paragraph(COMMUNE_CONFIG["province"], style_left))
     elements.append(Paragraph(COMMUNE_CONFIG["nom"], style_left))

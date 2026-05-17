@@ -51,9 +51,12 @@
 <!-- En-tête -->
 <div class="header">
   <div class="box-right">
-    <div>المملكة المغربية</div>
-    <div>عمالة إقليم {{ province or '..................' }}</div>
-    <div>جماعة {{ commune }}</div>
+    <div style="font-size:13pt;font-weight:900">المملكة المغربية</div>
+    <hr style="border:none;border-top:1px solid #c8a84b;margin:4px auto;width:50%">
+    <div>وزارة الداخلية</div>
+    <div style="font-size:9pt;color:#444">جهة {{ region_ar }}</div>
+    <div style="font-size:9pt;color:#444">عمالة/إقليم {{ province_ar or province or '..................' }}</div>
+    <div style="margin-top:3px">جماعة <strong style="color:#c8a84b;font-size:12pt">{{ commune_ar or commune }}</strong></div>
   </div>
   <div class="box-center">
     الرسم على محال<br>بيع المشروبات
@@ -130,7 +133,7 @@
 </div>
 
 <div class="date-row">
-  في {{ commune }} بتاريخ: .......................................
+  في {{ commune_ar or commune }} بتاريخ: .......................................
 </div>
 
 <!-- Footer -->

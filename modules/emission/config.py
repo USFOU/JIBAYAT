@@ -1,9 +1,14 @@
 COMMUNE_CONFIG = {
     "nom": "Commune Ait Amira",
+    "nom_ar": "جماعة أيت عميرة",
     "province": "Province de Ctouka Ait Baha",
+    "province_ar": "إقليم شتوكة آيت باها",
+    "region_ar": "جهة سوس ماسة",
     "prefecture": "Préfecture de",
     "pays": "ROYAUME DU MAROC",
+    "pays_ar": "المملكة المغربية",
     "ministere": "MINISTERE DE L'INTERIEUR",
+    "ministere_ar": "وزارة الداخلية",
 }
 
 MOIS_NOMS = {

@@ -52,9 +52,12 @@
 </div>
 
 <!-- En-tête -->
-<div class="header">
-  <div style="font-size:10pt;color:#555">المملكة المغربية · Royaume du Maroc</div>
-  <div class="commune">Commune de {{ commune }}</div>
+<div class="header" style="text-align:center;padding-bottom:12px;margin-bottom:16px">
+  <div style="font-size:13pt;font-weight:900;color:#2d3561">المملكة المغربية</div>
+  <hr style="border:none;border-top:1px solid #c8a84b;margin:4px auto;width:40%">
+  <div style="font-size:10pt;color:#555">وزارة الداخلية</div>
+  <div style="font-size:9pt;color:#666">جهة {{ region_ar }} · {{ province_ar or province }}</div>
+  <div style="font-size:12pt;font-weight:900;color:#2d3561;margin-top:4px">{{ commune_ar or commune }}</div>
   <div class="titre">Liste des véhicules mis aux enchères</div>
   <div class="sous-titre">Service Fourrière Municipale</div>
 </div>

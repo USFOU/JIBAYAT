@@ -304,9 +304,9 @@ def ctb_avis_non_paiement(id):
         return redirect(url_for('contribuables.contribuables'))
 
     commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
-    commune  = commune_row['nom']      if commune_row else ''
-    province = (commune_row['province']
-                if commune_row and 'province' in commune_row.keys() else '')
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune  = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
 
     # Collecter impayés par module
     lignes = []
@@ -362,6 +362,9 @@ def ctb_avis_non_paiement(id):
     return render_template('contribuables/ctb_avis_non_paiement.html',
         contrib=contrib, lignes_g=lignes_g, total_montant=total_montant,
         commune=commune, province=province,
+        commune_ar=commune_dict.get('nom_ar', ''),
+        province_ar=commune_dict.get('province_ar', ''),
+        region_ar=commune_dict.get('region_ar', ''),
         today=today_str, avis_num=avis_num,
         date_limite=f"{date.today().year}-12-31")
 

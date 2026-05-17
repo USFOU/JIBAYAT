@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Avis de Non-Paiement — Stationnement TPV</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    body { font-family:'Calibri',Arial,sans-serif;font-size:10.5pt;color:#111;margin:0;padding:18px; }
+    body { font-family:'Cairo','Calibri',Arial,sans-serif;font-size:10.5pt;color:#111;margin:0;padding:18px; }
     .header { text-align:center;border-bottom:2px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px; }
     .header h1 { font-size:13pt;color:#1e3a5f;margin:0 0 3px; }
     .header p  { margin:0;font-size:8.5pt;color:#555; }
@@ -40,8 +41,12 @@
 <body>
 
 <div class="header">
-  <h1>Commune de {{ commune }}</h1>
-  <p>Service de la Fiscalité Communale{% if province %} — Province de {{ province }}{% endif %}</p>
+  <div style="font-size:13pt;font-weight:900;color:#1e3a5f">المملكة المغربية</div>
+  <hr style="border:none;border-top:1px solid #c8a84b;margin:4px auto;width:40%">
+  <div style="font-size:10pt;color:#555">وزارة الداخلية</div>
+  <div style="font-size:9pt;color:#666">جهة {{ region_ar }}</div>
+  <div style="font-size:9pt;color:#666">عمالة/إقليم {{ province_ar or province }}</div>
+  <div style="margin-top:4px;font-size:12pt;font-weight:900;color:#c8a84b">{{ commune_ar or commune }}</div>
 </div>
 
 <div class="avis-title">⚠️ AVIS DE NON-PAIEMENT — STATIONNEMENT TPV</div>

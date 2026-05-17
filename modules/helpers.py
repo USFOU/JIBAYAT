@@ -123,6 +123,9 @@ def gen_num(prefix, table, col='numero', db_conn=None):
     """Genere un numero unique base sur MAX (safe en boucle et concurrence)."""
     conn = db_conn or get_db()
     year = datetime.now().year
+    # Validation des noms de table/colonne pour éviter les injections SQL
+    _validate_sql_name(table)
+    _validate_sql_name(col)
     row = conn.execute(
         f"SELECT MAX({col}) as m FROM {table} WHERE {col} LIKE ?",
         (f"{prefix}{year}%",)
@@ -138,8 +141,19 @@ def gen_num(prefix, table, col='numero', db_conn=None):
         conn.close()
     return f"{prefix}{year}{n:05d}"
 
-def annees_non_payees(module, ref_id, debut=2020):
+# ── Validation noms SQL (protection injections) ──────────────
+import re as _re
+_VALID_SQL_NAME = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+def _validate_sql_name(name):
+    """Lève ValueError si le nom n'est pas un identifiant SQL valide."""
+    if not _VALID_SQL_NAME.match(name):
+        raise ValueError(f"Nom SQL invalide: {name!r}")
+
+def annees_non_payees(module, ref_id, debut=None):
     conn = get_db()
+    if debut is None:
+        debut = int(get_param(module, 'ANNEES_DEBUT', 2020))
     payees = {r['annee'] for r in conn.execute(
         "SELECT DISTINCT annee FROM declarations WHERE module=? AND reference_id=? AND statut='paye'",
         (module, ref_id)).fetchall()}

@@ -783,7 +783,13 @@ def tgr_pdf():
         meta.total_general = tot_g
         lettres = chiffre_en_lettre(tot_g)
         
-        return render_template('regie/tgr_pdf.html', meta=meta, operations=filtered_ops, lettres=lettres, date_today=date.today().strftime('%d/%m/%Y'))
+        from database import get_db
+        _conn = get_db()
+        _cr = _conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
+        _cd = dict(_cr) if _cr else {}
+        _conn.close()
+        return render_template('regie/tgr_pdf.html', meta=meta, operations=filtered_ops, lettres=lettres, date_today=date.today().strftime('%d/%m/%Y'),
+                               commune_ar=_cd.get('nom_ar', ''), province_ar=_cd.get('province_ar', ''), region_ar=_cd.get('region_ar', ''))
     except Exception as e:
         flash(f'Erreur lors de la génération PDF : {str(e)}', 'danger')
         return redirect(url_for('regie.tgr_index'))

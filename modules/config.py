@@ -4,29 +4,10 @@ modules/config.py — Blueprint : Rubriques, Arrêtés Fiscaux, Tarifs, Paramèt
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from datetime import datetime, date
 from database import get_db
-from functools import wraps
+
+from modules.helpers import login_required, get_current_user
 
 bp = Blueprint('config', __name__)
-
-# ── Décorateur auth partagé ──────────────────────────────────
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'user_id' not in session:
-            return redirect(url_for('auth.login'))
-        return f(*args, **kwargs)
-    return decorated
-
-def get_current_user():
-    if 'user_id' not in session:
-        return None
-    conn = get_db()
-    user = conn.execute('''SELECT u.*, r.nom as role_nom, r.peut_ajouter, r.peut_modifier,
-        r.peut_supprimer, r.peut_voir, r.peut_valider_paiement, r.peut_config, r.peut_creer_bulletin
-        FROM utilisateurs u JOIN roles r ON u.role_id=r.id WHERE u.id=?''',
-        (session['user_id'],)).fetchone()
-    conn.close()
-    return user
 
 
 # ════════════════════════════════════════════════════════════

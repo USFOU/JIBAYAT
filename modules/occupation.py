@@ -227,6 +227,7 @@ def odp_avis(id):
            FROM occupations o JOIN contribuables c ON o.contribuable_id=c.id WHERE o.id=?''',
         (id,)).fetchone()
     commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
+    commune_dict = dict(commune_row) if commune_row else {}
     
     # Calculate non payes
     declarations = conn.execute('''SELECT annee, trimestre FROM declarations 
@@ -253,7 +254,11 @@ def odp_avis(id):
             non_payes.append({'annee': y, 'label': TRIMESTRES[t], 'echeance': ech.isoformat(), 'en_retard': today.isoformat() > ech.isoformat()})
             
     conn.close()
-    commune = commune_row['nom'] if commune_row else ''
-    province = commune_row['province'] if (commune_row and 'province' in commune_row.keys()) else ''
+    commune = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
     return render_template('odp/odp_avis.html', occ=occ, non_payes=non_payes,
-                           commune=commune, province=province, today=today.isoformat(), n_avis=f"{id:03d}/{today.year}")
+                           commune=commune, province=province,
+                           commune_ar=commune_dict.get('nom_ar', ''),
+                           province_ar=commune_dict.get('province_ar', ''),
+                           region_ar=commune_dict.get('region_ar', ''),
+                           today=today.isoformat(), n_avis=f"{id:03d}/{today.year}")

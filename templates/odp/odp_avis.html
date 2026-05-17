@@ -39,10 +39,12 @@
 
 <div class="header">
   <div class="box-kingdom">
-    <div>المملكة المغربية</div>
+    <div style="font-size:13pt;font-weight:900">المملكة المغربية</div>
+    <hr style="border:none;border-top:1px solid #c8a84b;margin:6px auto;width:60%">
     <div>وزارة الداخلية</div>
-    <div>إقليم {{ province or '..................' }}</div>
-    <div>جماعة <strong style="color:#27ae60">{{ commune }}</strong></div>
+    <div style="font-size:10pt;color:#444">جهة {{ region_ar }}</div>
+    <div style="font-size:10pt;color:#444">عمالة/إقليم {{ province_ar or province or '..................' }}</div>
+    <div style="margin-top:4px">جماعة <strong style="color:#c8a84b;font-size:12pt">{{ commune_ar or commune }}</strong></div>
     <div style="font-size:9pt">مكتب الوعاء الضريبي</div>
   </div>
   <div class="box-logo">🏪</div>
@@ -57,7 +59,7 @@
 </div>
 
 <div class="dest">
-  <div style="font-size:11pt;color:#555">رئيس المجلس الجماعي لـ <strong>{{ commune }}</strong> — إلـى</div>
+  <div style="font-size:11pt;color:#555">رئيس المجلس الجماعي لـ <strong>{{ commune_ar or commune }}</strong> — إلـى</div>
   <div style="margin: 6px 0">السيد(ة) / الشركة : <span class="name">{{ occ.prenom or '' }} {{ occ.nom or occ.raison_sociale or '' }}</span></div>
 </div>
 
@@ -101,7 +103,7 @@
 </div>
 
 <div class="footer-sign">
-  <div style="font-size:9.5pt;color:#555">{{ commune }} في {{ today }}</div>
+  <div style="font-size:9.5pt;color:#555">{{ commune_ar or commune }} في {{ today }}</div>
   <div style="text-align:center">
     <div style="font-size:11pt;font-weight:900;color:#1e3a5f">رئيس المجلس الجماعي</div>
     <div class="sig-area">التوقيع والختم</div>

@@ -469,9 +469,14 @@ def fou_groupe_imprimer(gid):
         WHERE ve.groupe_id=? ORDER BY ve.ordre''', (gid,)).fetchall()
     commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
     conn.close()
+    commune_dict = dict(commune_row) if commune_row else {}
     return render_template('fourriere/fou_groupe_impression.html',
                            groupe=groupe, vehicules=vehs,
-                           commune=commune_row['nom'] if commune_row else '',
+                           commune=commune_dict.get('nom', ''),
+                           province=commune_dict.get('province', ''),
+                           commune_ar=commune_dict.get('nom_ar', ''),
+                           province_ar=commune_dict.get('province_ar', ''),
+                           region_ar=commune_dict.get('region_ar', ''),
                            today=date.today().isoformat())
 
 

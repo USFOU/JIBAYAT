@@ -93,10 +93,12 @@
 <!-- ── EN-TÊTE ── -->
 <div class="header">
   <div class="box-kingdom">
-    <div>المملكة المغربية</div>
+    <div style="font-size:13pt;font-weight:900">المملكة المغربية</div>
+    <hr style="border:none;border-top:1px solid #c8a84b;margin:6px auto;width:60%">
     <div>وزارة الداخلية</div>
-    <div>إقليم {{ province or '....................' }}</div>
-    <div>جماعة <span class="commune">{{ commune }}</span></div>
+    <div style="font-size:10pt;color:#444">جهة {{ region_ar }}</div>
+    <div style="font-size:10pt;color:#444">عمالة/إقليم {{ province_ar or province or '....................' }}</div>
+    <div style="margin-top:4px">جماعة <strong style="color:#c8a84b;font-size:12pt">{{ commune_ar or commune }}</strong></div>
     <div style="font-size:9.5pt">مديرية المصالح</div>
     <div style="font-size:9.5pt">مكتب الوعاء الضريبي</div>
   </div>
@@ -117,7 +119,7 @@
 
 <!-- ── DESTINATAIRE ── -->
 <div class="dest">
-  <div style="color:#555;font-size:11pt;font-weight:400">رئيس المجلس الجماعي لـ <strong>{{ commune }}</strong></div>
+  <div style="color:#555;font-size:11pt;font-weight:400">رئيس المجلس الجماعي لـ <strong>{{ commune_ar or commune }}</strong></div>
   <div style="margin: 6px 0; font-size: 11pt; color: #555;">إلـــــى</div>
   <div>السيد(ة) : <span class="name">{{ aff.prenom or '' }} {{ aff.nom or aff.raison_sociale or '' }}</span></div>
   <div class="cin-addr">
@@ -137,7 +139,7 @@
   <p style="text-align:center">وبعـد،</p>
 
   <p>
-    يُعلمكم رئيس المجلس الجماعي لـ<span class="highlight"> {{ commune }}</span>، في إطار تتبع وتحصيل الموارد الذاتية للجماعة،
+    يُعلمكم رئيس المجلس الجماعي لـ<span class="highlight"> {{ commune_ar or commune }}</span>، في إطار تتبع وتحصيل الموارد الذاتية للجماعة،
     بأن سجلات الجماعة تُثبت استفادتكم من
     <span class="highlight">رخصة إشغال موقع بسوق جماعي</span>
     وفق المعطيات التالية:
@@ -203,7 +205,7 @@
 <!-- ── SIGNATURE ── -->
 <div class="footer-sign">
   <div class="footer-date">
-    {{ commune or '' }} في {{ today }}
+    {{ commune_ar or commune or '' }} في {{ today }}
   </div>
   <div class="footer-president">
     <div class="title">رئيس المجلس الجماعي</div>
@@ -214,7 +216,7 @@
 <!-- ── PIED DE PAGE ── -->
 <div class="footnote">
   <span>المرجع القانوني: ميثاق الجماعات الترابية — قانون 47.06</span>
-  <span>{{ commune }} — مديرية المصالح المالية</span>
+  <span>{{ commune_ar or commune }} — مديرية المصالح المالية</span>
 </div>
 
 </body>

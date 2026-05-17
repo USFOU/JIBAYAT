@@ -1,8 +1,10 @@
 """
 database.py — Connexion DB, init_db, et helpers partagés
 """
-import sqlite3, json, os
+import sqlite3, json, os, logging
 from datetime import datetime, date
+
+_logger = logging.getLogger('jibayat.db')
 
 DB = 'fiscalite.db'
 
@@ -17,9 +19,34 @@ def get_db():
         pass
     return conn
 
+# ── Système de versions de schéma ───────────────────────────
+SCHEMA_VERSION = 2
+
+def _get_schema_version(conn):
+    try:
+        row = conn.execute('SELECT val FROM schema_meta WHERE key="version"').fetchone()
+        return int(row['val']) if row else 0
+    except Exception:
+        return 0
+
+def _set_schema_version(conn, version):
+    conn.execute(
+        'INSERT OR REPLACE INTO schema_meta (key, val) VALUES ("version", ?)',
+        (str(version),)
+    )
+    conn.commit()
+
 def init_db():
     conn = get_db(); c = conn.cursor()
-    c.executescript('''
+    c.execute('''CREATE TABLE IF NOT EXISTS schema_meta (
+        key TEXT PRIMARY KEY, val TEXT
+    )''')
+    conn.commit()
+    current_ver = _get_schema_version(conn)
+
+    # ── Création initiale du schéma (version 0→1) ─────────────
+    if current_ver < 1:
+        c.executescript('''
 CREATE TABLE IF NOT EXISTS roles (
         id INTEGER PRIMARY KEY, nom TEXT UNIQUE,
         peut_ajouter INTEGER DEFAULT 0, peut_modifier INTEGER DEFAULT 0,
@@ -539,41 +566,49 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
 );
 
     ''')
-    conn.commit()
-
-
-    # -- Migrations colonnes bulletins
-    for _col, _typ in [('numero_quittance','TEXT'), ('date_quittance','TEXT'), ('motif_rejet','TEXT')]:
-        try:
-            c.execute(f'ALTER TABLE bulletins ADD COLUMN {_col} {_typ}')
-            conn.commit()
-        except Exception:
-            pass
-
-    # -- Migrations tarifs TNB surface
-    for _col, _typ in [('surface_min', 'REAL DEFAULT 0'), ('surface_max', 'REAL')]:
-        try:
-            c.execute(f'ALTER TABLE tarifs ADD COLUMN {_col} {_typ}')
-            conn.commit()
-        except Exception:
-            pass
-
-    # -- Migrations communes config
-    for _col, _typ in [('president_fr', 'TEXT'), ('president_ar', 'TEXT'), ('region_ar', 'TEXT'), ('province_ar', 'TEXT'), ('logo', 'TEXT')]:
-        try:
-            c.execute(f'ALTER TABLE communes ADD COLUMN {_col} {_typ}')
-            conn.commit()
-        except Exception:
-            pass
-
-    # -- Migrations bordereaux_emission
-    try:
-        c.execute('ALTER TABLE bordereaux_emission ADD COLUMN code_budgetaire TEXT')
         conn.commit()
-    except Exception:
-        pass
+        _set_schema_version(conn, 1)
 
-    # ── Données initiales ──────────────────────────────────────
+    # -- Migrations version 1→2 : colonnes manquantes bulletins etc.
+    if current_ver < 2:
+        # -- Migrations colonnes bulletins
+        for _col, _typ in [('numero_quittance','TEXT'), ('date_quittance','TEXT'), ('motif_rejet','TEXT'), ('numero_versement','TEXT'), ('date_encaissement','TEXT')]:
+            try:
+                c.execute(f'ALTER TABLE bulletins ADD COLUMN {_col} {_typ}')
+                conn.commit()
+                _logger.info(f'Colonne bulletins.{_col} ajoutée')
+            except Exception as e:
+                _logger.debug(f'Colonne bulletins.{_col} existe déjà: {e}')
+
+        # -- Migrations tarifs TNB surface
+        for _col, _typ in [('surface_min', 'REAL DEFAULT 0'), ('surface_max', 'REAL')]:
+            try:
+                c.execute(f'ALTER TABLE tarifs ADD COLUMN {_col} {_typ}')
+                conn.commit()
+                _logger.info(f'Colonne tarifs.{_col} ajoutée')
+            except Exception as e:
+                _logger.debug(f'Colonne tarifs.{_col} existe déjà: {e}')
+
+        # -- Migrations communes config
+        for _col, _typ in [('president_fr', 'TEXT'), ('president_ar', 'TEXT'), ('region_ar', 'TEXT'), ('province_ar', 'TEXT'), ('logo', 'TEXT')]:
+            try:
+                c.execute(f'ALTER TABLE communes ADD COLUMN {_col} {_typ}')
+                conn.commit()
+                _logger.info(f'Colonne communes.{_col} ajoutée')
+            except Exception as e:
+                _logger.debug(f'Colonne communes.{_col} existe déjà: {e}')
+
+        # -- Migrations bordereaux_emission
+        try:
+            c.execute('ALTER TABLE bordereaux_emission ADD COLUMN code_budgetaire TEXT')
+            conn.commit()
+            _logger.info('Colonne bordereaux_emission.code_budgetaire ajoutée')
+        except Exception as e:
+            _logger.debug(f'Colonne bordereaux_emission.code_budgetaire existe déjà: {e}')
+
+        _set_schema_version(conn, 2)
+
+    # ── Données initiales (uniquement si version 0) ──────────────
     import hashlib as _h
     _DEFAULT_CONFIG = 'config.json'
     cfg = None
@@ -674,6 +709,12 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
         ('TNB','DATE_LIMITE','Date limite déclaration/paiement','31/03','date','Art.45 Loi 47-06: avant le 31 Mars'),
         ('DEBITS_BOISSONS','DATE_LIMITE','Date limite paiement','31/03','date','Avant le 31 Mars'),
         ('STATIONNEMENT','DATE_LIMITE','Date limite paiement','31/01','date','Avant le 31 Janvier'),
+        ('TNB','ANNEES_DEBUT','Année de début TNB','2020','annee','Première année de taxation'),
+        ('DEBITS_BOISSONS','ANNEES_DEBUT','Année de début TDB','2022','annee','Première année de taxation'),
+        ('STATIONNEMENT','ANNEES_DEBUT','Année de début Stationnement','2020','annee','Première année de taxation'),
+        ('OCCUPATION_DOMAINE','ANNEES_DEBUT','Année de début ODP','2020','annee','Première année de taxation'),
+        ('LOCATION_LOCAUX','ANNEES_DEBUT','Année de début Location','2020','annee','Première année de taxation'),
+        ('AFFERMAGE_SOUKS','ANNEES_DEBUT','Année de début Souks','2020','annee','Première année de taxation'),
     ]
     for p in params:
         c.execute('INSERT OR IGNORE INTO parametres_calcul (module,code,libelle,valeur,unite,description) VALUES (?,?,?,?,?,?)', p)
@@ -722,8 +763,9 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
         try:
             c.execute(f'ALTER TABLE terrains ADD COLUMN {_col} {_typ}')
             conn.commit()
-        except Exception:
-            pass
+            _logger.info(f'Colonne terrains.{_col} ajoutée')
+        except Exception as e:
+            _logger.debug(f'Colonne terrains.{_col} existe déjà: {e}')
 
     # Colonnes manquantes sur permis
     for _col, _typ in [
@@ -734,8 +776,9 @@ CREATE TABLE IF NOT EXISTS bordereaux_emission (
         try:
             c.execute(f'ALTER TABLE permis ADD COLUMN {_col} {_typ}')
             conn.commit()
-        except Exception:
-            pass
+            _logger.info(f'Colonne permis.{_col} ajoutée')
+        except Exception as e:
+            _logger.debug(f'Colonne permis.{_col} existe déjà: {e}')
 
     # Paramètre AMENDE_NON_DECLARATION pour TNB
     c.execute('''INSERT OR IGNORE INTO parametres_calcul

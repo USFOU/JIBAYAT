@@ -391,8 +391,9 @@ def tdb_declaration_annuelle(id):
         (id, annee_decl)).fetchall()}
     conn.close()
 
-    commune = commune_row['nom'] if commune_row else ''
-    province = (commune_row['province'] if commune_row and 'province' in commune_row.keys() else '')
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
     n_decl = f"DA-{annee_decl}-{id:04d}"
     nb_payes = sum(1 for d in decls_trim.values() if d['statut'] == 'paye')
 
@@ -400,6 +401,9 @@ def tdb_declaration_annuelle(id):
         return render_template('tdb/tdb_declaration_annuelle_pdf.html',
                                etab=etab, annee=annee_decl, decls_trim=decls_trim,
                                taux=taux, commune=commune, province=province,
+                               commune_ar=commune_dict.get('nom_ar', ''),
+                               province_ar=commune_dict.get('province_ar', ''),
+                               region_ar=commune_dict.get('region_ar', ''),
                                today=date.today().isoformat(), n_decl=n_decl, nb_payes=nb_payes)
     return render_template('tdb/tdb_declaration_annuelle.html',
                            user=user, etab=etab, annee=annee_decl, decls_trim=decls_trim,
@@ -437,13 +441,17 @@ def tdb_pdf_ca(id):
                 pass
 
     taux = float(tarifs[0]['valeur']) if tarifs else 10.0
-    commune = commune_row['nom'] if commune_row else ''
-    province = (commune_row['province'] if commune_row and 'province' in commune_row.keys() else '')
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
     n_decl = f"TDB-CA-{date.today().year}-{id:04d}"
 
     return render_template('tdb/tdb_declaration_ca_pdf.html',
                            etab=etab, trims=trims_selected, taux=taux,
                            commune=commune, province=province,
+                           commune_ar=commune_dict.get('nom_ar', ''),
+                           province_ar=commune_dict.get('province_ar', ''),
+                           region_ar=commune_dict.get('region_ar', ''),
                            today=date.today().isoformat(), n_decl=n_decl,
                            TRIMESTRES=TRIMESTRES)
 
@@ -466,13 +474,17 @@ def tdb_avis(id):
 
     non_payes = trimestres_non_payes(id, 2022)
     taux = float(tarifs[0]['valeur']) if tarifs else 10.0
-    commune = commune_row['nom'] if commune_row else ''
-    province = (commune_row['province'] if commune_row and 'province' in commune_row.keys() else '')
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
     n_avis = f"{id:03d}/{date.today().year}"
 
     return render_template('tdb/tdb_avis.html',
                            etab=etab, non_payes=non_payes, taux=taux,
                            commune=commune, province=province,
+                           commune_ar=commune_dict.get('nom_ar', ''),
+                           province_ar=commune_dict.get('province_ar', ''),
+                           region_ar=commune_dict.get('region_ar', ''),
                            today=date.today().isoformat(), n_avis=n_avis,
                            TRIMESTRES=TRIMESTRES)
 
@@ -515,11 +527,15 @@ def tdb_pdf_creation_cessation(type_decl):
         commune_row = conn.execute('SELECT * FROM communes LIMIT 1').fetchone()
         conn.close()
         
-    commune = commune_row['nom'] if commune_row else ''
-    province = (commune_row['province'] if commune_row and 'province' in commune_row.keys() else '')
+    commune_dict = dict(commune_row) if commune_row else {}
+    commune = commune_dict.get('nom', '')
+    province = commune_dict.get('province', '')
     
     return render_template(f'tdb/tdb_declaration_{type_decl}_pdf.html',
                            etab=etab, commune=commune, province=province,
+                           commune_ar=commune_dict.get('nom_ar', ''),
+                           province_ar=commune_dict.get('province_ar', ''),
+                           region_ar=commune_dict.get('region_ar', ''),
                            today=date.today().isoformat())
 
 
