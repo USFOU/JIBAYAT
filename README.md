@@ -254,7 +254,7 @@ JIBAYAT/
 
 **Yomix90** — Développeur principal / Lead Developer
 
-📧 GitHub : [https://github.com/USFOU](https://github.com/USFOU)
+📧 GitHub : [https://github.com/USFOU](https://github.com/yomix90)
 
 ---
 
