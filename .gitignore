@@ -23,6 +23,7 @@ ENV/
 fiscalite.db
 fiscalite.db-shm
 fiscalite.db-wal
+database.db
 *.db
 *.sqlite
 *.sqlite3
@@ -41,6 +42,7 @@ dist/
 # ── Logs ────────────────────────────────────
 *.log
 logs/
+build_log.txt
 
 # ── IDE & Éditeurs ───────────────────────────
 .vscode/
@@ -49,6 +51,8 @@ logs/
 *.user
 .DS_Store
 Thumbs.db
+.specify/
+.gemini/
 
 # ── Variables d'environnement ────────────────
 .env
@@ -65,3 +69,20 @@ static/exports/
 *.pdf
 *.xls
 *.xlsx
+
+# ── Scripts utilitaires locaux ───────────────
+git_pull.bat
+GIT_PULL_GITHUB.bat
+LANCER.bat
+build_exe.bat
+
+# ── Scripts de maintenance/migration ─────────
+fix_db.py
+patch_db.py
+migrate_tnb.py
+tmp_sec.py
+update_tarifs.py
+import_excel.py
+
+# ── Données de développement ─────────────────
+backup_log.json
